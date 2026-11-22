@@ -78,6 +78,8 @@ export interface SurfaceOptions {
   fx: SurfaceFx;
   /** Polygon offset for surfaces that lie on others (turning leaves). */
   polygonOffset?: number;
+  /** A leaf in the air lets the print on its other side show through. Set `tBack` and `uBleed` on the uniforms. */
+  bleed?: boolean;
 }
 
 const PARS = /* glsl */ `
@@ -112,6 +114,8 @@ uniform float uFxTime;
 uniform float uHolo;
 uniform float uRadio;
 uniform vec2 uFxPointer;
+uniform sampler2D tBack;
+uniform float uBleed;
 
 float bCloth = 1.0;
 float bFoil = 0.0;
@@ -206,6 +210,11 @@ const ALBEDO = /* glsl */ `
 		vec3 shifted = vec3( texture2D( map, base + vec2( split, 0.0 ) ).r, texture2D( map, base ).g, texture2D( map, base - vec2( split, 0.0 ) ).b );
 		diffuseColor.rgb = mix( diffuseColor.rgb, shifted, uHolo );
 	}
+
+	#ifdef BINDERY_BLEED
+		vec3 behind = texture2D( tBack, vec2( 1.0 - vMapUv.x, vMapUv.y ) ).rgb;
+		diffuseColor.rgb *= mix( vec3( 1.0 ), behind, uBleed );
+	#endif
 
 	float grain = texture2D( tGrain, gUv ).r;
 	float gaps = smoothstep( 0.52, 0.18, grain );
@@ -316,12 +325,15 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uFoilOpacity: { value: o.foilOpacity ?? 1 },
     uFoilSpecular: { value: o.foilSpecular ?? 1.2 },
     uFoilDetail: { value: o.foilDetail ?? 2.6 },
+    tBack: { value: null },
+    uBleed: { value: 0 },
     ...o.fx,
   };
   mat.userData.uniforms = uniforms;
   mat.defines = { ...(mat.defines ?? {}) };
   if (o.emboss) mat.defines.BINDERY_EMBOSS = '';
   if (o.finish) mat.defines.BINDERY_FINISH = '';
+  if (o.bleed) mat.defines.BINDERY_BLEED = '';
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.fragmentShader = shader.fragmentShader
@@ -333,7 +345,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
       .replace('#include <dithering_fragment>', FINAL);
     shader.vertexShader = shader.vertexShader.replace('#include <uv_pars_vertex>', VERTEX_PARS).replace('#include <begin_vertex>', VERTEX_DISPLACE);
   };
-  mat.customProgramCacheKey = () => `bindery-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}`;
+  mat.customProgramCacheKey = () => `bindery-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}`;
   return mat;
 }
 

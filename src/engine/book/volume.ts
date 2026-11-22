@@ -43,7 +43,8 @@ const BLOCK_K = 5;
 /** Leaf stripes across the full width of the edge texture. */
 export const EDGE_TEXTURE_LEAVES = 256;
 
-class Surface {
+/** A small dynamic mesh: vertices are rewritten in place each time the shape changes. */
+export class Surface {
   readonly pos: Float32Array;
   readonly nor: Float32Array;
   readonly uv: Float32Array;
