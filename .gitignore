@@ -8,3 +8,6 @@ research/_reference/
 
 # Raw exploratory runtime dumps (large, single takes). Scripted series and keyframe tables are tracked.
 research/runtime/explore-*.json
+
+# Screenshots of our own build, taken while developing.
+research/shots/
