@@ -78,6 +78,10 @@ export interface SurfaceOptions {
   fx: SurfaceFx;
   /** Polygon offset for surfaces that lie on others (turning leaves). */
   polygonOffset?: number;
+  /** Share of light from behind that passes through. 0 for boards, about 0.6 for a single leaf. */
+  transmit?: number;
+  /** Overall brightness of the surface. Calibrated against reference frames. */
+  exposure?: number;
   /** A leaf in the air lets the print on its other side show through. Set `tBack` and `uBleed` on the uniforms. */
   bleed?: boolean;
 }
@@ -116,6 +120,8 @@ uniform float uRadio;
 uniform vec2 uFxPointer;
 uniform sampler2D tBack;
 uniform float uBleed;
+uniform float uTransmit;
+uniform float uExposure;
 
 float bCloth = 1.0;
 float bFoil = 0.0;
@@ -170,7 +176,9 @@ void RE_Direct_BlinnPhong( const in IncidentLight directLight, const in vec3 geo
 	float rawNL = dot( geometryNormal, directLight.direction );
 	float dotNL = saturate( ( rawNL + wrap ) / ( 1.0 + wrap ) );
 	vec3 irradiance = dotNL * directLight.color;
-	reflectedLight.directDiffuse += irradiance * BRDF_Lambert( material.diffuseColor );
+	// Thin paper also passes light that arrives from behind.
+	vec3 through = saturate( - rawNL ) * directLight.color * uTransmit;
+	reflectedLight.directDiffuse += ( irradiance + through ) * BRDF_Lambert( material.diffuseColor );
 
 	float shininess = material.specularShininess / ( 1.0 + uSpecSpread );
 	float gloss = mix( 1.0, uGloss, bCloth );
@@ -259,6 +267,7 @@ const BUMP = /* glsl */ `
 
 /** Runs last: scanlines, pulse, grain and tint of the hologram; ring brightness of the radio effect. */
 const FINAL = /* glsl */ `
+gl_FragColor.rgb *= uExposure;
 if ( uHolo > 0.001 ) {
 	float scan = sin( vMapUv.y * 817.0 - uFxTime * 10.0 ) * 0.055 + sin( vMapUv.y * 136.17 - uFxTime * 6.1 ) * 0.0385;
 	float pulse = 0.3 * ( 0.5 * ( 0.5 * sin( 1.7 * uFxTime ) + 0.3 * sin( 2.9 * uFxTime ) + 0.2 * sin( 0.7 * uFxTime ) ) + 0.5 );
@@ -327,6 +336,8 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uFoilDetail: { value: o.foilDetail ?? 2.6 },
     tBack: { value: null },
     uBleed: { value: 0 },
+    uTransmit: { value: o.transmit ?? 0 },
+    uExposure: { value: o.exposure ?? 0.9 },
     ...o.fx,
   };
   mat.userData.uniforms = uniforms;

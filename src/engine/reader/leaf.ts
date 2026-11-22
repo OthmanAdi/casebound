@@ -40,13 +40,15 @@ export class Leaf {
         fx,
         polygonOffset: -1.5,
         bleed: true,
+        transmit: 0.62,
       });
     this.front = make();
     this.back = make();
     this.mesh = new Mesh(this.surface.geometry, [this.front, this.back]);
     this.mesh.name = 'leaf';
     this.mesh.castShadow = true;
-    this.mesh.receiveShadow = true;
+    // A single sheet is lit from both sides. Its own shadow would black out the light that passes through it.
+    this.mesh.receiveShadow = false;
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;
     book.volume.group.add(this.mesh);
