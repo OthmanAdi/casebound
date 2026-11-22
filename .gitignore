@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.vite/
+*.log
+
+# Reference material from the studied site. Private study only, never commit.
+research/_reference/
