@@ -7,7 +7,7 @@
  *   spin  - the reader's own rotation of the book, plus the yaw that presents the cover or the spread
  *   volume.group - the geometry, in the open-book frame
  */
-import { Group, type Material, type Texture } from 'three';
+import { Group, Quaternion, Vector3, type Material, type Texture } from 'three';
 import { DEG } from '../core/math';
 import type { Registry } from '../core/registry';
 import { makeDims, type BookDims } from './dims';
@@ -60,6 +60,12 @@ export class Book {
   reading = 0.5;
   /** Yaw that presents the closed cover to the camera. */
   presentYaw = Math.PI / 2;
+  /** Extra yaw of the open book, for leaning toward the pointer. */
+  lean = 0;
+  /** Where the shelf wants this book. The root follows it unless a view holds the book. */
+  readonly home = { position: new Vector3(), quaternion: new Quaternion(), scale: 1 };
+  /** True while a view such as the reader places the root itself. */
+  held = false;
 
   private readonly textures: Texture[] = [];
   private readonly materials: Material[] = [];
@@ -166,8 +172,14 @@ export class Book {
   /** Replaces the texture on one of the two visible pages. */
   setPage(side: 'left' | 'right', map: Texture): void {
     const m = this.pageMaterials[side];
+    if (m.map === map) return;
     m.map = map;
     m.needsUpdate = true;
+  }
+
+  /** Re-applies the pose after `lean` or `presentYaw` changed. */
+  refresh(): void {
+    this.applyPose();
   }
 
   paintPage(content: PageContent, height = 1536): Texture {
@@ -180,7 +192,7 @@ export class Book {
     const back = this.open * OPEN_ANGLE * 2 * n;
     this.volume.setPose({ front, back, split: n });
     // Present the cover when closed; when open, turn so the spread faces the camera wherever the book is open.
-    this.spin.rotation.y = this.presentYaw * (1 - this.open) + ((front - back) / 2) * 1;
+    this.spin.rotation.y = this.presentYaw * (1 - this.open) + (front - back) / 2 + this.lean * this.open;
     // Closed, the book turns about its middle. Open, it turns about its spine.
     this.volume.group.position.z = -this.volume.closedCentreZ * (1 - this.open);
   }
