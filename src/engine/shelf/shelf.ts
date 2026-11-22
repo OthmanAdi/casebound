@@ -74,6 +74,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     onChange: () => ctx.invalidate(),
   });
 
+  // Books the shelf does not place stay out of sight until another view takes them.
+  for (const [i, book] of engine.books.entries()) if (!order.includes(i)) book.root.visible = false;
+
   const state = createScrollState();
   const scrollY = opts.scrollY ?? ((): number => window.scrollY);
   const slotPx = opts.slotPx ?? ((): number => window.innerHeight);
