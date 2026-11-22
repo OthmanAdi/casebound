@@ -97,7 +97,7 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 | S-SCR-6 | Active index changes only when progress leaves +-0.65 around the current integer; the scene sees it 200 ms late | code | M §3.1 |
 | S-SCR-7 | Spine row seat: a wheel that would cross the seat locks native scroll and glides there in 180 to 650 ms (ease-out cubic with velocity, else ease-in-out quad) | code | M §3.2 |
 | S-LAY-1 | Featured book: x 0, y = b x 24 + base, z -36, where b = progress - slot. Visible for -1.8 < b < 1.8 | frames (y -3.06 to 17.14 over the measured scroll) | M §5.2, H §a |
-| S-LAY-2 | Rest pose: Euler (-28, 32, 12). Leaving upward: yaw 75 then roll 90. Arriving from below: yaw 155 then roll 90. Blend amount = ease-in-out quad of (abs(b) - 0.1) / (0.8 - 0.1), end 1.2 when leaving upward | code | M §5.2 |
+| S-LAY-2 | Rest pose of a featured book: root Euler XYZ (-28, 32, 12) degrees, inner group yaw -90 (front cover to the camera, spine on the left). Confirmed in frames: root rotation settles at (-0.4887, 0.5585, 0.2094) rad, root y at -2.3068. Intro: the book arrives from (-155, 0, 90) degrees and y -25.3 over about 2.8 s. Leaving upward: yaw 75 then roll 90. Arriving from below: yaw 155 then roll 90. Blend amount = ease-in-out quad of (abs(b) - 0.1) / (0.8 - 0.1), end 1.2 when leaving upward | frames | M §5.2, H series `b-hover-home` |
 | S-LAY-3 | Exit boost above b = 0.6: y += ((b - 0.6) / 0.4)^3 x 24 x 2.25 | code | M §5.2 |
 | S-LAY-4 | Spine row: books stand at z about -53.75, pitch = rendered thickness + 0.9375 gap. Selected book yaws 90 with exponent 1.6, comes 8 forward, neighbours go 2 back. Hovered spine comes 3.78 forward | live (z -53.75, hover to -49.97, selected at -43.75 rotated -90) | M §5.4, L §B |
 | S-LAY-5 | Row offset follows the selection with SmoothDamp 0.26 s (0.06 s while dragging) | code | M §4.2 |
@@ -135,7 +135,7 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 | S-RD-6 | Live leaves: 6 at a time, recycled. Each is two planes, 48 x n segments, 15.6 x 21.45, 0.0234 thick | live (502 vertices, 6 material groups) | M §8.3, L §A |
 | S-RD-7 | A leaf's shape is a 33-node cross-section built on the CPU each frame from an angle profile and uploaded as a 33 x 2 float texture; the vertex shader interpolates along it. Only the leaf angle (0 to pi) is integrated | code (uniform `uPageTurnProgress` seen animating live) | M §8.3, L §B |
 | S-RD-8 | Leaf physics per normalised frame (60 x min(dt, 0.05)): released single leaf accelerates 0.008 x sin, damped by min(0.98, 0.4 x 0.328 + n^2 x 0.55 + brake); several leaves move 0.18 rad per frame; no target = gravity 0.003 with decay 0.985; rendered angle follows by 1 - 0.15^dt | code | M §8.4 |
-| S-RD-9 | Turn seen in frames: the leaf is translucent in the air and the reverse print shows through, peaking mid-turn (bleed up to 0.3). A sheen near the gutter grows as the leaf tilts (colour (0.6, 0.52, 0.69), 0.39 x 0.6). First-hand: settled within about 300 ms of the click; code estimate for a free release 1.1 to 1.4 s. Disagreement to be settled by the `d-turn-next` series | live / open | M §8.7 C, D; F |
+| S-RD-9 | Button-triggered page turn, measured at 60 fps: turn progress rises almost linearly at about 1.05 per second (0.066 at 33 ms, 0.30 at 233 ms, 0.51 at 433 ms, 0.71 at 633 ms, 0.79 at 733 ms), then brakes: 0.84 at 833 ms, 0.87 at 933 ms, 0.89 at 1083 ms, and creeps to 0.955 by 2.5 s. So the visible turn takes about 0.75 s and the leaf settles for a second more. The curl uniform runs from 33 to 1100 ms. In the air the leaf is translucent and the reverse print shows through (bleed up to 0.3); a sheen near the gutter grows as the leaf tilts (colour (0.6, 0.52, 0.69), 0.39 x 0.6) | frames | H series `d-turn-next`, M §8.7 C, D |
 | S-RD-10 | Drag: angle = pi x min(1, 0.08 (1 - e^(-dx/12)) + 0.92 dx / (width x 0.73)). Under 5 px is a tap. 5 px net in the turning direction commits. Catch mid-flight brakes over 400 ms | code | M §8.5 |
 | S-RD-11 | Corner curl under the pointer: 1.97 rad hover, capped pi on drag, pivot (0.74, 0.5) | live (uniforms `uCurlAmount`, `uCurlAngle`, `uCurlSpan` seen changing) | M §8.5, L §B |
 | S-RD-12 | Multi-leaf jump (more than 3 leaves): one block in clamp(700 + 45 log2(n), 700, 1100) ms | code | M §8.5 |
@@ -189,8 +189,8 @@ Confirmed first-hand in Edge on 2026-11-23 (F, frames `_look-04-hologram`).
 ## 14. Open items
 
 1. Smooth time of the scroll damping, fitted from the frame data (S-SCR-4).
-2. Real duration of a button-triggered page turn (S-RD-9).
-3. Close-book timing and every series in `tools/reanimate/capture-series.mjs` that has not run yet.
+2. Close-book timing: the `c-close-book` series failed on a click timeout and has to be re-run with the Escape key. Eight series are captured: hover, open, turn next, turn previous, magnifier on, magnifier move, hologram, radio.
+3. The wall shadow in the reference frames is much softer and fainter than the code constants suggest. To be measured from the frames.
 4. The 112 lazy chunks: artifacts scene (hats, totes, socks, cloth swing), the no-WebGL fallback, the DOM background scene. Named in M §1.2, not read.
 5. Featured-section scene: a second scene with a point light was seen live and not dumped.
 6. Mobile viewport and touch: nothing measured live.
