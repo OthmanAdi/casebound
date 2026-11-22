@@ -1,0 +1,15 @@
+{
+  "name": "bindery-capture",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright harness that measures a three.js page at runtime: scene graph dump and motion step responses.",
+  "scripts": {
+    "gpu-check": "node gpu-check.mjs --browser msedge",
+    "repl": "node dev-repl.mjs",
+    "send": "node dev-send.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}
