@@ -48,9 +48,10 @@ void main() {
 	vec4 colour = texture2D( tScene, uCentre + delta * scale );
 
 	// Rim: a dark ring with a bright band just inside it.
-	float soft = uRadius * 0.02;
-	float outer = 1.0 - smoothstep( uRingThickness, uRingThickness + soft, abs( dist - uRadius ) );
-	float inner = 1.0 - smoothstep( uRingThickness * 0.8, uRingThickness * 0.8 + soft, abs( dist - ( uRadius - uRingThickness * 1.4 ) ) );
+	float soft = uRadius * 0.006;
+	float halfW = uRingThickness * 0.5;
+	float outer = 1.0 - smoothstep( halfW, halfW + soft, abs( dist - uRadius ) );
+	float inner = 1.0 - smoothstep( halfW * 0.6, halfW * 0.6 + soft, abs( dist - ( uRadius - uRingThickness * 1.1 ) ) );
 	float ring = outer * uRingOpacity * uAmount;
 	float band = inner * 0.8 * uRingOpacity * uAmount;
 	vec4 result = mix( colour, vec4( 0.0, 0.0, 0.0, 1.0 ), ring );
