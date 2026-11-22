@@ -1,0 +1,13 @@
+{
+  "slug": "on-the-origin-of-species",
+  "title": "On the Origin of Species",
+  "subtitle": "By means of natural selection",
+  "author": "Charles Darwin",
+  "year": 1859,
+  "pages": 520,
+  "thickness": 3.0,
+  "background": "#5d7a66",
+  "blurb": "The long argument that living things were not made as they are but became so, by small inherited differences and the patient sorting of them. One of the few scientific books still read for its prose.",
+  "source": { "name": "Project Gutenberg", "id": 1228, "note": "Public domain. First edition." },
+  "cover": { "cloth": "#1f4a3a", "ink": "#d9c98a", "accent": "#86a57c", "pattern": "strata", "foil": "#d9b25a", "grain": "buckram" }
+}

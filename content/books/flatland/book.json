@@ -1,0 +1,13 @@
+{
+  "slug": "flatland",
+  "title": "Flatland",
+  "subtitle": "A romance of many dimensions",
+  "author": "Edwin A. Abbott",
+  "year": 1884,
+  "pages": 200,
+  "thickness": 1.75,
+  "background": "#9a4a3c",
+  "blurb": "A square who lives in a world of two dimensions is visited by a sphere and has to imagine a direction he cannot point to. A short, strange book about how hard it is to see past the limits of one's own world.",
+  "source": { "name": "Project Gutenberg", "id": 201, "note": "Public domain." },
+  "cover": { "cloth": "#b23a2b", "ink": "#f4e6cf", "accent": "#f4e6cf", "pattern": "grid", "foil": "none", "grain": "paper" }
+}
