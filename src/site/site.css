@@ -1,0 +1,214 @@
+/* The page around the canvas. The canvas is fixed and draws every book; everything else is ordinary DOM. */
+
+:root {
+  --bg: #e6e5de;
+  --ink: #1d1d1b;
+  --dim: color-mix(in srgb, var(--ink) 46%, transparent);
+  --rule: color-mix(in srgb, var(--ink) 80%, transparent);
+  --nav: 162px;
+  --gutter: 16px;
+  --panel: calc(100vh - var(--nav) - 24px);
+  --display: 'Newsreader Variable', 'Iowan Old Style', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  --shift: 0px;
+  color-scheme: light dark;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  transition: background-color 0.6s ease, color 0.6s ease;
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar { display: none; }
+html[data-lock] { overflow: hidden; }
+
+body {
+  margin: 0;
+  font: 15px/1.5 var(--display);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100lvh;
+  display: block;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.skip { position: fixed; left: var(--gutter); top: -80px; z-index: 90; background: var(--bg); color: var(--ink); padding: 10px 14px; }
+.skip:focus { top: 8px; }
+
+.label {
+  font: 500 11px/1.2 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+button.label, a.label { background: none; border: 0; padding: 6px 0; cursor: pointer; text-decoration: none; }
+button.label:hover, a.label:hover { text-decoration: underline; text-underline-offset: 3px; }
+:where(a, button):focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+
+.nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 44px;
+  margin: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--rule);
+  z-index: 40;
+}
+.wordmark { font: 500 17px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
+.nav-right { display: flex; gap: 22px; align-items: center; }
+.section-label { position: fixed; left: var(--gutter); top: 54px; margin: 0; z-index: 40; }
+.section-label::before { content: '[ '; }
+.section-label::after { content: ' ]'; }
+
+.marquee {
+  position: fixed;
+  left: 0;
+  top: 84px;
+  height: 70px;
+  width: 100vw;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 20;
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+}
+.marquee-track { display: inline-flex; gap: 72px; align-items: baseline; will-change: transform; padding-top: 4px; }
+.m-title {
+  font: 500 54px/1.1 var(--display);
+  font-variation-settings: 'opsz' 72;
+  letter-spacing: -0.025em;
+  font-style: italic;
+  color: var(--dim);
+  transition: color 0.45s ease;
+}
+.m-title sup { font: 400 11px/1 var(--display); font-style: normal; letter-spacing: 0; margin-left: 8px; vertical-align: 30px; opacity: 0.8; }
+.m-title.is-current { font-style: normal; color: var(--ink); }
+
+#panels { padding: var(--nav) var(--gutter) 40px; }
+.panel {
+  position: relative;
+  height: var(--panel);
+  margin-bottom: var(--gutter);
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+  transition: width 0.64s cubic-bezier(0.45, 0, 0.55, 1);
+}
+.panel::after {
+  /* A veil that takes the picture toward the page colour, so the book reads against it. */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) 22%, transparent);
+  transition: background-color 0.6s ease;
+}
+.panel-lens { position: absolute; right: 12px; top: 10px; z-index: 2; width: 36px; height: 36px; border-radius: 50%; border: 0; background: none; cursor: pointer; color: #fff; mix-blend-mode: difference; font: 400 20px/1 var(--display); }
+html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
+
+.bar {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 28px;
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  transition: background-color 0.6s ease;
+  z-index: 40;
+}
+.bar-actions { display: flex; gap: 0; }
+.bar-actions button + button { margin-left: 16px; padding-left: 16px; border-left: 1px dotted var(--rule); }
+
+.toolbar {
+  position: fixed;
+  left: calc(50vw + var(--shift));
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 8px 18px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border-radius: 6px 6px 0 0;
+  z-index: 45;
+  animation: rise 0.3s ease both;
+}
+.toolbar[hidden], .detail[hidden] { display: none; }
+#folio { min-width: 92px; text-align: center; }
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+.detail {
+  position: fixed;
+  right: var(--gutter);
+  top: var(--nav);
+  bottom: 40px;
+  width: calc(40vw - var(--gutter) * 1.5);
+  overflow: auto;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+  z-index: 35;
+  animation: slide 0.81s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes slide { from { opacity: 0; transform: translateX(5vw); } to { opacity: 1; transform: none; } }
+.detail .label::before { content: '[ '; }
+.detail .label::after { content: ' ]'; }
+.detail h2 { font: 500 50px/1.06 var(--display); font-variation-settings: 'opsz' 72; letter-spacing: -0.025em; margin: 18px 0 8px; }
+.byline { font: 400 italic 22px/1.3 var(--display); margin: 0 0 48px; }
+.blurb { font: 400 17px/1.45 var(--display); margin: 14px 0 36px; max-width: 46ch; text-indent: 1.4em; }
+.rows { border-top: 1px dotted var(--rule); }
+.row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 11px 16px;
+  font: 400 15px/1.4 var(--display);
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-bottom: 1px dotted var(--rule);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.row:hover, .row:focus-visible { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.fineprint { margin-top: 18px; opacity: 0.7; }
+.detail .fineprint::before, .detail .fineprint::after { content: ''; }
+
+.grain {
+  /* Paper tooth over everything, like the reference's film grain layer. Drawn with an SVG noise filter. */
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (max-width: 899px) {
+  :root { --nav: 140px; }
+  .m-title { font-size: 34px; }
+  .marquee { top: 76px; height: 50px; }
+  .grain { display: none; }
+  html[data-detail] .panel { width: auto; }
+  .detail { left: var(--gutter); width: auto; top: 46vh; background: var(--bg); }
+  .detail h2 { font-size: 32px; }
+  .byline { margin-bottom: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html, .panel, .panel::after, .bar, .m-title { transition: none; }
+  .toolbar, .detail { animation: none; }
+}

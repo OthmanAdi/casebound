@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bindery</title>
+    <meta name="description" content="Lit hardcover books in the browser: a damped shelf, real page turns, a magnifier. Every book is a few lines of data." />
+  </head>
+  <body>
+    <a class="skip" href="#panels">Skip to the books</a>
+    <canvas id="stage" aria-hidden="true"></canvas>
+
+    <header class="nav">
+      <a class="wordmark" href="#/" id="wordmark">Bindery</a>
+      <span class="nav-right">
+        <a class="label" id="home-link" href="#/" hidden>&larr; Esc to shelf</a>
+        <button class="label" id="theme" type="button" aria-label="Theme: light, change theme">Light</button>
+      </span>
+    </header>
+    <p class="label section-label" id="section-label">Featured</p>
+    <div class="marquee" id="marquee" aria-hidden="true"></div>
+
+    <main id="panels"></main>
+
+    <footer class="bar">
+      <span class="label" id="bar-title"></span>
+      <span class="bar-actions">
+        <button class="label" id="open" type="button">Open book [+]</button>
+        <button class="label" id="details" type="button">View details [+]</button>
+      </span>
+    </footer>
+
+    <div class="toolbar" id="toolbar" role="toolbar" aria-label="Reader" hidden>
+      <button class="label" type="button" id="prev" aria-label="Previous page">[ &larr; ]</button>
+      <span class="label" id="folio" aria-live="polite"></span>
+      <button class="label" type="button" id="next" aria-label="Next page">[ &rarr; ]</button>
+      <button class="label" type="button" id="lens" aria-label="Turn on magnifier" aria-pressed="false">Lens</button>
+      <button class="label" type="button" id="close" aria-label="Close book">[ X ]</button>
+    </div>
+
+    <aside class="detail" id="detail" aria-labelledby="detail-title" hidden>
+      <p class="label">Book</p>
+      <h2 id="detail-title"></h2>
+      <p class="byline" id="detail-author"></p>
+      <p class="label">About</p>
+      <p class="blurb" id="detail-blurb"></p>
+      <div class="rows">
+        <button class="row" type="button" id="row-read">Read it here <span>open</span></button>
+        <a class="row" id="row-ebook" target="_blank" rel="noopener noreferrer">E-book <span>Project Gutenberg &nearr;</span></a>
+        <a class="row" id="row-audio" target="_blank" rel="noopener noreferrer">Audiobook <span>LibriVox &nearr;</span></a>
+      </div>
+      <p class="label fineprint" id="detail-source"></p>
+    </aside>
+
+    <div class="grain" aria-hidden="true"></div>
+    <script type="module" src="/src/site/main.ts"></script>
+  </body>
+</html>
