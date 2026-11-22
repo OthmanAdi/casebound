@@ -1,0 +1,26 @@
+{
+  "name": "bindery",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "An agent-extensible 3D book system for the browser: lit hardcover books, a damped shelf, a reader with real page turns, a magnifier and material effects.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.187.0",
+    "happy-dom": "21.0.4",
+    "typescript": "7.0.2",
+    "vite": "8.3.7",
+    "vitest": "5.1.0"
+  }
+}
