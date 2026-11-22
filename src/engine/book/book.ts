@@ -27,6 +27,12 @@ export interface BookRecord {
   thickness?: number;
   /** Colour behind the book on its panel. Also tints the light in the colour theme. */
   background?: string;
+  /** Year of first publication, shown next to the title. */
+  year?: number;
+  /** A few sentences about the book, for the detail view. */
+  blurb?: string;
+  /** Where the text comes from. */
+  source?: { name: string; id?: number; url?: string; note?: string };
   imprint?: string;
   cover: CoverDesign;
   /** Overrides for the surface model. */
