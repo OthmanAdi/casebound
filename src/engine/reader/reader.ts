@@ -16,6 +16,8 @@ export interface ReaderOptions {
   pages?: (book: Book) => PageSource | undefined;
   /** Offset of the open book from the canvas centre, in CSS pixels. */
   centreOffsetPx?: () => { x: number; y: number };
+  /** Extra scale for the open book, for layouts where it shares the screen. Default 1. */
+  fit?: () => number;
 }
 
 export interface Reader {
@@ -287,7 +289,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     book.root.position.copy(home.position).lerp(goalPos, blend);
     q.setFromEuler(e.set(-(t.pitch - pitch.v) * DEG, 0, 0));
     book.root.quaternion.copy(home.quaternion).slerp(q, blend);
-    book.root.scale.setScalar(lerp(home.scale, home.scale * t.scale, blend));
+    book.root.scale.setScalar(lerp(home.scale, home.scale * t.scale * (opts.fit?.() ?? 1), blend));
     book.tilt.rotation.set(0, 0, 0);
   });
 
