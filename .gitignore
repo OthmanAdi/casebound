@@ -5,3 +5,6 @@ dist/
 
 # Reference material from the studied site. Private study only, never commit.
 research/_reference/
+
+# Raw exploratory runtime dumps (large, single takes). Scripted series and keyframe tables are tracked.
+research/runtime/explore-*.json
