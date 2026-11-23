@@ -46,7 +46,7 @@ export interface RowTuning {
 export const ROW_DEFAULT: RowTuning = {
   gap: 0.9375,
   slot: 15.13,
-  spine: 1,
+  spine: 0.96,
   depth: 15.75,
   forward: 8,
   back: 2,
