@@ -1,7 +1,7 @@
 // Records a scripted visit to a Casebound page as numbered frames, one per step of the engine's clock.
 // The engine's loop is stopped and advanced by hand, so every frame is exact whatever the machine's speed.
 //
-//   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999]
+//   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999] [--film 0.087]
 //
 // `--every 3` saves every third frame and `--span 150-220` only frames 150 to 220. The clock still runs through
 // every frame, so a quick look at one moment shows the same picture as the full recording.
@@ -14,7 +14,7 @@ import { resolve } from 'node:path';
 
 const [base, outDir, scene, ...rest] = process.argv.slice(2);
 if (!base || !outDir || !scene) {
-  console.error('usage: node record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999]');
+  console.error('usage: node record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999] [--film 0.087]');
   process.exit(2);
 }
 const opt = (n, d) => { const i = rest.indexOf('--' + n); return i > -1 ? rest[i + 1] : d; };
@@ -22,6 +22,7 @@ const fps = Number(opt('fps', 30));
 const width = Number(opt('w', 1440));
 const height = Number(opt('h', 900));
 const every = Math.max(1, Number(opt('every', 1)));
+const film = opt('film', null) === null ? null : Number(opt('film', 0));
 const [spanFrom, spanTo] = opt('span', '0-999999').split('-').map(Number);
 const sec = (s) => Math.round(s * fps);
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -151,6 +152,8 @@ try {
   await page.waitForTimeout(def.settle ?? 400);
   // Take the clock: from here on the engine only moves when we tell it to.
   await page.evaluate(() => { casebound.engine.ctx.loop.stop(); window.__clock = performance.now(); });
+  // Film grain changes on every frame, which a GIF pays for in size. `--film 0` records without it.
+  if (film !== null) await page.evaluate((amount) => casebound.engine.ctx.registry.set('effect.film', 'amount', amount), film);
   const step = 1000 / fps;
   for (let f = 0; f < def.frames; f++) {
     for (const a of def.actions) if (a.at === f) await a.run(page);
