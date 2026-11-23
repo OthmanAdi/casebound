@@ -33,6 +33,8 @@ A value set this way lasts until reload. To keep it, change the default in the f
 | `effect.film`, `book.gutter` | Film grain on paper; the light and shade where two pages meet | `src/engine/book/surface.ts` |
 | `reader` | Pause before opening, cover and page times, height of the open book, scale, pitch, lean toward the pointer, and the page drag (`dragWidth`, `dragFollow`, `tapPx`) | `src/engine/reader/reader.ts` |
 | `reader.leaf` | Page turn physics: push, damping, landing brake, launch speed | `src/engine/reader/leaf-physics.ts` |
+| `reader.curl` | Corner curl: strength under the pointer, in the hand and in the air, the fold line, the rates, and the flop of a held leaf. `amount` 0 turns the curl off, `hover` 0 mounts no sheet under the pointer, `flop` 0 turns the flop off | `src/engine/reader/curl.ts` |
+| `reader.riffle` | Opening riffle: live leaves per side, when and how fast they settle and go limp, how far they fan out. `leaves` 0 turns it off | `src/engine/reader/riffle.ts` |
 | `effect.magnifier` | Magnification, radius, edge, barrel bend, rim, follow speed | `src/engine/effects/magnifier.ts` |
 | `effect.surface` | Waits and fade rates of hologram and radio | `src/engine/effects/surface-effects.ts` |
 | `book.<slug>` | Open amount and reading progress of one book | `src/engine/book/book.ts` |
