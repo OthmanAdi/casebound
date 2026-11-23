@@ -37,6 +37,8 @@ export interface SurfaceFx {
   uJointShape: IUniform<Vector4>;
   /** Foil, see `FOIL`: tint of an iridescent foil, share of the grain that shows through foil. */
   uFoilLook: IUniform<Vector2>;
+  /** What head and tail of a page block are multiplied by, see `EDGE_ENDS`. */
+  uEdgeEnds: IUniform<Color>;
 }
 
 /**
@@ -102,6 +104,7 @@ export const createSurfaceFx = (): SurfaceFx => ({
   uStamp: { value: 1 },
   uJointShape: { value: new Vector4(JOINT.corner, JOINT.drop, JOINT.start, JOINT.run) },
   uFoilLook: { value: new Vector2(FOIL.tint, FOIL.grain) },
+  uEdgeEnds: { value: edgeEndsColor() },
 });
 
 /**
@@ -730,11 +733,35 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
   return mat;
 }
 
+/**
+ * Head and tail of a page block against its fore-edge. Measured in two views, the tail of the closed book on
+ * the shelf and of the open book in the reader: head and tail are 0.68 as bright on screen as a fore-edge in the
+ * same light would be, and warmer. `gain` is that factor before the screen's curve, range 0.1 to 1; `tint` is the
+ * colour they are multiplied by.
+ */
+export const EDGE_ENDS = { gain: 0.43, tint: '#f0e8d8' } as const;
+
+/** The colour that head and tail of a page block are multiplied by. */
+export function edgeEndsColor(gain: number = EDGE_ENDS.gain, tint: string = EDGE_ENDS.tint): Color {
+  return new Color(tint).multiplyScalar(Math.max(0, gain));
+}
+
 /** Page edges: a plain lit material. Written out without tone mapping so the paper keeps its brightness. */
-export function createEdgeMaterial(map: Texture, tint = '#f6f3ec'): MeshStandardMaterial {
+export function createEdgeMaterial(map: Texture, tint = '#f6f3ec', ends: IUniform<Color> = { value: edgeEndsColor() }): MeshStandardMaterial {
   const mat = new MeshStandardMaterial({ map, color: tint, emissive: '#262522', roughness: 0.85, metalness: 0, side: DoubleSide });
   // The stacked edges measured a quarter darker than the reference.
   mat.color.multiplyScalar(1.5);
   mat.toneMapped = false;
+  // Head and tail are the faces whose normal runs along the spine. They get a colour of their own.
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uEdgeEnds = ends;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', ['#include <common>', 'varying float vEdgeEnd;'].join('\n'))
+      .replace('#include <begin_vertex>', ['#include <begin_vertex>', 'vEdgeEnd = abs( normal.y );'].join('\n'));
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', ['#include <common>', 'varying float vEdgeEnd;', 'uniform vec3 uEdgeEnds;'].join('\n'))
+      .replace('#include <map_fragment>', ['#include <map_fragment>', 'diffuseColor.rgb *= mix( vec3( 1.0 ), uEdgeEnds, vEdgeEnd );'].join('\n'));
+  };
+  mat.customProgramCacheKey = () => 'casebound-edge';
   return mat;
 }

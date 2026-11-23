@@ -150,7 +150,7 @@ export class Book {
       fx,
     });
     end.repeat.set(6, 4);
-    const edgeMat = createEdgeMaterial(edge);
+    const edgeMat = createEdgeMaterial(edge, undefined, fx.uEdgeEnds);
 
     // Temporary cover material so the volume can be built; replaced right below once the atlas is known.
     const volume = (this.volume = new Volume(dims, { cover: endpaper, endpaper, pageLeft: this.pageMaterials.left, pageRight: this.pageMaterials.right, edge: edgeMat }));

@@ -7,7 +7,7 @@ import { createContext, type ContextOptions, type EngineContext } from './core/a
 import { Book, type BookRecord } from './book/book';
 import { PAGE_ARCH } from './book/volume';
 import { COVER_RELIEF, DEFAULT_FACES, type Typefaces } from './book/painter';
-import { FOIL, JOINT, createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
+import { EDGE_ENDS, FOIL, JOINT, createSurfaceFx, edgeEndsColor, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
 import type { FrameInfo } from './core/loop';
 import { smoothstep } from './core/math';
 import type { ParamSpec, Tag } from './core/registry';
@@ -167,6 +167,19 @@ export function createEngine(opts: EngineOptions): Engine {
     },
     onChange: () => ctx.invalidate(),
   });
+  const edges = tunable(ctx.registry, {
+    id: 'book.edges',
+    label: 'Page edges',
+    kind: 'material-effect',
+    tags: ['material', 'shader', 'paper', 'light'],
+    describe: 'Head and tail of every page block against its fore-edge. Measured on the tail of the closed book on the shelf and of the open book in the reader.',
+    source: 'src/engine/book/surface.ts',
+    params: {
+      ends: { value: EDGE_ENDS.gain, min: 0.1, max: 1, help: 'Brightness of head and tail against the fore-edge, before the curve of the screen. Measured: 0.68 on screen, which is 0.43 here. 1 makes them like the fore-edge' },
+      endsTint: { value: EDGE_ENDS.tint, help: 'Colour head and tail are multiplied by. Measured warmer than the fore-edge' },
+    },
+    onChange: () => ctx.invalidate(),
+  });
   const rig = new LightRig(ctx.registry);
   const wall = new ShadowWall(ctx.registry);
   ctx.scene.add(rig.group, wall.mesh);
@@ -273,6 +286,7 @@ export function createEngine(opts: EngineOptions): Engine {
     fx.uStamp.value = relief.depth;
     fx.uJointShape.value.set(joint.corner, joint.drop, joint.start, joint.run);
     fx.uFoilLook.value.set(foil.tint, foil.grain);
+    fx.uEdgeEnds.value.copy(edgeEndsColor(edges.ends, edges.endsTint));
     fx.uFilmSeed.value = (f.frame * 37) % 1024;
     // Measured: the effects follow the pointer with a short lag instead of jumping to it.
     if (ctx.pointer) fx.uFxPointer.value.lerp(ctx.pointer, ctx.still ? 1 : 1 - Math.exp(-12.8 * Math.min(f.dt, 0.05)));

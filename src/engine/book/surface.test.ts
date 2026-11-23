@@ -1,6 +1,6 @@
 import { ShaderChunk } from 'three';
 import { describe, expect, it } from 'vitest';
-import { JOINT, SHADOW_TAPS, SHEET_LIGHTS, SOFT_SHADOWS, jointSlope } from './surface';
+import { EDGE_ENDS, JOINT, SHADOW_TAPS, SHEET_LIGHTS, SOFT_SHADOWS, edgeEndsColor, jointSlope } from './surface';
 
 describe('the joint relief', () => {
   const half = 0.2;
@@ -28,6 +28,24 @@ describe('the joint relief', () => {
     expect(height).toBeCloseTo(-JOINT.drop, 4);
     expect(jointSlope(JOINT.start + JOINT.run + 0.01, half, closed, descent)).toBeCloseTo(0, 12);
     expect(jointSlope(-0.5, half, closed)).toBeCloseTo(0, 12);
+  });
+});
+
+describe('head and tail of a page block', () => {
+  it('are darker and warmer than the fore-edge by default', () => {
+    const c = edgeEndsColor();
+    expect(c.r).toBeLessThan(EDGE_ENDS.gain);
+    expect(c.r).toBeGreaterThan(c.g);
+    expect(c.g).toBeGreaterThan(c.b);
+  });
+
+  it('are like the fore-edge with a gain of 1 and a white tint, and never negative', () => {
+    const same = edgeEndsColor(1, '#ffffff');
+    expect([same.r, same.g, same.b]).toEqual([1, 1, 1]);
+    const none = edgeEndsColor(-2, '#ffffff');
+    expect(none.r).toBe(0);
+    expect(none.g).toBe(0);
+    expect(none.b).toBe(0);
   });
 });
 
