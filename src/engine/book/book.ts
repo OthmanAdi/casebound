@@ -9,7 +9,7 @@
  */
 import { Group, Quaternion, Vector3, type Material, type Texture } from 'three';
 import { DEG } from '../core/math';
-import type { Registry } from '../core/registry';
+import type { ParamSpec, Registry } from '../core/registry';
 import { makeDims, type BookDims } from './dims';
 import { COVER_RELIEF, DEFAULT_FACES, GRAIN_PER_UNIT, edgeTexture, endpaperTexture, grainTexture, paintCover, paintPage, type CoverDesign, type CoverRelief, type CoverTextures, type PageContent, type Typefaces } from './painter';
 import { CLOTH, PAGE_PAPER, createEdgeMaterial, createSurfaceMaterial, type ClothParams, type SurfaceFx } from './surface';
@@ -59,6 +59,38 @@ export interface BookRecord {
  * book it is about 1.4.
  */
 export const TURN_IN = 0.7;
+
+/**
+ * The cover material of one book as live parameters, so its look can be tried on the running page. The values
+ * last until reload: to keep one, write it into the book's `book.json` under the field named in its help.
+ */
+export function coverParams(mat: ReturnType<typeof createSurfaceMaterial>): ParamSpec[] {
+  const u = mat.userData.uniforms as Record<string, { value: number }>;
+  const uniform = (key: string, name: string, min: number, max: number, help: string): ParamSpec => ({
+    key, label: key, type: 'number', min, max, help,
+    get: () => u[name]!.value,
+    set: (v) => {
+      u[name]!.value = v as number;
+    },
+  });
+  return [
+    { key: 'shininess', label: 'shininess', type: 'number', min: 1, max: 40, help: 'Tightness of the highlight. Measured 3.3 to 21.4, median 9.9. `material.shininess`', get: () => mat.shininess, set: (v) => void (mat.shininess = v as number) },
+    { key: 'reflectiveness', label: 'reflectiveness', type: 'number', min: 0, max: 1.2, help: 'Strength of the highlight. Measured 0.17 to 1.01, median 0.5. `material.reflectiveness`', get: () => mat.specular.r, set: (v) => void mat.specular.setScalar(v as number) },
+    uniform('bumpGrain', 'uBumpGrain', 0, 0.2, 'Depth of the grain of the binding material. Measured 0.01 to 0.10, median 0.055. `material.bumpGrain`'),
+    uniform('bumpEmboss', 'uBumpEmboss', 0, 0.4, 'Depth of stamped type and ornament. Measured 0.05 to 0.25, median 0.119. `material.bumpEmboss`'),
+    uniform('foilSpecular', 'uFoilSpecular', -0.5, 2.5, 'Added to the strength of the highlight where there is foil. Measured -0.49 to 2.2, median 0. `material.foilSpecular`'),
+    uniform('foilDetail', 'uFoilDetail', 0, 8, 'How fast the tone of the foil changes across the cover and as the book turns. Measured 0.4 to 6.3, median 2.6. `material.foilDetail`'),
+    uniform('foilRainbow', 'uFoilRainbow', 0, 1, '0 is plain metal, 1 is fully iridescent. `cover.foilRainbow`'),
+    uniform('gloss', 'uGloss', 0, 1.5, 'Share of the highlight that cloth keeps. Measured 0.31 to 1.12. `material.cloth.gloss`'),
+    uniform('sheen', 'uSheen', 0, 1.5, 'Soft lift of fabric toward grazing light. Measured 0.19 to 0.82. `material.cloth.sheen`'),
+    uniform('sheenRough', 'uSheenRough', 0.05, 1, 'Width of the sheen, higher is broader. `material.cloth.sheenRough`'),
+    uniform('wrap', 'uWrap', 0, 1, 'How far light creeps past the edge of the shade. `material.cloth.wrap`'),
+    uniform('weave', 'uWeave', 0, 1, 'Darkening of the gaps between threads, seen from close by. Measured 0.01 to 0.32. `material.cloth.weave`'),
+    uniform('fibre', 'uFibre', 0, 0.2, 'Fine fibre streaks, seen from close by. Measured 0 to 0.068. `material.cloth.fibre`'),
+    uniform('mottle', 'uMottle', 0, 0.1, 'Soft blotches in colour and relief that do not fade with distance. `material.cloth.mottle`'),
+    uniform('relief', 'uGrainRelief', 0, 1, 'How much of the grain tile is real relief. Times bumpGrain it is the depth of the grain. `material.cloth.relief`'),
+  ];
+}
 
 /** Opening angle of each board when the book lies open at its middle (SPEC S-RD-3: 28 degrees x 3.36). */
 export const OPEN_ANGLE = 94 * DEG;
@@ -197,6 +229,7 @@ export class Book {
       params: [
         { key: 'open', label: 'Open', type: 'number', min: 0, max: 1, help: '0 closed, 1 lying open', get: () => this.open, set: (v) => this.setOpen(v as number, this.reading) },
         { key: 'reading', label: 'Reading progress', type: 'number', min: 0, max: 1, help: 'Share of the leaves on the left side', get: () => this.reading, set: (v) => this.setOpen(this.open, v as number) },
+        ...coverParams(coverMat),
       ],
     });
   }
