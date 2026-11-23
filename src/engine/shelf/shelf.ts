@@ -2,7 +2,7 @@
  * The shelf: featured books in a vertical stack, one per scroll slot. Scrolling moves the stack; each book
  * turns out of the way as it leaves and turns in as it arrives (SPEC sections 6 and 7).
  */
-import { Euler, Quaternion } from 'three';
+import { Euler, Quaternion, Vector3 } from 'three';
 import type { Engine } from '../index';
 import { DEG, approach, clamp, easeInOutQuad, frameFactor } from '../core/math';
 import { tunable } from '../core/tune';
@@ -17,7 +17,24 @@ export interface ShelfOptions {
   scrollY?: () => number;
   /** Where on the screen the centred book sits, as an offset from the canvas centre in CSS pixels. */
   centreOffsetPx?: () => { x: number; y: number };
+  /** Replaces or adjusts the default stack. */
+  layout?: ShelfLayout;
 }
+
+/** What the shelf decided for one book this frame. A custom layout may change any of it. */
+export interface ShelfPose {
+  position: Vector3;
+  /** Pose the book eases toward. */
+  quaternion: Quaternion;
+  scale: number;
+  visible: boolean;
+}
+
+/**
+ * A custom arrangement. Called for every book each frame with the default pose already filled in.
+ * `offset` is the book's distance from the centre in slots: 0 centred, positive above, negative below.
+ */
+export type ShelfLayout = (book: { slot: number; offset: number; count: number; slug: string }, pose: ShelfPose) => void;
 
 export interface Shelf {
   readonly state: ScrollState;
@@ -83,7 +100,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   const qRest = new Quaternion();
   const qLeave = new Quaternion();
   const qArrive = new Quaternion();
-  const qGoal = new Quaternion();
+  const pose: ShelfPose = { position: new Vector3(), quaternion: new Quaternion(), scale: 1, visible: true };
   const tilt = { yaw: 0, pitch: 0 };
   let introT = 0;
   let introActive = !ctx.still;
@@ -143,23 +160,26 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     for (const [slot, index] of order.entries()) {
       const book = engine.books[index]!;
       const b = state.progress - slot - introDrop;
-      const visible = Math.abs(b) < t.visible || book.held;
-      book.root.visible = visible;
-      if (!visible) continue;
       let y = b * t.pitch + t.baseY - offset.y * worldPerPx;
       if (b > t.exitFrom) y += Math.pow((b - t.exitFrom) / 0.4, 3) * t.pitch * t.exitBoost;
-      book.home.position.set(offset.x * worldPerPx, y, t.planeZ);
-      book.home.scale = scale;
-
       const end = b > 0 ? t.turnEndLeave : t.turnEndArrive;
       const amount = easeInOutQuad(clamp((Math.abs(b) - t.turnStart) / Math.max(1e-3, end - t.turnStart), 0, 1));
-      qGoal.copy(qRest).slerp(b > 0 ? qLeave : qArrive, amount);
-      if (book.home.quaternion.angleTo(qGoal) > 1e-4) moving = true;
-      book.home.quaternion.slerp(qGoal, follow);
+      pose.position.set(offset.x * worldPerPx, y, t.planeZ);
+      pose.quaternion.copy(qRest).slerp(b > 0 ? qLeave : qArrive, amount);
+      pose.scale = scale;
+      pose.visible = Math.abs(b) < t.visible;
+      opts.layout?.({ slot, offset: b, count: order.length, slug: book.record.slug }, pose);
+
+      book.root.visible = pose.visible || book.held;
+      if (!book.root.visible) continue;
+      book.home.position.copy(pose.position);
+      book.home.scale = pose.scale;
+      if (book.home.quaternion.angleTo(pose.quaternion) > 1e-4) moving = true;
+      book.home.quaternion.slerp(pose.quaternion, follow);
       if (!book.held) {
         book.root.position.copy(book.home.position);
         book.root.quaternion.copy(book.home.quaternion);
-        book.root.scale.setScalar(scale);
+        book.root.scale.setScalar(pose.scale);
         book.tilt.rotation.set(tilt.pitch, tilt.yaw, 0);
       }
     }
