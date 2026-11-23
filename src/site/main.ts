@@ -151,7 +151,8 @@ async function boot(): Promise<void> {
   function setDetail(on: boolean): void {
     if (on !== detailOpen) {
       shiftFrom = shift;
-      shiftClock = 0;
+      // Measured against the reference: the move is already one frame along on the first frame after the press.
+      shiftClock = 1 / 60 / 0.64;
     }
     detailOpen = on;
     const d = $('detail');
