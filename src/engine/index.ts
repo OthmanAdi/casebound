@@ -82,6 +82,22 @@ export function createEngine(opts: EngineOptions): Engine {
     },
     onChange: () => ctx.invalidate(),
   });
+  const gutter = tunable(ctx.registry, {
+    id: 'book.gutter',
+    label: 'Gutter light',
+    kind: 'material-effect',
+    tags: ['effect', 'shader', 'material', 'paper', 'light'],
+    describe: 'Where two pages meet: light that bounces between them, and the shade of the fold.',
+    source: 'src/engine/book/surface.ts',
+    params: {
+      bounce: { value: 0.39 * 0.6, min: 0, max: 2, help: 'Strength of the light that bounces between the pages. Measured: 0.39 x 0.6' },
+      reach: { value: 0.29, min: 0.05, max: 1, help: 'How far from the spine the bounce reaches, as a share of the page width' },
+      sharpness: { value: 1.87, min: 0.25, max: 8 },
+      color: { value: '#9985b0', help: 'Colour of the bounced light' },
+      shade: { value: 1, min: 0, max: 1.6, help: 'Strength of the shade in the fold' },
+    },
+    onChange: () => ctx.invalidate(),
+  });
   const rig = new LightRig(ctx.registry);
   const wall = new ShadowWall(ctx.registry);
   ctx.scene.add(rig.group, wall.mesh);
@@ -174,6 +190,11 @@ export function createEngine(opts: EngineOptions): Engine {
     const rigMoving = rig.update(f.dt, { pointer: ctx.pointer, inside: state.inside, bookColor: active?.record.background ?? null, shadowCentre: wall.centre, compact: ctx.compact }, ctx.still);
     fx.uFxTime.value = f.time;
     fx.uFilm.value = film.amount;
+    fx.uBounce.value = gutter.bounce;
+    fx.uBounceReach.value = gutter.reach;
+    fx.uBounceSharp.value = gutter.sharpness;
+    fx.uBounceColor.value.set(gutter.color).convertLinearToSRGB();
+    fx.uGutterShade.value = gutter.shade;
     fx.uFilmSeed.value = (f.frame * 37) % 1024;
     // Measured: the effects follow the pointer with a short lag instead of jumping to it.
     if (ctx.pointer) fx.uFxPointer.value.lerp(ctx.pointer, ctx.still ? 1 : 1 - Math.exp(-12.8 * Math.min(f.dt, 0.05)));

@@ -22,6 +22,13 @@ export interface SurfaceFx {
   uFilm: IUniform<number>;
   /** Changes with every drawn frame, so the grain never stands still while something moves. */
   uFilmSeed: IUniform<number>;
+  /** Light that bounces between facing pages near the gutter: strength, reach as a share of the page width, sharpness. */
+  uBounce: IUniform<number>;
+  uBounceReach: IUniform<number>;
+  uBounceSharp: IUniform<number>;
+  uBounceColor: IUniform<Color>;
+  /** Strength of the shade in the fold itself. */
+  uGutterShade: IUniform<number>;
 }
 
 export const createSurfaceFx = (): SurfaceFx => ({
@@ -31,6 +38,11 @@ export const createSurfaceFx = (): SurfaceFx => ({
   uFxPointer: { value: new Vector2() },
   uFilm: { value: 0 },
   uFilmSeed: { value: 0 },
+  uBounce: { value: 0.39 * 0.6 },
+  uBounceReach: { value: 0.29 },
+  uBounceSharp: { value: 1.87 },
+  uBounceColor: { value: new Color(0.6, 0.52, 0.69) },
+  uGutterShade: { value: 1 },
 });
 
 /**
@@ -124,6 +136,8 @@ export interface SurfaceOptions {
   transmit?: number;
   /** Overall brightness of the surface. Calibrated against reference frames. */
   exposure?: number;
+  /** For a page: where the spine is across its picture, 0 = at the left edge, 1 = at the right. Pages get the light and shade of the gutter. */
+  gutter?: 0 | 1;
   /** A leaf in the air lets the print on its other side show through. Set `tBack` and `uTurn` (0..1) on the uniforms. */
   bleed?: boolean;
 }
@@ -163,6 +177,12 @@ uniform vec2 uFxPointer;
 uniform float uFilm;
 uniform float uFilmSeed;
 uniform float uFilmShare;
+uniform float uGutter;
+uniform float uBounce;
+uniform float uBounceReach;
+uniform float uBounceSharp;
+uniform vec3 uBounceColor;
+uniform float uGutterShade;
 uniform sampler2D tBack;
 uniform float uBleed;
 uniform float uTurn;
@@ -311,6 +331,24 @@ const BUMP = /* glsl */ `
 }
 `;
 
+/**
+ * Where two pages meet (SPEC S-RD-13): light bounces between them near the gutter, more so where the paper
+ * tilts away from the eye, and the fold itself lies in shade, with a narrow dark core down its middle.
+ */
+const GUTTER = /* glsl */ `
+if ( uGutter >= 0.0 ) {
+	float fromSpine = mix( vMapUv.x, 1.0 - vMapUv.x, uGutter );
+	float tilt = pow( saturate( 1.0 - abs( dot( normalize( vNormal ), normalize( vViewPosition ) ) ) ), 1.5 );
+	float near = pow( 1.0 - smoothstep( 0.0, max( 0.05, uBounceReach ), fromSpine ), max( 0.25, uBounceSharp ) );
+	outgoingLight += uBounceColor * near * ( 0.8 + 0.6 * tilt ) * uBounce;
+	float band = 1.0 - smoothstep( 0.0, 0.14, fromSpine );
+	float core = 1.0 - smoothstep( 0.0, 0.045, fromSpine );
+	float shade = min( 0.6, 0.18 * band * band * ( 0.6 + 0.4 * tilt ) + 0.34 * core * core * core );
+	outgoingLight *= 1.0 - shade * uGutterShade;
+}
+#include <opaque_fragment>
+`;
+
 /** Runs last: scanlines, pulse, grain and tint of the hologram; ring brightness of the radio effect. */
 const FINAL = /* glsl */ `
 gl_FragColor.rgb *= uExposure;
@@ -394,6 +432,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uTransmit: { value: o.transmit ?? 0 },
     uExposure: { value: o.exposure ?? o.cloth.exposure ?? 0.9 },
     uFilmShare: { value: o.cloth.film ?? 0 },
+    uGutter: { value: o.gutter ?? -1 },
     ...o.fx,
   };
   mat.userData.uniforms = uniforms;
@@ -413,6 +452,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
       .replace('#include <map_fragment>', ALBEDO)
       .replace('#include <specularmap_fragment>', SPECULAR)
       .replace('#include <normal_fragment_maps>', BUMP)
+      .replace('#include <opaque_fragment>', GUTTER)
       .replace('#include <colorspace_fragment>', '')
       .replace('#include <dithering_fragment>', FINAL.replace('#include <dithering_fragment>', extraFinal + '\n#include <dithering_fragment>'));
     shader.vertexShader = shader.vertexShader.replace('#include <uv_pars_vertex>', VERTEX_PARS).replace('#include <begin_vertex>', VERTEX_DISPLACE);

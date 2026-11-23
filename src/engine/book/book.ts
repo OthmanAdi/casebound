@@ -105,9 +105,10 @@ export class Book {
     const end = endpaperTexture(record.cover, seed);
     this.textures.push(blank, edge, end);
 
-    const page = (map: Texture): ReturnType<typeof createSurfaceMaterial> =>
+    const page = (map: Texture, gutter: 0 | 1): ReturnType<typeof createSurfaceMaterial> =>
       createSurfaceMaterial({
         map,
+        gutter,
         grain: paper,
         grainRepeat: [dims.pageW * GRAIN_PER_UNIT.paper, dims.pageH * GRAIN_PER_UNIT.paper],
         cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05 },
@@ -116,7 +117,8 @@ export class Book {
         bumpGrain: 0.05,
         fx,
       });
-    this.pageMaterials = { left: page(blank), right: page(blank) };
+    // The left page is drawn mirrored along the stack, so its spine edge is on the right of its picture.
+    this.pageMaterials = { left: page(blank, 1), right: page(blank, 0) };
     const endpaper = createSurfaceMaterial({
       map: end,
       grain: paper,
