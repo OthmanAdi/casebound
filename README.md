@@ -98,7 +98,7 @@ Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with
 
 9. Two light effects cover the whole book. Hover the e-book row and scanlines run down covers and pages, lines shear sideways and colours split. Hover the audiobook row and rings travel across the paper and ripple it.
 
-   ![The pages of an open book take a lilac glow with scanlines, then rings travel across them](docs/media/light-demo.gif)
+   ![The print of an open book shears sideways under scanlines and takes colour fringes. Then rings travel across the spread from its upper corner and ripple the pages](docs/media/light-demo.gif)
 
    *Recorded from the demo: first the e-book row, then the audiobook row.*
 
