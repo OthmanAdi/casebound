@@ -370,9 +370,11 @@ vec3 bFoilTone( float t ) {
 	}
 #endif
 
+// Evenly spaced rings that travel outward from the upper corner of the picture and fade with distance. 0 to 1.
 float bRing( vec2 uv ) {
-	float d = distance( uv, vec2( 1.0, 0.0 ) );
-	return sin( d * 69.8 - uFxTime * 1.53 * 6.28318 );
+	float d = distance( uv, vec2( 1.0, 1.0 ) );
+	float ring = sin( d * 69.8 - uFxTime * 1.53 * 6.28318 ) * 0.5 + 0.5;
+	return ring * ring * ( 1.0 - smoothstep( 0.0, 1.2, d ) );
 }
 
 void RE_Direct_BlinnPhong( const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in BlinnPhongMaterial material, inout ReflectedLight reflectedLight ) {
@@ -527,18 +529,34 @@ if ( uCeiling * uShoulder > 0.0 ) {
 	gl_FragColor.rgb = mix( gl_FragColor.rgb, rolled, uShoulder );
 }
 if ( uHolo > 0.001 ) {
-	float scan = sin( vMapUv.y * 817.0 - uFxTime * 10.0 ) * 0.055 + sin( vMapUv.y * 136.17 - uFxTime * 6.1 ) * 0.0385;
-	float pulse = 0.3 * ( 0.5 * ( 0.5 * sin( 1.7 * uFxTime ) + 0.3 * sin( 2.9 * uFxTime ) + 0.2 * sin( 0.7 * uFxTime ) ) + 0.5 );
-	float grainFx = ( bHash( floor( gl_FragCoord.xy / 4.0 ) + floor( uFxTime * 12.0 ) * 7.13 ) - 0.5 ) * 0.08;
-	vec3 holo = gl_FragColor.rgb * ( 1.0 + pulse ) + scan + grainFx;
-	holo = mix( holo, holo * vec3( 1.06, 0.9, 1.16 ) + vec3( 0.07, 0.015, 0.11 ), 0.85 );
-	gl_FragColor.rgb = mix( gl_FragColor.rgb, holo, uHolo );
+	// The hologram (SPEC S-FX-1). The print itself moves: lines shear sideways in two wave trains, and red and blue
+	// are read a little to either side, so every edge gets a fringe. Scanlines, coarse grain, a pulse of light and
+	// a trace of blue lie on top. The print is read again from the picture, unlit, and mixed in.
+	float hI = uHolo;
+	float hT = uFxTime;
+	float amp = 0.6 + ( 0.5 * ( 0.4 * sin( 0.8 * hT ) + 0.35 * sin( 1.3 * hT + 2.1 ) + 0.25 * sin( 2.7 * hT + 0.5 ) ) + 0.5 ) * 0.8;
+	float shear = ( sin( vMapUv.y * 408.5 + hT * 10.0 ) * 0.003 + sin( vMapUv.y * 68.06 + hT * 3.7 ) * 0.006 ) * hI * amp;
+	vec2 hUv = vMapUv + vec2( shear, 0.0 );
+	vec3 holo = gl_FragColor.rgb;
+	#ifdef USE_MAP
+		holo = mix( holo, texture2D( map, hUv ).rgb, 0.5 * hI );
+	#endif
+	holo += ( sin( vMapUv.y * 817.0 + hT * 10.0 ) + 0.7 * sin( vMapUv.y * 136.17 + hT * 6.1 ) ) * 0.055 * hI;
+	#ifdef USE_MAP
+		float drift = sin( hT * 1.3 + 2.1 ) * 0.6 + sin( hT * 2.7 ) * 0.4;
+		vec2 split = ( uFxPointer + vec2( 0.3, 0.2 ) * drift * ( 0.5 * sin( 1.3 * hT + 2.1 ) + 0.5 ) ) * 0.0147 * hI;
+		holo.r = mix( holo.r, texture2D( map, hUv + split ).r, 0.3 * hI );
+		holo.b = mix( holo.b, texture2D( map, hUv - split ).b, 0.3 * hI );
+	#endif
+	holo += ( bHash( floor( gl_FragCoord.xy / 4.0 ) + floor( hT * 12.0 ) * 7.13 ) - 0.5 ) * 0.08 * hI;
+	holo *= 1.0 + 0.3 * hI * ( 0.5 * ( 0.5 * sin( 1.7 * hT ) + 0.3 * sin( 2.9 * hT ) + 0.2 * sin( 0.7 * hT ) ) + 0.5 );
+	gl_FragColor.rgb = holo + vec3( 0.004, 0.015, 0.087 ) * hI;
 }
 if ( uRadio > 0.001 ) {
-	float env = max( 0.0, 0.55 * sin( 3.1 * uFxTime ) + 0.45 * sin( 1.7 * uFxTime + 1.4 ) ) * ( 0.65 + 0.35 * sin( 9.0 * uFxTime ) );
-	float ringFx = bRing( vMapUv ) * ( 0.35 + 0.65 * env );
-	gl_FragColor.rgb *= 1.0 + 0.35 * ringFx * uRadio;
-	gl_FragColor.rgb += vec3( 0.02, 0.06, 0.09 ) * uRadio * ( 0.5 + 0.5 * ringFx );
+	// The rings (SPEC S-FX-2): a tint and a lift of the light where a ring passes.
+	float wave = bRing( vMapUv ) * uRadio;
+	gl_FragColor.rgb += vec3( 0.02, 0.06, 0.09 ) * wave * 2.0;
+	gl_FragColor.rgb *= 1.0 + wave * 0.35;
 }
 if ( uFilm * uFilmShare > 0.0 ) {
 	// Film grain (SPEC S-RD-13): new on every drawn frame, one value per colour, stronger in the shadows.
@@ -560,8 +578,9 @@ uniform float uFxTime;
 const VERTEX_DISPLACE = /* glsl */ `
 #include <begin_vertex>
 if ( uRadio > 0.001 ) {
-	float d = distance( uv, vec2( 1.0, 0.0 ) );
-	transformed += objectNormal * sin( d * 69.8 - uFxTime * 1.53 * 6.28318 ) * 0.045 * uRadio;
+	float d = distance( uv, vec2( 1.0, 1.0 ) );
+	float ring = sin( d * 69.8 - uFxTime * 1.53 * 6.28318 ) * 0.5 + 0.5;
+	transformed += objectNormal * ring * ring * ( 1.0 - smoothstep( 0.0, 1.2, d ) ) * 0.09 * uRadio;
 }
 `;
 
