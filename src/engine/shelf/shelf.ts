@@ -508,7 +508,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       // Measured: the last featured book waits for the row where it is; it does not ride up with the scroll.
       const b = row && slot === order.length - 1 ? Math.min(0, state.progress - slot - introDrop) : state.progress - slot - introDrop;
       let y = b * t.pitch + t.baseY - offset.y * worldPerPx;
-      if (b > t.exitFrom) y += Math.pow((b - t.exitFrom) / 0.4, 3) * t.pitch * t.exitBoost;
+      // Measured: the boost is complete 0.4 slots on and grows no further (it used to grow without bound).
+      if (b > t.exitFrom) y += Math.pow(Math.min(1, (b - t.exitFrom) / 0.4), 3) * t.pitch * t.exitBoost;
       const end = b > 0 ? t.turnEndLeave : t.turnEndArrive;
       const amount = easeInOutQuad(clamp((Math.abs(b) - t.turnStart) / Math.max(1e-3, end - t.turnStart), 0, 1));
       pose.position.set(offset.x * worldPerPx, y, t.planeZ);
