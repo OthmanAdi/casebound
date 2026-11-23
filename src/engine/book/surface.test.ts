@@ -1,6 +1,16 @@
 import { ShaderChunk } from 'three';
 import { describe, expect, it } from 'vitest';
-import { SHEET_LIGHTS } from './surface';
+import { SHADOW_TAPS, SHEET_LIGHTS, SOFT_SHADOWS } from './surface';
+
+describe('the soft shadow lookup', () => {
+  it('still finds the five samples of the three.js version in use and replaces them', () => {
+    // If a library update rewrites the lookup, the pattern finds nothing and book surfaces fall back to the
+    // stock five samples, which show as a stipple in wide shadows.
+    expect(SOFT_SHADOWS).not.toBe(ShaderChunk.shadowmap_pars_fragment);
+    expect(SOFT_SHADOWS).toContain(`vogelDiskSample( i, ${SHADOW_TAPS}, phi )`);
+    expect(SOFT_SHADOWS).not.toMatch(/vogelDiskSample\( \d, 5, phi \)/);
+  });
+});
 
 describe('the light loop of a single sheet', () => {
   it('still finds the shadow lines of the three.js version in use', () => {

@@ -151,6 +151,21 @@ export interface SurfaceOptions {
  * In the air it takes them only on the side that faces the light: the side turned away is lit by what passes
  * through the paper, and the sheet's own shadow would black that out.
  */
+/** Shadow samples per pixel on book surfaces. The library takes 5, which leaves a visible stipple in a wide penumbra. */
+export const SHADOW_TAPS = 16;
+
+/**
+ * The library's shadow lookup with more samples on the same rotated disk, so the soft edge of a shadow that
+ * falls across a page is smooth instead of dotted. If a library update rewrites the lookup, the pattern below
+ * finds nothing and the stock lookup is used; a unit test notices.
+ */
+export const SOFT_SHADOWS = ShaderChunk.shadowmap_pars_fragment.replace(
+  /shadow = \(\s*(?:texture\( shadowMap, vec3\( shadowCoord\.xy \+ vogelDiskSample\( \d, 5, phi \) \* radius, shadowCoord\.z \) \)\s*\+?\s*){5}\) \* 0\.2;/,
+  `float bSum = 0.0;
+				for ( int i = 0; i < ${SHADOW_TAPS}; i ++ ) bSum += texture( shadowMap, vec3( shadowCoord.xy + vogelDiskSample( i, ${SHADOW_TAPS}, phi ) * radius, shadowCoord.z ) );
+				shadow = bSum / ${SHADOW_TAPS}.0;`,
+);
+
 export const SHEET_LIGHTS = ShaderChunk.lights_fragment_begin.replace(
   /directLight\.color \*= (\( directLight\.visible && receiveShadow \) \? get\w*Shadow\([^;]*\) : 1\.0);/g,
   'directLight.color *= mix( 1.0, $1, mix( 1.0, smoothstep( 0.0, 0.25, dot( geometryNormal, directLight.direction ) ), uAloft ) );',
@@ -475,6 +490,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     const extraPars = surfaceEffects.map((e) => e.pars ?? '').join('\n');
     const extraFinal = surfaceEffects.map((e) => '{\n' + e.fragment + '\n}').join('\n');
     shader.fragmentShader = shader.fragmentShader
+      .replace('#include <shadowmap_pars_fragment>', SOFT_SHADOWS)
       .replace('#include <lights_phong_pars_fragment>', PARS + extraPars)
       .replace('#include <map_fragment>', ALBEDO)
       .replace('#include <specularmap_fragment>', SPECULAR)
