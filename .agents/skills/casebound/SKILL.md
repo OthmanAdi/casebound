@@ -13,7 +13,7 @@ Use this skill inside a checkout of the project. Read `package.json` for the scr
 
 1. `npm install --legacy-peer-deps`, then `npm run dev`. The site is at `http://127.0.0.1:5183/`, the bare test stage at `http://127.0.0.1:5183/dev/stage.html`.
 2. Open the browser console. `casebound.engine.ctx.registry.describe()` prints every tunable thing with its current values and the file that owns it.
-3. Decide which of the four kinds of change you are making. Each has its own reference file.
+3. Decide which kind of change you are making. Each has its own reference file.
 
 | The request is about | Do this | Reference |
 | --- | --- | --- |
@@ -21,6 +21,7 @@ Use this skill inside a checkout of the project. Read `package.json` for the scr
 | How something looks or moves: light, shadow, scroll feel, page turn, lens | Change a named parameter, then write the value into source | [tuning.md](references/tuning.md) |
 | Something new in the scene: a prop, a look for the pages, a different shelf arrangement, a light mood | Write an extension in `extensions/` | [extending.md](references/extending.md) |
 | Whether it still works | Run the checks and look at it | [verify.md](references/verify.md) |
+| A film of a book, an animation or a look, or a screen of a recording for flashing | Record frames in the browser, then compose and check them with raea | [film.md](references/film.md) |
 
 ## Add a book
 
