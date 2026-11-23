@@ -75,6 +75,11 @@ export class Surface {
   readonly pos: Float32Array;
   readonly nor: Float32Array;
   readonly uv: Float32Array;
+  /**
+   * Per vertex, for page edges: how far it is from what it touches. Distance to the board the stack lies on, to
+   * the board that closes over it, to the tail and to the head, world units. Large where nothing is near.
+   */
+  readonly contact: Float32Array;
   readonly geometry = new BufferGeometry();
   private n = 0;
   private quads: number[][] = [];
@@ -84,6 +89,8 @@ export class Surface {
     this.pos = new Float32Array(maxVerts * 3);
     this.nor = new Float32Array(maxVerts * 3);
     this.uv = new Float32Array(maxVerts * 2);
+    this.contact = new Float32Array(maxVerts * 4).fill(99);
+    this.geometry.setAttribute('aContact', new BufferAttribute(this.contact, 4));
     this.geometry.setAttribute('position', new BufferAttribute(this.pos, 3));
     this.geometry.setAttribute('normal', new BufferAttribute(this.nor, 3));
     this.geometry.setAttribute('uv', new BufferAttribute(this.uv, 2));
@@ -104,6 +111,16 @@ export class Surface {
     this.nor[i * 3 + 2] = nz;
     this.uv[i * 2] = u;
     this.uv[i * 2 + 1] = v;
+    this.contact.fill(99, i * 4, i * 4 + 4);
+    return i;
+  }
+
+  /** Says how near vertex `i` is to the two boards and to the two ends of the page. Returns `i`. */
+  touch(i: number, own: number, other: number, tail: number, head: number): number {
+    this.contact[i * 4] = own;
+    this.contact[i * 4 + 1] = other;
+    this.contact[i * 4 + 2] = tail;
+    this.contact[i * 4 + 3] = head;
     return i;
   }
 
@@ -141,6 +158,7 @@ export class Surface {
     this.geometry.attributes.position!.needsUpdate = true;
     this.geometry.attributes.normal!.needsUpdate = true;
     this.geometry.attributes.uv!.needsUpdate = true;
+    this.geometry.attributes.aContact!.needsUpdate = true;
   }
 }
 
@@ -389,12 +407,21 @@ export class Volume {
       for (let i = 0; i < BLOCK_S; i++) s.quad(under[i * 2]!, under[(i + 1) * 2]!, under[(i + 1) * 2 + 1]!, under[i * 2 + 1]!, 2);
     }
 
+    // Where page edges meet a board they lie in its shade. The stack lies on its own board; the other board is
+    // near only while the book is shut.
+    const shut = Math.max(0, 1 - (pose.front + pose.back) / 0.6);
+    const own = (k: number): number => (k / BLOCK_K) * t;
+    const other = (k: number): number => (1 - k / BLOCK_K) * t + (1 - shut) * 9;
+
     // Fore-edge: the free ends of every layer.
     const fore: number[] = [];
     for (let k = 0; k <= BLOCK_K; k++) {
       const o = at(k, BLOCK_S);
       const u = ((k / BLOCK_K) * leavesHere) / EDGE_TEXTURE_LEAVES;
-      fore.push(s.vert(L[o]!, y0, L[o + 1]!, L[o + 2]!, 0, L[o + 3]!, u, 0), s.vert(L[o]!, y1, L[o + 1]!, L[o + 2]!, 0, L[o + 3]!, u, 1));
+      fore.push(
+        s.touch(s.vert(L[o]!, y0, L[o + 1]!, L[o + 2]!, 0, L[o + 3]!, u, 0), own(k), other(k), 0, d.pageH),
+        s.touch(s.vert(L[o]!, y1, L[o + 1]!, L[o + 2]!, 0, L[o + 3]!, u, 1), own(k), other(k), d.pageH, 0),
+      );
     }
     for (let k = 0; k < BLOCK_K; k++) s.quad(fore[k * 2]!, fore[(k + 1) * 2]!, fore[(k + 1) * 2 + 1]!, fore[k * 2 + 1]!, 1);
 
@@ -405,7 +432,7 @@ export class Volume {
         for (let i = 0; i <= BLOCK_S; i++) {
           const o = at(k, i);
           const u = ((k / BLOCK_K) * leavesHere) / EDGE_TEXTURE_LEAVES;
-          grid.push(s.vert(L[o]!, y, L[o + 1]!, 0, ny, 0, u, sampleDistance(d.pageW, BLOCK_S, i) / d.pageW));
+          grid.push(s.touch(s.vert(L[o]!, y, L[o + 1]!, 0, ny, 0, u, sampleDistance(d.pageW, BLOCK_S, i) / d.pageW), own(k), other(k), 99, 99));
         }
       }
       const w = BLOCK_S + 1;

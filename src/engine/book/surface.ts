@@ -745,7 +745,14 @@ export function edgeEndsColor(gain: number = EDGE_ENDS.gain, tint: string = EDGE
 }
 
 /** Page edges: a plain lit material. Written out without tone mapping so the paper keeps its brightness. */
-export function createEdgeMaterial(map: Texture, tint = '#f6f3ec', ends: IUniform<Color> = { value: edgeEndsColor() }): MeshStandardMaterial {
+/**
+ * Shade where page edges meet what they touch: strength and reach toward a board, toward the spine (head and tail
+ * only) and toward the two ends of the fore-edge. Read in the reference: 0.33 over 0.56, 0.21 over 1.0 and 0.12
+ * over 0.32 model units, each falling off as a squared smoothstep. The reaches here are in world units.
+ */
+export const EDGE_CONTACT = { board: 0.33, boardReach: 0.48, spine: 0.21, spineReach: 0.85, ends: 0.12, endsReach: 0.27 };
+
+export function createEdgeMaterial(map: Texture, tint = '#f6f3ec', ends: IUniform<Color> = { value: edgeEndsColor() }, pageWidth = 13): MeshStandardMaterial {
   const mat = new MeshStandardMaterial({ map, color: tint, emissive: '#262522', roughness: 0.85, metalness: 0, side: DoubleSide });
   // The stacked edges measured a quarter darker than the reference.
   mat.color.multiplyScalar(1.5);
@@ -753,12 +760,26 @@ export function createEdgeMaterial(map: Texture, tint = '#f6f3ec', ends: IUnifor
   // Head and tail are the faces whose normal runs along the spine. They get a colour of their own.
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uEdgeEnds = ends;
+    shader.uniforms.uEdgePage = { value: pageWidth };
+    const c = EDGE_CONTACT;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', ['#include <common>', 'varying float vEdgeEnd;'].join('\n'))
-      .replace('#include <begin_vertex>', ['#include <begin_vertex>', 'vEdgeEnd = abs( normal.y );'].join('\n'));
+      .replace('#include <common>', ['#include <common>', 'attribute vec4 aContact;', 'varying float vEdgeEnd;', 'varying vec4 vContact;'].join('\n'))
+      .replace('#include <begin_vertex>', ['#include <begin_vertex>', 'vEdgeEnd = abs( normal.y );', 'vContact = aContact;'].join('\n'));
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', ['#include <common>', 'varying float vEdgeEnd;', 'uniform vec3 uEdgeEnds;'].join('\n'))
-      .replace('#include <map_fragment>', ['#include <map_fragment>', 'diffuseColor.rgb *= mix( vec3( 1.0 ), uEdgeEnds, vEdgeEnd );'].join('\n'));
+      .replace('#include <common>', ['#include <common>', 'varying float vEdgeEnd;', 'varying vec4 vContact;', 'uniform vec3 uEdgeEnds;', 'uniform float uEdgePage;'].join('\n'))
+      .replace(
+        '#include <map_fragment>',
+        [
+          '#include <map_fragment>',
+          'diffuseColor.rgb *= mix( vec3( 1.0 ), uEdgeEnds, vEdgeEnd );',
+          '{',
+          '\tfloat toBoard = 1.0 - smoothstep( 0.0, ' + c.boardReach.toFixed(3) + ', min( vContact.x, vContact.y ) );',
+          '\tfloat toSpine = ( 1.0 - smoothstep( 0.0, ' + c.spineReach.toFixed(3) + ', vMapUv.y * uEdgePage ) ) * vEdgeEnd;',
+          '\tfloat toEnds = 1.0 - smoothstep( 0.0, ' + c.endsReach.toFixed(3) + ', min( vContact.z, vContact.w ) );',
+          '\tdiffuseColor.rgb *= ( 1.0 - ' + c.board.toFixed(3) + ' * toBoard * toBoard ) * ( 1.0 - ' + c.spine.toFixed(3) + ' * toSpine * toSpine ) * ( 1.0 - ' + c.ends.toFixed(3) + ' * toEnds * toEnds );',
+          '}',
+        ].join('\n'),
+      );
   };
   mat.customProgramCacheKey = () => 'casebound-edge';
   return mat;
