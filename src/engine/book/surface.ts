@@ -27,6 +27,37 @@ export const createSurfaceFx = (): SurfaceFx => ({
   uFxPointer: { value: new Vector2() },
 });
 
+/**
+ * A look that every book surface (covers, pages, leaves) can take on, added from outside the engine.
+ * The hologram and radio looks are built in; this is how an extension adds a third.
+ */
+export interface SurfaceEffect {
+  /** Unique kebab-case name. */
+  name: string;
+  /** Uniforms the effect reads. One object, shared by every book surface. */
+  uniforms: Record<string, IUniform>;
+  /** GLSL declarations: the uniforms above and any helper functions. */
+  pars?: string;
+  /** GLSL that changes `gl_FragColor` at the end of the fragment shader. `vMapUv` is the surface UV, 0..1. */
+  fragment: string;
+}
+
+const surfaceEffects: SurfaceEffect[] = [];
+const liveMaterials = new Set<MeshPhongMaterial>();
+
+/** Registers a surface effect. Existing materials are rebuilt on their next draw. */
+export function defineSurfaceEffect(effect: SurfaceEffect): () => void {
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(effect.name)) throw new Error(`bindery: surface effect name "${effect.name}" must be kebab-case`);
+  if (surfaceEffects.some((e) => e.name === effect.name)) throw new Error(`bindery: surface effect "${effect.name}" is already defined`);
+  surfaceEffects.push(effect);
+  for (const m of liveMaterials) m.needsUpdate = true;
+  return () => {
+    const i = surfaceEffects.indexOf(effect);
+    if (i >= 0) surfaceEffects.splice(i, 1);
+    for (const m of liveMaterials) m.needsUpdate = true;
+  };
+}
+
 export interface ClothParams {
   /** Diffuse wrap: how far light creeps past the terminator. */
   wrap: number;
@@ -345,18 +376,23 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
   if (o.emboss) mat.defines.BINDERY_EMBOSS = '';
   if (o.finish) mat.defines.BINDERY_FINISH = '';
   if (o.bleed) mat.defines.BINDERY_BLEED = '';
+  liveMaterials.add(mat);
+  mat.addEventListener('dispose', () => liveMaterials.delete(mat));
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
+    for (const e of surfaceEffects) Object.assign(shader.uniforms, e.uniforms);
+    const extraPars = surfaceEffects.map((e) => e.pars ?? '').join('\n');
+    const extraFinal = surfaceEffects.map((e) => '{\n' + e.fragment + '\n}').join('\n');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <lights_phong_pars_fragment>', PARS)
+      .replace('#include <lights_phong_pars_fragment>', PARS + extraPars)
       .replace('#include <map_fragment>', ALBEDO)
       .replace('#include <specularmap_fragment>', SPECULAR)
       .replace('#include <normal_fragment_maps>', BUMP)
       .replace('#include <colorspace_fragment>', '')
-      .replace('#include <dithering_fragment>', FINAL);
+      .replace('#include <dithering_fragment>', FINAL.replace('#include <dithering_fragment>', extraFinal + '\n#include <dithering_fragment>'));
     shader.vertexShader = shader.vertexShader.replace('#include <uv_pars_vertex>', VERTEX_PARS).replace('#include <begin_vertex>', VERTEX_DISPLACE);
   };
-  mat.customProgramCacheKey = () => `bindery-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}`;
+  mat.customProgramCacheKey = () => `bindery-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
   return mat;
 }
 
