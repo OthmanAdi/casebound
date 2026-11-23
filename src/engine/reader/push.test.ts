@@ -13,11 +13,15 @@ describe('pushGoal', () => {
     expect(pushedReading(0.5044, pushGoal(0, 0.5044))).toBeCloseTo(0.3044, 4);
   });
 
-  it('gives the shifts captured with the pointer on three buttons of the toolbar', () => {
-    // Next page: just left of the middle. Previous page: further left. Lens: just right.
-    expect(pushGoal(-0.021, 0.513)).toBeCloseTo(0.18, 2);
-    expect(pushGoal(-0.236, 0.513)).toBeCloseTo(0.052, 2);
-    expect(pushGoal(0.063, 0.5044)).toBeCloseTo(-0.145, 2);
+  it('gives the reading places captured with the pointer on three buttons of the toolbar', () => {
+    // Button positions read off a frame of the capture, as shares of the half width from the middle of the
+    // spread: Next -0.026, Previous -0.225, lens 0.053. Captured reading places: 0.694, 0.556, 0.360.
+    expect(pushedReading(0.513, pushGoal(-0.026, 0.513))).toBeCloseTo(0.694, 1);
+    expect(pushedReading(0.496, pushGoal(-0.225, 0.496))).toBeCloseTo(0.556, 1);
+    expect(pushedReading(0.5044, pushGoal(0.053, 0.5044))).toBeCloseTo(0.36, 1);
+    for (const [x, r, seen] of [[-0.026, 0.513, 0.694], [-0.225, 0.496, 0.556], [0.053, 0.5044, 0.36]] as const) {
+      expect(Math.abs(pushedReading(r, pushGoal(x, r)) - seen)).toBeLessThan(0.01);
+    }
   });
 
   it('fades out toward the window edge in a book open near its middle', () => {

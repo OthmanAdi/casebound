@@ -21,7 +21,7 @@ export interface PushTuning {
   swap: number;
 }
 
-/** Read in the reference's code and confirmed on three captures (pointer on the previous, next and lens buttons). */
+/** Read in the reference's code and checked on three captures (pointer on the previous, next and lens buttons): within 0.008 of a book. */
 export const PUSH_DEFAULT: PushTuning = { max: 0.2, edge: 0.3, edgePower: 4, rate: 7, swap: 0.4 };
 
 /**
