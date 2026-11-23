@@ -32,6 +32,7 @@ The folder name must equal the record's `slug`. The loader (`src/site/library.ts
 | `pages` | number, optional | Page count. Sets the number of leaves and, unless `thickness` is given, how thick the book is. Default 240 |
 | `thickness` | number, optional | Closed thickness in world units. Sensible range 1.6 to 3.0 |
 | `background` | colour, optional | Colour of the panel picture. Also tints the light in the Noon theme |
+| `paper` | colour, optional | Colour of the paper: the pages and the page edges. Default a cool white. Cream such as `#e9e2cd` suits an old book |
 | `blurb` | string, optional | A few sentences for the detail column |
 | `source` | object, optional | Where the text comes from: `name`, `id`, `url`, `note` |
 | `cover` | object | See below |

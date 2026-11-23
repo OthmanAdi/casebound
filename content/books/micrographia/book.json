@@ -7,6 +7,7 @@
   "pages": 420,
   "thickness": 2.95,
   "background": "#6f7a55",
+  "paper": "#e7dfc8",
   "blurb": "The first great book of the microscope. Hooke describes a needle's point, the edge of a razor, a flea, the cells of cork, each seen larger than anyone had seen it before. Read it with the magnifier on.",
   "source": { "name": "Project Gutenberg", "id": 15491, "note": "Public domain." },
   "cover": { "cloth": "#2f3a22", "ink": "#d8c37a", "accent": "#93a05a", "pattern": "dots", "foil": "#d9b25a", "grain": "buckram" }

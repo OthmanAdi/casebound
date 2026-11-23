@@ -27,6 +27,8 @@ export interface BookRecord {
   thickness?: number;
   /** Colour behind the book on its panel. Also tints the light in the colour theme. */
   background?: string;
+  /** Colour of the paper: pages and page edges. Default a cool white. An old book reads well on cream, for example "#e9e2cd". */
+  paper?: string;
   /** Year of first publication, shown next to the title. */
   year?: number;
   /** A few sentences about the book, for the detail view. */
@@ -103,8 +105,8 @@ export class Book {
 
     // The volume needs materials, the painter needs the volume's atlas layout: build with placeholders first.
     const paper = grainTexture('paper');
-    const blank = paintPage({ folio: null, left: true }, dims.pageW / dims.pageH, faces, 256);
-    const edge = edgeTexture(seed);
+    const blank = paintPage({ folio: null, left: true }, dims.pageW / dims.pageH, faces, 256, record.paper);
+    const edge = edgeTexture(seed, record.paper);
     const end = endpaperTexture(record.cover, seed);
     this.textures.push(blank, edge, end);
 
@@ -217,7 +219,7 @@ export class Book {
   }
 
   paintPage(content: PageContent, height = 1536): Texture {
-    return paintPage(content, this.dims.pageW / this.dims.pageH, this.faces, height);
+    return paintPage(content, this.dims.pageW / this.dims.pageH, this.faces, height, this.record.paper);
   }
 
   private applyPose(): void {

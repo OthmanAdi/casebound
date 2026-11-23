@@ -7,6 +7,7 @@
   "pages": 360,
   "thickness": 2.7,
   "background": "#4a4f7a",
+  "paper": "#e9e2cd",
   "blurb": "Newton's account of his experiments with prisms and lenses: how white light divides into colours, and how those colours recombine. Written in plain English rather than Latin, as a sequence of experiments a reader could repeat.",
   "source": { "name": "Project Gutenberg", "id": 33504, "note": "Public domain." },
   "cover": { "cloth": "#232a52", "ink": "#e9e2c8", "accent": "#7c86c9", "pattern": "rays", "foil": "#e9e9f2", "foilRainbow": 0.9, "grain": "buckram" }
