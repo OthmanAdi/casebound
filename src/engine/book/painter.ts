@@ -253,6 +253,11 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
   const [fx, fw] = span(layout.front);
 
   drawPattern(g, design.pattern ?? 'plain', fx, 0, fw, H, design.ink, accent, rnd);
+  // A printed ornament is stamped too, a little shallower than the title. Marbled paper stays flat.
+  // The same seed draws the same lines into the relief.
+  if (design.pattern && design.pattern !== 'plain' && design.pattern !== 'marble') {
+    drawPattern(e, design.pattern, fx, 0, fw, H, '#3a3a3a', '#3a3a3a', seeded(design.seed ?? hashString(text.title)));
+  }
   drawPattern(g, design.pattern === 'marble' ? 'marble' : 'plain', bx, 0, bw, H, design.ink, accent, rnd);
 
   // Text is drawn three times: ink on the colour map, pressed into the emboss map, solid on the foil mask.
