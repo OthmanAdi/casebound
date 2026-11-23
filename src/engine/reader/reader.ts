@@ -12,6 +12,7 @@ import { Leaf } from './leaf';
 import { LEAF_DEFAULT, sendLeaf, stepLeaf } from './leaf-physics';
 import { flowPages } from '../book/painter';
 import { paginate, type PageSource } from './pages';
+import { RIFFLE_DEFAULT, RIFFLE_MAX, riffleCast, riffleDrop, riffleReveal, riffleTurn } from './riffle';
 
 export interface ReaderOptions {
   /** Custom page content per book. Default: the record's text, paginated. */
@@ -130,6 +131,26 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     },
     onChange: () => ctx.invalidate(),
   });
+  const riffleTune = tunable(ctx.registry, {
+    id: 'reader.riffle',
+    label: 'Opening riffle',
+    kind: 'animation',
+    tags: ['animation', 'paper', 'book'],
+    describe: 'While the pages part, a few leaves on top of each stack are live: they rise with the block direction and settle onto their stacks one after another, the lowest first. Not shown under reduced motion.',
+    source: 'src/engine/reader/riffle.ts',
+    params: {
+      leaves: { value: RIFFLE_DEFAULT.leaves, min: 0, max: RIFFLE_MAX, step: 1, help: 'Live leaves on each side. 0 turns the riffle off: the two blocks simply part. Read when a book opens' },
+      start: { value: RIFFLE_DEFAULT.start, min: 0, max: 0.9, help: 'Page progress at which the first leaves start to settle. Measured 0.25' },
+      stagger: { value: RIFFLE_DEFAULT.stagger, min: 0, max: 0.5, unit: 's', help: 'Time between one leaf starting to settle and the next one above it. Measured 90 ms' },
+      seconds: { value: RIFFLE_DEFAULT.seconds, min: 0, max: 2, unit: 's', help: 'Time one leaf takes to settle onto its stack. Measured 420 ms' },
+      dropStart: { value: RIFFLE_DEFAULT.dropStart, min: 0, max: 0.9, help: 'Page progress at which the leaves start to go limp. Measured 0.2' },
+      dropDelay: { value: RIFFLE_DEFAULT.dropDelay, min: 0, max: 1, unit: 's', help: 'Time before the first leaf goes limp. Measured 50 ms' },
+      dropStagger: { value: RIFFLE_DEFAULT.dropStagger, min: 0, max: 0.5, unit: 's', help: 'Time between one leaf going limp and the next. Measured 50 ms' },
+      dropSeconds: { value: RIFFLE_DEFAULT.dropSeconds, min: 0, max: 2, unit: 's', help: 'Time for a leaf to go from stiff to limp. Measured 400 ms' },
+      fan: { value: RIFFLE_DEFAULT.fan, min: 0, max: 1, help: 'How far the waiting leaves fan out around the block direction, as a share of its rise' },
+    },
+    onChange: () => ctx.invalidate(),
+  });
 
   let book: Book | null = null;
   let source: PageSource = () => ({ folio: null, left: true });
@@ -170,10 +191,17 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     return tex;
   };
 
-  /** Frees painted pages that are far from the spread. */
+  /** Pages that are wanted soon but not painted yet, the most urgent first. One is painted per frame. */
+  let pending: number[] = [];
+
+  /** The texture of a page for now: blank while the page waits to be painted. */
+  const soon = (page: number): Texture => (pending.includes(page) ? blank! : texture(page));
+
+  /** Frees painted pages that are far from the spread and on no live leaf. */
   const trim = (): void => {
     const keep = new Set<number>();
     for (let p = spread * 2 - 3; p <= spread * 2 + 4; p++) keep.add(p);
+    for (const leaf of leaves) if (leaf.active) keep.add(leaf.index * 2).add(leaf.index * 2 + 1).add(leaf.index * 2 + 2).add(leaf.index * 2 + 3);
     for (const [page, tex] of cache) {
       if (cache.size <= TEXTURE_BUDGET) break;
       if (keep.has(page)) continue;
@@ -193,8 +221,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       left = Math.min(left, leaf.index);
       right = Math.max(right, leaf.index + 1);
     }
-    book.setPage('left', texture(left * 2));
-    book.setPage('right', texture(right * 2 + 1));
+    book.setPage('left', soon(left * 2));
+    book.setPage('right', soon(right * 2 + 1));
     trim();
     ctx.invalidate();
   };
@@ -211,6 +239,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const retire = (leaf: Leaf): void => {
     leaf.active = false;
     leaf.dragTarget = null;
+    leaf.script = null;
+    leaf.limp = 1;
     leaf.mesh.visible = false;
     resetCurl(leaf.curl);
   };
@@ -224,11 +254,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
    */
   const take = (direction: 1 | -1, steal = true): Leaf | null => {
     if (!book || !opening || pages < 0.9) return null;
-    let leaf = leaves.find((l) => !l.active);
+    // The pool also holds the leaves of the opening riffle. They do not count toward the leaves in the air.
+    const busy = leaves.reduce((n, l) => n + (l.active && !l.script ? 1 : 0), 0);
+    let leaf = busy < LIVE_LEAVES ? leaves.find((l) => !l.active) : undefined;
     if (!leaf) {
       if (!steal) return null;
       // None free: take the one that has all but landed. A held leaf is never taken away.
-      const near = (l: Leaf): number => (l.dragTarget !== null ? 9 : Math.abs(l.side * Math.PI - l.motion.angle));
+      const near = (l: Leaf): number => (!l.active || l.script || l.dragTarget !== null ? 9 : Math.abs(l.side * Math.PI - l.motion.angle));
       leaf = leaves.reduce((a, b) => (near(a) <= near(b) ? a : b));
       if (near(leaf) > 0.6) return null;
       retire(leaf);
@@ -250,8 +282,17 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     return leaf;
   };
 
+  /** Takes a leaf out of the opening riffle: from here on it moves by itself or by hand, and needs both its pages. */
+  const unscript = (leaf: Leaf): void => {
+    if (!leaf.script) return;
+    leaf.script = null;
+    leaf.motion.velocity = 0;
+    leaf.setPages(texture(leaf.index * 2 + 1), texture(leaf.index * 2 + 2));
+  };
+
   /** Sends a leaf to a side and moves the page count with it. */
   const aim = (leaf: Leaf, side: 0 | 1, kick: number): void => {
+    unscript(leaf);
     if (leaf.side !== side) {
       spread += side === 1 ? 1 : -1;
       leaf.side = side;
@@ -264,6 +305,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
 
   /** Turns one page: 1 = forward, -1 = back. A leaf that is still in the air on that side is sent back instead of a new one. */
   const launch = (direction: 1 | -1): boolean => {
+    if (pages < 0.9) return false;
     const from: 0 | 1 = direction === 1 ? 0 : 1;
     const flying = outer(from);
     if (flying && flying.dragTarget !== null) return false;
@@ -271,6 +313,91 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (!leaf) return false;
     aim(leaf, direction === 1 ? 1 : 0, leafTune.kick);
     return true;
+  };
+
+  // ---------------------------------------------------------------- the opening riffle (SPEC S-RD-1, S-RD-6)
+  // Until the pages part, every leaf lies on the back board. The top leaves of both stacks are live from the
+  // start: they lie there too, rise with the block direction as the book falls open, and settle one by one.
+
+  /** Seconds since the leaves started to go limp, and since they started to settle. Negative before. */
+  let riffle: { drop: number; settle: number } | null = null;
+
+  /** Dresses the leaves of the riffle in the pages that are painted so far. */
+  const dress = (): void => {
+    for (const leaf of leaves) if (leaf.active && leaf.script) leaf.setPages(cache.get(leaf.index * 2 + 1) ?? blank!, cache.get(leaf.index * 2 + 2) ?? blank!);
+  };
+
+  /** Puts the top leaves of both stacks into the pool for an opening from the closed book. */
+  const castRiffle = (): void => {
+    riffle = null;
+    pending = [];
+    if (!book || ctx.still || pages > 1e-3 || leaves.some((l) => l.active)) return;
+    const cast = riffleCast(spread, book.dims.leaves, Math.min(riffleTune.leaves, ctx.lowPower ? 2 : RIFFLE_MAX));
+    if (!cast.length) return;
+    for (const [n, part] of cast.entries()) {
+      const leaf = leaves[n]!;
+      leaf.active = true;
+      leaf.index = part.index;
+      leaf.side = part.side;
+      leaf.script = part;
+      leaf.dragTarget = null;
+      leaf.limp = 0;
+      leaf.motion.angle = leaf.motion.shown = leaf.motion.velocity = 0;
+      leaf.motion.target = part.side;
+      leaf.motion.resting = false;
+      resetCurl(leaf.curl);
+      leaf.mesh.visible = true;
+    }
+    riffle = { drop: -1, settle: -1 };
+    // The front of the top leaf is the page under the opening cover: it is painted now. The others follow one
+    // per frame, in the order they come into view: the pages under the leaves, their fronts, the backs of
+    // those that turn over.
+    const first = cast[0]!.index;
+    const last = cast[cast.length - 1]!.index;
+    texture(first * 2 + 1);
+    const order = [last * 2 + 3, first * 2, ...cast.map((p) => p.index * 2 + 1), ...cast.filter((p) => p.side === 1).map((p) => p.index * 2 + 2)];
+    pending = order.filter((page) => page >= 1 && page <= book!.dims.leaves * 2 && !cache.has(page));
+    dress();
+  };
+
+  /** Paints the next waiting page and runs the clocks of the riffle. */
+  const stepRiffle = (dt: number): void => {
+    if (pending.length) {
+      texture(pending.shift()!);
+      dress();
+      paintSpread();
+    }
+    if (!riffle) return;
+    riffle.drop = riffle.drop < 0 ? (pages >= riffleTune.dropStart ? 0 : -1) : riffle.drop + dt;
+    riffle.settle = riffle.settle < 0 ? (pages >= riffleTune.start ? 0 : -1) : riffle.settle + dt;
+    if (!leaves.some((l) => l.script)) riffle = null;
+  };
+
+  /** Moves a leaf of the riffle: it stands on the block direction until its turn, then settles onto its side. */
+  const ride = (leaf: Leaf, frames: number): void => {
+    const part = leaf.script!;
+    const m = leaf.motion;
+    const settled = riffle ? riffleReveal(riffle.settle, part.rank, riffleTune) : 1;
+    // The block direction: the share of the leaves that lie on the left so far.
+    const block = book && book.dims.leaves ? (spread / book.dims.leaves) * pages : 0;
+    const before = m.angle;
+    m.angle = m.shown = Math.PI * riffleTurn(block, part, settled, riffleTune.fan);
+    m.velocity = (m.angle - before) / Math.max(1e-3, frames);
+    leaf.limp = riffle ? riffleDrop(riffle.drop, part.order, riffleTune) : 1;
+    if (settled >= 1) {
+      // Down. From here it is a leaf like any other: the next frame finds it at rest.
+      leaf.script = null;
+      m.velocity = 0;
+    }
+  };
+
+  /** Counts, for every live leaf, the live leaves that lie under it on either side. Leaves keep their order in the book. */
+  const stack = (): void => {
+    for (const leaf of leaves) {
+      if (!leaf.active) continue;
+      leaf.below[0] = leaf.below[1] = 0;
+      for (const other of leaves) if (other.active && other.index !== leaf.index) leaf.below[other.index > leaf.index ? 0 : 1] += 1;
+    }
   };
 
   // ---------------------------------------------------------------- turning a page by hand (SPEC S-RD-10)
@@ -335,6 +462,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
 
   /** Advances the curl of one leaf. */
   const bend = (leaf: Leaf, dt: number): void => {
+    // A leaf taken out of the opening riffle before it was limp goes limp by itself.
+    if (leaf.limp < 1) leaf.limp = Math.min(1, leaf.limp + dt / Math.max(0.05, riffleTune.dropSeconds));
     if (ctx.still || curlTune.amount <= 0) {
       resetCurl(leaf.curl);
       return;
@@ -374,6 +503,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     // Catch a leaf that is in the air over this half, whichever way it was going. Otherwise lift the top one.
     const leaf = reach(half);
     if (!leaf || leaf.dragTarget !== null) return;
+    unscript(leaf);
     drag = { leaf, id: ev.pointerId, startX: ev.clientX, startAngle: leaf.motion.angle, remembered: leaf.side, half, travel: 0, dx: 0 };
     leaf.dragTarget = leaf.motion.angle;
     leaf.motion.resting = false;
@@ -461,7 +591,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         book = next;
         source = opts.pages?.(next) ?? paginate(next.record, next.dims.leaves * 2, (paragraphs, heading) => flowPages(paragraphs, heading, next.dims.pageW / next.dims.pageH, next.faces));
         blank = next.paintPage({ folio: null, left: true }, 64);
-        leaves = Array.from({ length: LIVE_LEAVES }, () => new Leaf(next, engine.fx, blank!));
+        leaves = Array.from({ length: LIVE_LEAVES + RIFFLE_MAX * 2 }, () => new Leaf(next, engine.fx, blank!));
         spread = clamp(Math.round((page ?? Math.round(next.dims.leaves * 0.42) * 2) / 2), 0, next.dims.leaves);
         next.held = true;
         tiltFrom.copy(next.tilt.quaternion);
@@ -474,6 +604,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       pagesFrom = pages;
       release ??= ctx.lease('reader');
       engine.state.active = engine.books.indexOf(next);
+      castRiffle();
       paintSpread();
       emitView();
     },
@@ -490,11 +621,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     goTo: (page) => {
       if (!book) return;
       spread = clamp(Math.round(page / 2), 0, book.dims.leaves);
-      for (const leaf of leaves) {
-        leaf.active = false;
-        leaf.dragTarget = null;
-        leaf.mesh.visible = false;
-      }
+      for (const leaf of leaves) retire(leaf);
+      riffle = null;
+      pending = [];
       drag = null;
       hovered = null;
       paintSpread();
@@ -511,6 +640,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       ctx.registry.remove('reader');
       ctx.registry.remove('reader.leaf');
       ctx.registry.remove('reader.curl');
+      ctx.registry.remove('reader.riffle');
     },
   };
 
@@ -518,6 +648,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (!book) return;
     for (const leaf of leaves) leaf.dispose();
     leaves = [];
+    riffle = null;
+    pending = [];
     drag = null;
     hovered = null;
     document.documentElement.style.cursor = '';
@@ -563,9 +695,14 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
 
     // Leaves in the air.
     const frames = 60 * Math.min(f.dt, 0.05);
+    stepRiffle(f.dt);
     lookUnder();
     for (const leaf of leaves) {
       if (!leaf.active) continue;
+      if (leaf.script) {
+        ride(leaf, frames);
+        continue;
+      }
       if (leaf.dragTarget !== null) {
         // Held: the leaf follows the hand with a little lag. Its speed only tells the sheet which way to bow.
         const m = leaf.motion;
@@ -580,7 +717,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       bend(leaf, f.dt);
       if (leaf.motion.resting || ctx.still) {
         leaf.motion.angle = leaf.motion.shown = leaf.side * Math.PI;
-        if (lying(leaf)) continue;
+        if (lying(leaf)) {
+          // It stays as a sheet on its stack. One that came down in the opening riffle may lack a page.
+          leaf.setPages(texture(leaf.index * 2 + 1), texture(leaf.index * 2 + 2));
+          continue;
+        }
         retire(leaf);
         paintSpread();
         emitView();
@@ -594,6 +735,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     pitch.v = ctx.still ? 0 : approach(pitch.v, py > 0 ? py * t.pitchUp : py * t.pitchDown, t.pitchRate, f.dt);
     book.lean = lean.v;
     book.setOpen(cover, book.dims.leaves ? spread / book.dims.leaves : 0.5, pages);
+    stack();
     for (const leaf of leaves) if (leaf.active) leaf.update();
 
     // From where the shelf keeps the book to the reading position.
