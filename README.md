@@ -34,7 +34,8 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | Scroll to the end | Every book of the library stands in a row, spine to the front. `←` and `→`, a press on a spine, or a pull on the row choose one, and it turns its cover forward |
 | `Space`, or **Open book** | The cover swings open, then the pages part |
 | `→` and `←`, or a tap on a page | A leaf turns |
-| Drag a page | The leaf follows your hand. Let go to turn it, or bring it back and it falls |
+| Rest the pointer on a page | The corner under it lifts |
+| Drag a page | The leaf follows your hand and its corner rolls over. Let go to turn it, or bring it back and it falls |
 | `m`, or the lens button | A round magnifier follows the pointer |
 | Press the book, or **View details**, then hover **E-book** or **Audiobook** | Scanlines, or rings, run over the whole book |
 | The theme button | Morning, Noon and Night light |
@@ -71,15 +72,21 @@ Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with
 
    *Recorded from the demo: the row comes up, two steps to the right, a press on a spine.*
 
-4. Cloth, foil and paper take light differently. Covers are shaded as cloth, with a soft sheen at grazing angles, dark gaps between threads and a highlight that stays broad. Foil shifts its colour as the book turns. Four lights sit in presets that blend between Morning, Noon and Night, and the shadow of each book falls softly on a wall behind it.
+4. Cloth, foil and paper take light differently. Covers are shaded as cloth, with a soft sheen at grazing angles, dark gaps between threads, a tooth that stays visible across the room and a highlight that stays broad. Titles and ornaments are pressed into the cloth, so the light catches their walls, and each board meets the spine in a groove. Foil shifts its colour as the book turns. Paper has a fine film grain, and where two pages meet they catch each other's light while the fold lies in shade. Four lights sit in presets that blend between Morning, Noon and Night, and the shadow of each book falls softly on a wall behind it.
 
-5. A book opens in two stages. The front cover swings all the way round and shows the first page, then the pages part to where you were reading and the book turns to face you.
+5. A book opens the way a book does. The front cover swings all the way round and shows the first leaf on the whole block. Then everything before your place turns over in one wad, the other stack lifts off its board, single leaves fan between the two and settle one after another. Open, the pages are not flat: they rise out of the gutter and come down to the fore-edge. The weight of the book follows the pointer, so the spine rolls under the pages while the boards stay where they lie.
 
 6. Leaves turn like paper. One function describes the cross-section of every sheet in the book, the stacked pages and the single leaf in the air alike, so a turning leaf starts and ends exactly on its stack. Released, it follows a simple physical rule in three phases: a push, a steady pace and a braked landing. Held, it follows your hand: any pull that ends on the turning side turns the page, a pull you bring back lets it fall, and a leaf that is still in the air can be caught.
 
    ![A hand pulls a leaf of an open book over to the left and lets go, lifts the next one half way and lets it fall back, then pulls one back from the left](docs/media/drag-demo.gif)
 
    *Recorded from the demo: a page pulled over, one let go half way, one pulled back.*
+
+   A corner curls. The page under a resting pointer lifts its corner a little. A page in the hand rolls over where it is held and casts a soft shadow on itself, and a leaf in the air carries a curl that relaxes as it lands.
+
+   ![The pointer rests on a page and its corner lifts. Then the page is taken by that corner, rolls over as it is pulled across, and lands](docs/media/curl-demo.gif)
+
+   *Recorded from the demo: a corner under the pointer, then the page taken by that corner.*
 
 7. The pages are typeset. The text is flowed line by line in the book's typeface, justified, with running heads and folios, and a paragraph runs on over the page break, so every page is full.
 
@@ -209,8 +216,13 @@ The rebuild is then captured with the same tool, the same settings and the same 
 | Wall shadow opacity, shelf and reader | 0.192 and 0.0534 against 0.193 and 0.0534 |
 | Lens magnification at the centre | 1.440 against 1.442 |
 | Opening, when half the turn is done | 1741 ms against 1835 ms (it was 1216 ms before the second pass) |
+| Pages parting, page progress at seven times | within 0.03 |
+| Brightest paper while the cover swings open | 228 of 255 against 228 |
+| Reading place the open book answers to, pointer on three buttons | 0.688, 0.560, 0.352 from our rule against 0.694, 0.556, 0.360 |
+| Row of spines: cover turn of the arriving book | 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9 |
+| Row of spines: slide after a step | 31, 171, 480, 888 ms against 32, 172, 481, 887 |
 
-A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections; the table shows where they stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
+A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections. A fourth put frames side by side and found what the numbers had hidden: how the pages part, a first leaf that burnt out to white, a book that swung toward the pointer where the reference only shifts its weight, pages that lay flat, and seventeen differences in the row of spines. The table shows where things stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
 
 No code, shader, model, artwork, text or typeface of the reference is in this repository, and the project is not affiliated with Stripe. [`PROVENANCE.md`](PROVENANCE.md) says what is here and where it came from. The capture tools are in [`tools/`](tools) and work on any page, including this one.
 
@@ -230,7 +242,7 @@ The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 fram
 
 ## What is missing
 
-The curl of a page corner under the pointer and the riffle of the top leaves when a book opens. Touch works but was not measured against the reference. The demo texts are excerpts, so a thick book repeats its pages.
+Touch works but was not measured against the reference. In the row of spines three measured differences are open: a press on a far spine overshoots, a pull by hand chooses only on release, and the row does not stop at its ends. The demo texts are excerpts, so a thick book repeats its pages.
 
 ## Licence
 
