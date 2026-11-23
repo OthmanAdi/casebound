@@ -66,12 +66,14 @@ export class Leaf {
   constructor(private readonly book: Book, fx: SurfaceFx, blank: Texture) {
     const d = book.dims;
     const paper = grainTexture('paper');
-    const make = (): ReturnType<typeof createSurfaceMaterial> =>
+    // Each face gets the light and shade of the gutter on its own spine side, like the page blocks under it.
+    const make = (gutter: 0 | 1): ReturnType<typeof createSurfaceMaterial> =>
       createSurfaceMaterial({
+        gutter,
         map: blank,
         grain: paper,
         grainRepeat: [d.pageW * GRAIN_PER_UNIT.paper, d.pageH * GRAIN_PER_UNIT.paper],
-        cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05 },
+        cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05, mottle: 0 },
         shininess: 12.5,
         reflectiveness: 0.39 * 0.6,
         bumpGrain: 0.05,
@@ -81,8 +83,8 @@ export class Leaf {
         transmit: TRANSMIT,
         sheet: true,
       });
-    this.front = make();
-    this.back = make();
+    this.front = make(0);
+    this.back = make(1);
     this.mesh = new Mesh(this.surface.geometry, [this.front, this.back]);
     this.mesh.name = 'leaf';
     this.mesh.castShadow = true;

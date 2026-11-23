@@ -111,7 +111,8 @@ export class Book {
         gutter,
         grain: paper,
         grainRepeat: [dims.pageW * GRAIN_PER_UNIT.paper, dims.pageH * GRAIN_PER_UNIT.paper],
-        cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05 },
+        // Printed pages are smooth: their tooth is the film grain, not the mottle of a cover material.
+        cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05, mottle: 0 },
         shininess: 12.5,
         reflectiveness: 0.39 * 0.6,
         bumpGrain: 0.05,
