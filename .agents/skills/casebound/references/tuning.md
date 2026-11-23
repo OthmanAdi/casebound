@@ -31,7 +31,8 @@ A value set this way lasts until reload. To keep it, change the default in the f
 | `shelf.spin` | Turning the centred book by hand: turn per pixel, spring, coasting, cover lift, levelling | `src/engine/shelf/spin.ts` |
 | `shelf.row` | The row of spines: gap, width of an open cover, depth, how far the chosen book steps out, turn and slide times, when the row assembles, hover pop | `src/engine/shelf/row.ts` |
 | `effect.film`, `book.gutter` | Film grain on paper; the light and shade where two pages meet | `src/engine/book/surface.ts` |
-| `reader` | Pause before opening, cover and page times, height of the open book, scale, pitch, lean toward the pointer, and the page drag (`dragWidth`, `dragFollow`, `tapPx`) | `src/engine/reader/reader.ts` |
+| `book.arch` | The belly of the pages: `height` of the top page of a thick stack and the stack height `fall` at which a page has two thirds of it, both as shares of the page width. `height` 0 lays every page flat | `src/engine/book/volume.ts` |
+| `reader` | Pause before opening, cover and page times, height of the open book, scale, pitch, how the weight of the book follows the pointer (`push`, `pushEdge`, `pushRate`, `pushSwap`; `push` 0 keeps the book still), how fast the case follows a turning leaf (`readingFollow`), and the page drag (`dragWidth`, `dragFollow`, `tapPx`) | `src/engine/reader/reader.ts` |
 | `reader.leaf` | Page turn physics: push, damping, landing brake, launch speed | `src/engine/reader/leaf-physics.ts` |
 | `reader.curl` | Corner curl: strength under the pointer, in the hand and in the air, the fold line, the rates, and the flop of a held leaf. `amount` 0 turns the curl off, `hover` 0 mounts no sheet under the pointer, `flop` 0 turns the flop off | `src/engine/reader/curl.ts` |
 | `reader.riffle` | Opening riffle: live leaves per side, when and how fast they settle and go limp, how far they fan out. `leaves` 0 turns it off | `src/engine/reader/riffle.ts` |
