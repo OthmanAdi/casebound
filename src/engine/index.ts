@@ -5,6 +5,7 @@
 import { Vector3, type Object3D } from 'three';
 import { createContext, type ContextOptions, type EngineContext } from './core/app';
 import { Book, type BookRecord } from './book/book';
+import { PAGE_ARCH } from './book/volume';
 import { DEFAULT_FACES, type Typefaces } from './book/painter';
 import { createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
 import type { FrameInfo } from './core/loop';
@@ -101,6 +102,25 @@ export function createEngine(opts: EngineOptions): Engine {
     },
     onChange: () => ctx.invalidate(),
   });
+  const arch = tunable(ctx.registry, {
+    id: 'book.arch',
+    label: 'Belly of the pages',
+    kind: 'shape',
+    tags: ['book', 'paper', 'shape'],
+    describe: 'How far the pages of an open book bulge between the gutter and the fore-edge.',
+    source: 'src/engine/book/volume.ts',
+    params: {
+      height: { value: PAGE_ARCH.height, min: 0, max: 0.3, help: 'Belly of the top page of a thick stack, as a share of the page width. 0 lays every page flat. Measured: about 0.085 with half the book on each side' },
+      fall: { value: PAGE_ARCH.fall, min: 0.005, max: 0.5, help: 'Stack height at which a page has two thirds of the belly, as a share of the page width. Smaller: thin stacks bulge too' },
+    },
+    onChange: () => {
+      for (const b of books) {
+        b.volume.arch = { height: arch.height, fall: arch.fall };
+        b.refresh();
+      }
+      ctx.invalidate();
+    },
+  });
   const rig = new LightRig(ctx.registry);
   const wall = new ShadowWall(ctx.registry);
   ctx.scene.add(rig.group, wall.mesh);
@@ -122,6 +142,8 @@ export function createEngine(opts: EngineOptions): Engine {
     book: (slug) => books.find((b) => b.record.slug === slug),
     addBook: (record) => {
       const book = new Book(record, ctx.registry, fx, faces);
+      book.volume.arch = { height: arch.height, fall: arch.fall };
+      book.refresh();
       books.push(book);
       ctx.scene.add(book.root);
       ctx.invalidate();

@@ -53,6 +53,18 @@ const BLOCK_K = 5;
 /** Air between a board and the first leaf on it. */
 const SEAT = 0.02;
 
+/**
+ * The belly of the pages. `height` is that of the top page of a thick stack and `fall` the stack height at which
+ * a page has about two thirds of it, both as shares of the page width: a few leaves on a board lie flat, a
+ * hundred bulge. Measured on a resting spread of the reference: about 1.1 units on a page 13.2 wide, half the
+ * book on each side.
+ */
+export interface PageArch {
+  height: number;
+  fall: number;
+}
+export const PAGE_ARCH: PageArch = { height: 0.1, fall: 0.09 };
+
 /** Leaf stripes across the full width of the edge texture. */
 export const EDGE_TEXTURE_LEAVES = 256;
 
@@ -138,6 +150,8 @@ export class Volume {
   /** Horizontal ranges of the cover atlas, for the painter: back cover, spine, front cover. */
   readonly atlas: { back: [number, number]; spine: [number, number]; front: [number, number]; aspect: number };
   pose: VolumePose = { front: 0, back: 0, split: 0.5 };
+  /** The belly of the pages. Call `setPose` after changing it. */
+  arch: PageArch = { ...PAGE_ARCH };
 
   private readonly caseSurface = new Surface(COLS * 8 + 8);
   private readonly blockSurfaces: [Surface, Surface];
@@ -317,7 +331,10 @@ export class Volume {
     // its way out is shaped as if a board stood where the stack is now.
     const face = this.boardFace(left, open);
     const offset = (face.x - x) * face.nx + (face.z - z) * face.nz + k * t + SEAT;
-    return { x, z, heading, turnLength: turnLengthForOffset(offset, heading - Math.PI / 2), length: d.pageW };
+    // The higher a page lies in its stack, the more it bulges: the board under the lowest one is flat.
+    const fall = Math.max(1e-4, this.arch.fall * d.pageW);
+    const arch = this.arch.height * d.pageW * (1 - Math.exp(-(k * t) / fall));
+    return { x, z, heading, turnLength: turnLengthForOffset(offset, heading - Math.PI / 2), length: d.pageW, arch };
   }
 
   private buildBlock(which: 0 | 1, pose: VolumePose): void {

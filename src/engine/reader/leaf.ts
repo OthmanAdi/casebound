@@ -126,6 +126,8 @@ export class Leaf {
         heading: lerp(right.heading, left.heading, turn),
         turnLength: lerp(right.turnLength, left.turnLength, turn) + 0.25 * air,
         length: dims.pageW,
+        // Lying down, the sheet has the belly of the page it lies on.
+        arch: lerp(right.arch ?? 0, left.arch ?? 0, turn),
         bow: -0.42 * air * dir * this.limp,
         tip: -0.3 * air * dir * this.limp,
         flop: this.flop.bend,

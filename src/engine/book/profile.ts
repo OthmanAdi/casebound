@@ -33,7 +33,22 @@ export interface LeafShape {
   tip?: number;
   /** How far the outer half of the leaf falls over, radians at the free edge. Positive toward larger headings. */
   flop?: number;
+  /**
+   * Height of the belly of a leaf that lies down, in world units. The pages of a thick book do not lie flat: they
+   * rise out of the gutter, are highest a third of the way out and come down to the fore-edge. Both ends of the
+   * leaf stay where they are. A leaf that stands has none: the belly fades with the cosine of the heading.
+   */
+  arch?: number;
 }
+
+/** Peak of u^1.5 (1 - u)^3, at u = 1/3. */
+const BELLY_PEAK = Math.pow(1 / 3, 1.5) * Math.pow(2 / 3, 3);
+
+/** Shape of the belly along the leaf: 0 at the gutter and at the fore-edge, 1 a third of the way out, flat at both ends. */
+export const bellyAt = (u: number): number => (u <= 0 || u >= 1 ? 0 : (Math.pow(u, 1.5) * Math.pow(1 - u, 3)) / BELLY_PEAK);
+
+/** Slope of `bellyAt`. */
+export const bellySlope = (u: number): number => (u <= 0 || u >= 1 ? 0 : (Math.sqrt(u) * (1 - u) * (1 - u) * (1.5 - 4.5 * u)) / BELLY_PEAK);
 
 export function headingAt(shape: LeafShape, s: number): number {
   const up = Math.PI / 2;
@@ -66,10 +81,26 @@ export function sampleLeaf(shape: LeafShape, count: number, out: Float32Array): 
     }
     const a = headingAt(shape, s);
     const o = i * PROFILE_STRIDE;
+    let tx = Math.cos(a);
+    let tz = Math.sin(a);
     out[o] = x;
     out[o + 1] = z;
-    out[o + 2] = Math.cos(a);
-    out[o + 3] = Math.sin(a);
+    if (shape.arch && shape.length > 0) {
+      // The belly lifts the leaf off its own line, toward the side it shows: its ends do not move.
+      const u = s / shape.length;
+      const lift = shape.arch * Math.cos(shape.heading);
+      const h = lift * bellyAt(u);
+      const slope = (lift * bellySlope(u)) / shape.length;
+      out[o] = x - tz * h;
+      out[o + 1] = z + tx * h;
+      const nx = tx - tz * slope;
+      const nz = tz + tx * slope;
+      const len = Math.hypot(nx, nz) || 1;
+      tx = nx / len;
+      tz = nz / len;
+    }
+    out[o + 2] = tx;
+    out[o + 3] = tz;
   }
 }
 
