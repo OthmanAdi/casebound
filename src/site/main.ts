@@ -122,7 +122,9 @@ async function boot(): Promise<void> {
     const forward = Number(ctx.registry.getParam('reader', 'forward') ?? 0);
     const grown = Number(ctx.registry.getParam('reader', 'scale') ?? 1);
     const perWorld = ctx.size.y / ctx.visibleHeightAt(book.home.position.z + forward);
-    const spread = 2 * book.dims.pageW * book.home.scale * grown * perWorld * 1.1;
+    // The open case is what has to fit: two boards and the spine between them, a little nearer than the plane
+    // it is measured at because the book leans back.
+    const spread = (2 * book.dims.coverW + book.dims.thickness) * book.home.scale * grown * perWorld * 1.04;
     const room = innerWidth * (1 - 0.4 * shift) - (ctx.compact ? 16 : 48);
     return Math.min(1, room / spread);
   };
