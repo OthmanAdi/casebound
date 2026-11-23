@@ -1,6 +1,6 @@
 ---
 name: casebound
-description: Build, extend and tune a Casebound library: lit 3D hardcover books in the browser with a damped shelf, real page turns, a magnifier and surface effects. Use when asked to add or restyle a book, change lights or motion, add an object, effect or layout, or check that a change still looks and moves right.
+description: Build, extend and tune a Casebound library, a three.js scene of lit 3D hardcover books in the browser with a shelf that scrolls with weight, books that open, pages that turn like paper, a magnifier and light effects on the pages. Every book is generated from a small JSON record (cover, cloth, foil, page count, text), and every light and motion value is a named parameter. Use when someone asks for a 3D book or bookshelf on a web page, a page-flip or page-turn animation with real geometry, a WebGL book viewer or reader, a product page that shows a book in 3D, a new book or cover design in an existing Casebound checkout, a change to its lights, shadows, scroll feel, page turn or lens, a new object, surface effect, shelf layout or light preset written as an extension, or a check that a change still looks and moves right, even if they never name this repository.
 ---
 
 # Casebound
