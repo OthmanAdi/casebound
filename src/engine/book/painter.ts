@@ -461,7 +461,7 @@ export interface PageContent {
  * Paints one page: running head, body text set justified, folio. Returns a texture in page proportions.
  * Pages are painted when they are about to be seen and can be disposed afterwards.
  */
-export function paintPage(content: PageContent, pageAspect: number, faces: Typefaces = DEFAULT_FACES, height = 1536, paper = '#f3f2ee'): CanvasTexture {
+export function paintPage(content: PageContent, pageAspect: number, faces: Typefaces = DEFAULT_FACES, height = 1536, paper = '#eff1f5'): CanvasTexture {
   const H = height;
   const W = Math.round(H * pageAspect);
   const [c, g] = canvas(W, H);

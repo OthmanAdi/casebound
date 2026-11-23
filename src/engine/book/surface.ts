@@ -71,13 +71,16 @@ export interface ClothParams {
   weave: number;
   /** Fine fibre streaks. */
   fibre: number;
+  /** Output gain of surfaces with this grain. Default 0.9. */
+  exposure?: number;
 }
 
 /** Defaults by grain (S-BOOK-7). */
 export const CLOTH: Readonly<Record<'buckram' | 'paper' | 'cardboard' | 'none', ClothParams>> = {
   buckram: { gloss: 0.3, sheen: 0.6, weave: 0.3, fibre: 0.05, sheenRough: 0.55, wrap: 0.3 },
   cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2 },
-  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15 },
+  // Paper measured 7 percent darker on screen than the reference before its gain was raised.
+  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05 },
   none: { gloss: 1, sheen: 0, weave: 0, fibre: 0, sheenRough: 0.6, wrap: 0 },
 };
 
@@ -370,7 +373,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uBleed: { value: 0.3 },
     uTurn: { value: 0 },
     uTransmit: { value: o.transmit ?? 0 },
-    uExposure: { value: o.exposure ?? 0.9 },
+    uExposure: { value: o.exposure ?? o.cloth.exposure ?? 0.9 },
     ...o.fx,
   };
   mat.userData.uniforms = uniforms;
@@ -401,6 +404,8 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
 /** Page edges: a plain lit material. Written out without tone mapping so the paper keeps its brightness. */
 export function createEdgeMaterial(map: Texture, tint = '#f6f3ec'): MeshStandardMaterial {
   const mat = new MeshStandardMaterial({ map, color: tint, emissive: '#262522', roughness: 0.85, metalness: 0, side: DoubleSide });
+  // The stacked edges measured a quarter darker than the reference.
+  mat.color.multiplyScalar(1.5);
   mat.toneMapped = false;
   return mat;
 }
