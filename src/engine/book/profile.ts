@@ -76,3 +76,21 @@ export const sampleDistance = (length: number, count: number, i: number): number
  * This is the inverse: the turn length that puts a layer at the given height.
  */
 export const turnLengthForHeight = (height: number): number => height / 1.3708;
+
+/** The sine integral Si(x), by its power series. Accurate to 1e-9 up to x = 4. */
+export function sineIntegral(x: number): number {
+  let term = x;
+  let sum = x;
+  for (let k = 1; k < 16; k++) {
+    term *= (-x * x) / ((2 * k) * (2 * k + 1));
+    sum += term / (2 * k + 1);
+  }
+  return sum;
+}
+
+/**
+ * While a leaf turns from upright through `turn` radians it is carried sideways, toward the side it turns
+ * away from, by turnLength x Si(turn). This is the inverse: the turn length that carries it `offset`.
+ * For a quarter turn it equals `turnLengthForHeight`.
+ */
+export const turnLengthForOffset = (offset: number, turn: number): number => Math.max(0, offset) / Math.max(sineIntegral(Math.abs(turn)), 0.05);

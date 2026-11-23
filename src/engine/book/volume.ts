@@ -9,7 +9,7 @@
 import { BufferAttribute, BufferGeometry, Group, Mesh, type Material } from 'three';
 import type { BookDims } from './dims';
 import { LEAF_THICKNESS } from './dims';
-import { PROFILE_STRIDE, sampleDistance, sampleLeaf, turnLengthForHeight, type LeafShape } from './profile';
+import { PROFILE_STRIDE, sampleDistance, sampleLeaf, turnLengthForOffset, type LeafShape } from './profile';
 
 export interface VolumePose {
   /** Opening angle of the front (left) board in radians. 0 = closed, pi/2 = flat. */
@@ -39,6 +39,9 @@ const COLS = SIDE * 2 + 1;
 /** Page block resolution: samples along the page, layers through the stack. */
 const BLOCK_S = 28;
 const BLOCK_K = 5;
+
+/** Air between a board and the first leaf on it. */
+const SEAT = 0.02;
 
 /** Leaf stripes across the full width of the edge texture. */
 export const EDGE_TEXTURE_LEAVES = 256;
@@ -259,19 +262,39 @@ export class Volume {
     s.end();
   }
 
+  /** A point on the inner face of a board, past the hinge, and the direction that face looks in. */
+  private boardFace(left: boolean, open: number): { x: number; z: number; nx: number; nz: number } {
+    const d = this.dims;
+    const arcSeg = (d.hinge * Math.PI) / 2 / NH;
+    const start = left ? Math.PI : 0;
+    const end = left ? Math.PI / 2 + open : Math.PI / 2 - open;
+    // The same walk as the case: half the spine, then the hinge arc.
+    let x = Math.cos(start) * ((d.thickness - d.board) / 2 - d.hinge);
+    let z = 0;
+    for (let j = 1; j <= NH; j++) {
+      const h = start + ((end - start) * j) / NH;
+      x += Math.cos(h) * arcSeg;
+      z += Math.sin(h) * arcSeg;
+    }
+    const nx = left ? Math.sin(end) : -Math.sin(end);
+    const nz = left ? -Math.cos(end) : Math.cos(end);
+    return { x: x + (nx * d.board) / 2, z: z + (nz * d.board) / 2, nx, nz };
+  }
+
   /** Shape of layer k (0 = on the board, 1 = top of the stack) of one page block. */
   layerShape(which: 0 | 1, k: number, pose: VolumePose = this.pose): LeafShape {
     const d = this.dims;
     const left = which === 0;
     const t = d.blockT * (left ? pose.split : 1 - pose.split);
     const open = left ? pose.front : pose.back;
-    return {
-      x: left ? -d.blockT / 2 + k * t : d.blockT / 2 - k * t,
-      z: d.board / 2 + 0.02,
-      heading: left ? Math.PI / 2 + open : Math.PI / 2 - open,
-      turnLength: turnLengthForHeight(k * t),
-      length: d.pageW,
-    };
+    const heading = left ? Math.PI / 2 + open : Math.PI / 2 - open;
+    const x = left ? -d.blockT / 2 + k * t : d.blockT / 2 - k * t;
+    const z = d.board / 2 + SEAT;
+    // Away from the spine the layer runs k x t above the inner face of its board, wherever that board points:
+    // lying flat, standing, or folded right back while the book is open near its first or last page.
+    const face = this.boardFace(left, open);
+    const offset = (face.x - x) * face.nx + (face.z - z) * face.nz + k * t + SEAT;
+    return { x, z, heading, turnLength: turnLengthForOffset(offset, heading - Math.PI / 2), length: d.pageW };
   }
 
   private buildBlock(which: 0 | 1, pose: VolumePose): void {
