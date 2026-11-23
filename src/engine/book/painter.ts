@@ -510,7 +510,10 @@ export interface FlowedPage {
 }
 
 /** Proportions of a page, as shares of its width or height. */
-const PAGE = { inner: 0.15, outer: 0.11, top: 0.105, bottom: 0.9, text: 0.0158, lead: 1.5, indent: 1.4, heading: 0.034, headingRoom: 0.16, headingGap: 0.03 };
+// Text size, weight and leading were set beside a page of the reference at reading distance: its lines stand
+// closer and its strokes are heavier than a book face at its regular weight, which thins to grey when a page
+// is drawn a few hundred pixels high.
+const PAGE = { inner: 0.15, outer: 0.11, top: 0.105, bottom: 0.9, text: 0.0152, weight: 520, lead: 1.36, indent: 1.4, heading: 0.034, headingRoom: 0.16, headingGap: 0.03 };
 
 /**
  * Sets a text in pages the way a compositor would: lines are broken by the real width of the words in the
@@ -524,7 +527,7 @@ export function flowPages(paragraphs: string[], heading: (index: number) => stri
   const measure = W * (1 - PAGE.inner - PAGE.outer);
   const px = H * PAGE.text;
   const lead = px * PAGE.lead;
-  const body = `400 ${px}px ${faces.text}`;
+  const body = `${PAGE.weight} ${px}px ${faces.text}`;
   const widths = new Map<string, number>();
   const widthOf = (word: string): number => {
     let w = widths.get(word);
@@ -628,7 +631,7 @@ export function paintPage(content: PageContent, pageAspect: number, faces: Typef
 
   const px = H * PAGE.text;
   const lead = px * PAGE.lead;
-  g.font = `400 ${px}px ${faces.text}`;
+  g.font = `${PAGE.weight} ${px}px ${faces.text}`;
   const space = g.measureText(' ').width;
   g.textAlign = 'left';
   for (const line of content.lines ?? []) {
