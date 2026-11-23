@@ -27,6 +27,8 @@ export interface Reader {
   /** 0 = closed, 1 = fully open. */
   readonly openness: number;
   readonly book: Book | null;
+  /** How far the pages have parted, 0..1. Pages can be turned from 0.9. */
+  readonly parted: number;
   /** Number of the left-hand page of the spread. The right-hand page is this plus one. */
   readonly page: number;
   readonly pageCount: number;
@@ -51,11 +53,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     describe: 'Opens a book toward the camera and turns its leaves.',
     source: 'src/engine/reader/reader.ts',
     params: {
+      openDelay: { value: 0.65, min: 0, max: 3, unit: 's', help: 'Pause between the request and the cover starting to move. Measured: 0.65' },
       coverSeconds: { value: 0.98, min: 0.05, max: 5, unit: 's', help: 'Time for the front cover to swing open' },
-      pageDelay: { value: 0.82, min: 0, max: 5, unit: 's', help: 'When the pages start to part, counted from the start of opening' },
+      pageDelay: { value: 0.693, min: 0, max: 5, unit: 's', help: 'When the pages start to part, counted from the cover starting to move. Measured: the moment the cover is half way' },
       pageSeconds: { value: 0.9, min: 0.05, max: 5, unit: 's', help: 'Time for the pages to part to the reading place' },
       forward: { value: 0, min: 0, max: 60, help: 'How far the open book comes toward the camera. Measured: a featured book stays at its depth; 14 when opened from a spine row' },
       scale: { value: 1, min: 0.3, max: 3, help: 'Scale of the open book. Measured: 1 for a featured book; 1.1 when opened from a spine row' },
+      rise: { value: 0.524, min: -10, max: 10, help: 'How far above the centre of the picture the spine of the open book sits' },
       pitch: { value: 22, min: 0, max: 80, unit: 'deg', help: 'How far the open book leans back' },
       pitchUp: { value: 10, min: 0, max: 40, unit: 'deg', help: 'Extra pitch with the pointer at the top' },
       pitchDown: { value: 12, min: 0, max: 40, unit: 'deg' },
@@ -95,6 +99,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   let pages = 0;
   let opening = false;
   let elapsed = 0;
+  /** Pause before this opening starts to move. None when a closing book is opened again. */
+  let delay = 0;
+  let settled = false;
+  const tiltFrom = new Quaternion();
+  const upright = new Quaternion();
   let coverFrom = 0;
   let pagesFrom = 0;
   let release: (() => void) | null = null;
@@ -312,6 +321,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     get book() {
       return book;
     },
+    get parted() {
+      return pages;
+    },
     get page() {
       return spread * 2;
     },
@@ -329,8 +341,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         leaves = Array.from({ length: LIVE_LEAVES }, () => new Leaf(next, engine.fx, blank!));
         spread = clamp(Math.round((page ?? Math.round(next.dims.leaves * 0.42) * 2) / 2), 0, next.dims.leaves);
         next.held = true;
+        tiltFrom.copy(next.tilt.quaternion);
       }
       opening = true;
+      delay = cover > 1e-3 ? 0 : t.openDelay;
+      settled = false;
       elapsed = 0;
       coverFrom = cover;
       pagesFrom = pages;
@@ -398,11 +413,16 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const unsub = ctx.onFrame('reader', (f) => {
     if (!book) return;
     elapsed += f.dt;
-    const k = ctx.still ? 1 : clamp(elapsed / t.coverSeconds, 0, 1);
+    const moving = opening ? Math.max(0, elapsed - delay) : elapsed;
+    const k = ctx.still ? 1 : clamp(moving / t.coverSeconds, 0, 1);
     cover = opening ? lerp(coverFrom, 1, k * k) : lerp(coverFrom, 0, easeOutCubic(k));
     if (opening) {
-      const pk = ctx.still ? 1 : clamp((elapsed - t.pageDelay) / t.pageSeconds, 0, 1);
+      const pk = ctx.still ? 1 : clamp((moving - t.pageDelay) / t.pageSeconds, 0, 1);
       pages = Math.max(pagesFrom, powerSigmoid(pk));
+      if (!settled && pages >= 0.985) {
+        settled = true;
+        emitView();
+      }
     } else {
       const pk = ctx.still ? 1 : clamp(elapsed / t.pageSeconds, 0, 1);
       pages = lerp(pagesFrom, 0, easeOutCubic(pk));
@@ -450,13 +470,15 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const home = book.home;
     const z = home.position.z + t.forward;
     const worldPerPx = ctx.visibleHeightAt(z) / Math.max(1, ctx.size.y);
-    goalPos.set(ctx.camera.position.x + offset.x * worldPerPx, ctx.camera.position.y - offset.y * worldPerPx, z);
-    const blend = cover * cover * (3 - 2 * cover);
+    goalPos.set(offset.x * worldPerPx, ctx.camera.position.y - offset.y * worldPerPx + t.rise, z);
+    // Measured: position and turn follow the cover's own progress, with no second easing on top.
+    const blend = cover;
     book.root.position.copy(home.position).lerp(goalPos, blend);
     q.setFromEuler(e.set(-(t.pitch - pitch.v) * DEG, 0, 0));
     book.root.quaternion.copy(home.quaternion).slerp(q, blend);
     book.root.scale.setScalar(lerp(home.scale, home.scale * t.scale * (opts.fit?.() ?? 1), blend));
-    book.tilt.rotation.set(0, 0, 0);
+    // The lean toward the pointer that the book had on the shelf fades as the cover opens.
+    book.tilt.quaternion.copy(tiltFrom).slerp(upright, blend);
   });
 
   return reader;
