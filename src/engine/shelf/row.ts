@@ -84,6 +84,9 @@ export interface RowState {
   seatVel: Velocity;
   /** Seconds since the choice last moved. */
   sinceStep: number;
+  /** While a hand drags the row: how far it has pulled it sideways, world units. */
+  drag: number;
+  dragging: boolean;
 }
 
 export function createRow(count: number, anchor: number): RowState {
@@ -105,6 +108,8 @@ export function createRow(count: number, anchor: number): RowState {
     seat: 0,
     seatVel: { v: 0 },
     sinceStep: 1,
+    drag: 0,
+    dragging: false,
   };
 }
 
@@ -206,8 +211,9 @@ export function stepRow(s: RowState, widths: number[], past: number, hovered: nu
   }
 
   // The row slides so the chosen book stands in the middle.
-  const want = s.called ? -(x0[s.selected]! + pushAt(s.selected, widths, s.yaw, t.slot)) : 0;
-  s.offset = still ? want : smoothDamp(s.offset, want, s.offsetVel, t.offsetTime, dt);
+  // A hand that drags the row is followed closely.
+  const want = s.called ? -(x0[s.selected]! + pushAt(s.selected, widths, s.yaw, t.slot)) + s.drag : 0;
+  s.offset = still ? want : smoothDamp(s.offset, want, s.offsetVel, s.dragging ? 0.06 : t.offsetTime, dt);
   return moving || Math.abs(s.assemble + s.offset + s.seat - before) > 1e-5;
 }
 
@@ -235,6 +241,33 @@ export function placeAt(s: RowState, widths: number[], i: number, t: RowTuning =
     z: t.forward * yaw - t.back * (1 - yaw) * s.assemble + s.pop[i]!,
     turn: Math.pow(yaw, t.yawPower),
   };
+}
+
+/**
+ * The hand lets the row go. Measured: the book next to the chosen one is taken once the row was pulled past 55
+ * percent of the way to it, or a quarter of the way in the direction of the pull; a flick above 250 px/s
+ * carries the row on by 0.15 s of its speed, three books at most.
+ * @param velocity sideways speed of the hand in world units per second
+ * @param flick true when the hand was faster than the flick threshold
+ * @returns true when the choice changed
+ */
+export function releaseRow(s: RowState, widths: number[], velocity: number, flick: boolean, t: RowTuning = ROW_DEFAULT): boolean {
+  const pulled = s.drag + (flick ? velocity * 0.15 : 0);
+  s.drag = 0;
+  s.dragging = false;
+  // Pulling the row to the right brings the books on the left to the middle.
+  const dir = pulled > 0 ? -1 : 1;
+  let pick = s.selected;
+  let left = Math.abs(pulled);
+  for (let n = 0; n < 3; n++) {
+    const next = pick + dir;
+    if (next < 0 || next >= widths.length) break;
+    const way = (widths[pick]! + widths[next]!) / 2 + t.gap + (n === 0 ? (t.slot - widths[pick]!) / 2 : 0);
+    if (left < way * (n === 0 ? 0.25 : 0.55)) break;
+    pick = next;
+    left -= way;
+  }
+  return choose(s, pick);
 }
 
 /** How far the last featured book has moved from its featured pose into the row, 0..1. */

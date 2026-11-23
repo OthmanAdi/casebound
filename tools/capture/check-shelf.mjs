@@ -119,6 +119,29 @@ try {
   await run(1.6);
   const stepped = await rowCheck('an arrow chooses the next book', (r) => r.selected !== stood.selected && r.active === r.selected);
   await shot('row stepped');
+  // A hand that pulls the row to the right brings the books on the left to the middle.
+  const spineOf = (n) => page.evaluate((n) => {
+    const { ctx } = casebound.engine;
+    const book = casebound.engine.books[casebound.shelf.order[n]];
+    const v = book.root.position.clone();
+    book.root.getWorldPosition(v);
+    v.project(ctx.camera);
+    const r = ctx.canvas.getBoundingClientRect();
+    return { slug: book.record.slug, x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (0.5 - v.y * 0.5) * r.height };
+  }, n);
+  const grip = await spineOf(1);
+  await page.mouse.move(grip.x, grip.y);
+  await run(0.1);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(grip.x + i * 25, grip.y);
+    await run(0.05);
+  }
+  await page.mouse.up();
+  await run(2);
+  const pulled = await rowCheck('pulled to the right, the row takes a book further left', (r) => r.selected !== stepped.selected && r.active === r.selected);
+  await shot('row pulled');
+
   // A press on the first spine chooses that book.
   const first = await page.evaluate(() => {
     const { ctx } = casebound.engine;
@@ -131,7 +154,7 @@ try {
   });
   await page.mouse.click(first.x, first.y);
   await run(2);
-  await rowCheck('a press on a spine chooses that book', (r) => r.selected === first.slug && r.selected !== stepped.selected);
+  await rowCheck('a press on a spine chooses that book', (r) => r.selected === first.slug && r.selected !== pulled.selected);
   await page.keyboard.press('Space');
   await run(3.4);
   await rowCheck('the chosen book opens from the row', (r) => r.reading === first.slug);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROW_DEFAULT, choose, createRow, joinOf, placeAt, pushAt, restX, rowCall, rowOrder, rowSettled, stepChoice, stepRow } from './row';
+import { ROW_DEFAULT, choose, createRow, joinOf, placeAt, pushAt, releaseRow, restX, rowCall, rowOrder, rowSettled, stepChoice, stepRow } from './row';
 
 const widths = [2.2, 2.6, 2.4, 2.5, 3.0, 2.1];
 const run = (s: ReturnType<typeof createRow>, past: number, seconds: number, fps = 60, hovered = -1): void => {
@@ -98,6 +98,30 @@ describe('row of spines', () => {
     run(s, 1, 1, 60, 3);
     expect(s.pop[3]!).toBe(0);
     expect(s.pop[1]!).toBeLessThan(0.01);
+  });
+
+  it('follows a hand that drags it and takes the next book past a quarter of the way', () => {
+    const s = createRow(6, 3);
+    run(s, 1, 2);
+    s.dragging = true;
+    s.drag = 1.2;
+    run(s, 1, 0.5);
+    expect(placeAt(s, widths, 3).x).toBeCloseTo(1.2, 1);
+    // A small pull lets the row fall back.
+    expect(releaseRow(s, widths, 0, false)).toBe(false);
+    expect(s.selected).toBe(3);
+    // A pull to the right brings the book on the left to the middle.
+    s.dragging = true;
+    s.drag = 4;
+    expect(releaseRow(s, widths, 0, false)).toBe(true);
+    expect(s.selected).toBe(2);
+    expect(s.drag).toBe(0);
+    // A flick to the left carries on over more than one book, three at most.
+    run(s, 1, 2);
+    s.dragging = true;
+    s.drag = -3;
+    expect(releaseRow(s, widths, -400, true)).toBe(true);
+    expect(s.selected).toBe(5);
   });
 
   it('moves the last featured book into the row as the scroll goes on', () => {

@@ -8,7 +8,7 @@ import type { Engine } from '../index';
 import { DEG, approach, clamp, easeInOutQuad, frameFactor, lerp } from '../core/math';
 import { tunable } from '../core/tune';
 import { SCROLL_COMPACT, SCROLL_DESKTOP, createScrollState, stepScroll, type ScrollState } from './scroll';
-import { ROW_DEFAULT, choose, createRow, joinOf, placeAt, rowOrder, rowSettled, stepChoice, stepRow } from './row';
+import { ROW_DEFAULT, choose, createRow, joinOf, placeAt, releaseRow, rowOrder, rowSettled, stepChoice, stepRow } from './row';
 import { SPIN_DEFAULT, createSpin, dragSpin, grabSpin, releaseSpin, stepSpin, type SpinGrab } from './spin';
 
 export interface ShelfOptions {
@@ -183,6 +183,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   const managed = row ? catalogue : order;
   let rowPast = 0;
   let rowLive = false;
+  let rowWidths: number[] = [];
+  /** World units per CSS pixel at the depth of the row, for a hand that drags it. */
+  let rowWorldPerPx = 0.03;
   let hoveredSpine = -1;
   /** The book that keys, presses and the reader act on: the centred featured book, or the chosen one in the row. */
   let focus = order[0]!;
@@ -257,7 +260,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   const ignore = opts.ignore ?? 'button, a, input, select, textarea, label, aside, header, footer, nav, [role="toolbar"], [role="dialog"]';
   let spin = createSpin();
   let spun = -1;
-  let press: { id: number; x: number; y: number; at: number; touch: boolean; grab: SpinGrab | null; trail: { t: number; x: number; y: number }[]; pick?: number } | null = null;
+  let press: { id: number; x: number; y: number; at: number; touch: boolean; grab: SpinGrab | null; trail: { t: number; x: number; y: number }[]; pick?: number; pull?: boolean } | null = null;
   /** The pointer rests on the centred book. */
   let hovering = false;
   let peek = 0;
@@ -345,9 +348,22 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     if (ev.pointerId !== press.id) return;
     const dx = ev.clientX - press.x;
     const dy = ev.clientY - press.y;
-    if (press.pick !== undefined) {
-      // A press on a spine that wanders off is not a choice.
-      if (Math.hypot(dx, dy) > spinTune.dragPx * 2) press = null;
+    if (press.pick !== undefined && row) {
+      // A press on a spine that moves sideways drags the whole row.
+      if (!press.pull) {
+        if (Math.hypot(dx, dy) < spinTune.dragPx) return;
+        if (press.touch && Math.abs(dy) > Math.abs(dx)) {
+          press = null;
+          return;
+        }
+        press.pull = true;
+        row.dragging = true;
+        document.documentElement.style.cursor = 'grabbing';
+      }
+      row.drag = dx * rowWorldPerPx;
+      press.trail.push({ t: clock, x: ev.clientX, y: ev.clientY });
+      while (press.trail.length > 2 && clock - press.trail[0]!.t > 100) press.trail.shift();
+      ctx.invalidate();
       return;
     }
     if (!press.grab) {
@@ -372,7 +388,14 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     press = null;
     document.documentElement.style.cursor = '';
     if (p.pick !== undefined) {
-      if (row && ev.type === 'pointerup' && choose(row, p.pick)) ctx.invalidate();
+      if (row && p.pull) {
+        const first = p.trail[0];
+        const last = p.trail[p.trail.length - 1];
+        const fresh = ev.type === 'pointerup' && first && last && last.t > first.t && clock - last.t < 80;
+        const speed = fresh ? (last.x - first.x) / (Math.max(1, last.t - first.t) / 1000) : 0;
+        releaseRow(row, rowWidths, speed * rowWorldPerPx, Math.abs(speed) > 250, rowTune!);
+      } else if (row && ev.type === 'pointerup') choose(row, p.pick);
+      ctx.invalidate();
       return;
     }
     if (!p.grab) {
@@ -406,6 +429,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     let moving = stepScroll(state, scrollY(), slotPx(), order.length + (row ? 1 : 0), tuning, f.dt, ctx.still);
     const widths = row && rowTune ? display.map((i) => engine.books[i]!.dims.thickness * rowTune.spine) : [];
     if (row && rowTune) {
+      rowWidths = widths;
+      rowWorldPerPx = ctx.visibleHeightAt(t.planeZ - rowTune.depth) / Math.max(1, ctx.size.y);
       rowPast = clamp(state.progress - (order.length - 1), 0, 1);
       if (stepRow(row, widths, rowPast, hoveredSpine, f.dt, rowTune, ctx.still)) moving = true;
       rowLive = rowSettled(row, rowPast, rowTune);
