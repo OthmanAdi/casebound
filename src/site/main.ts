@@ -74,6 +74,28 @@ async function boot(): Promise<void> {
     titles.push(t);
   }
 
+  // One more picture and title for the row, where every book of the library stands spine to the front.
+  {
+    const panel = document.createElement('section');
+    panel.className = 'panel';
+    panel.dataset.slug = '';
+    panel.setAttribute('aria-label', `All ${library.books.length} books`);
+    panel.style.backgroundImage = `url(${paintBackdrop('#7d838c', 'the whole shelf')})`;
+    panels.append(panel);
+    const t = document.createElement('span');
+    t.className = 'm-title';
+    t.textContent = 'The whole shelf';
+    const sup = document.createElement('sup');
+    sup.textContent = `(${library.books.length})`;
+    t.append(sup);
+    track.append(t);
+    const slot = titles.length;
+    t.addEventListener('click', () => {
+      if (!reader.isOpen && !detailOpen) stepTo(slot);
+    });
+    titles.push(t);
+  }
+
   // ---------------------------------------------------------------- views
   /** How far the canvas content is shifted left to make room for the detail column, 0..1. */
   let shift = 0;
@@ -91,13 +113,16 @@ async function boot(): Promise<void> {
   };
   const slotPx = (): number => (panels.firstElementChild as HTMLElement).offsetHeight + 16;
 
-  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, fit: () => 1 - 0.5 * lift, layout: query.get('layout') === 'fan' ? fan : undefined });
+  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, fit: () => 1 - 0.5 * lift, row: true, layout: query.get('layout') === 'fan' ? fan : undefined });
   /** Scales the open book down where the spread is wider than the room it has: beside the detail column, or on a narrow screen. */
   const fit = (): number => {
     const book = reader.book;
     if (!book) return 1;
-    const perWorld = ctx.size.y / ctx.visibleHeightAt(book.home.position.z);
-    const spread = 2 * book.dims.pageW * book.home.scale * perWorld * 1.1;
+    // A book opened from the row comes forward and grows, so it is measured where it will lie.
+    const forward = Number(ctx.registry.getParam('reader', 'forward') ?? 0);
+    const grown = Number(ctx.registry.getParam('reader', 'scale') ?? 1);
+    const perWorld = ctx.size.y / ctx.visibleHeightAt(book.home.position.z + forward);
+    const spread = 2 * book.dims.pageW * book.home.scale * grown * perWorld * 1.1;
     const room = innerWidth * (1 - 0.4 * shift) - (ctx.compact ? 16 : 48);
     return Math.min(1, room / spread);
   };
@@ -150,8 +175,13 @@ async function boot(): Promise<void> {
   }
 
   function setReading(on: boolean, page?: number): void {
-    if (on) reader.open(current().slug, page);
-    else reader.close();
+    if (on) {
+      // Measured: a book opened from the row comes forward and grows a little; a featured book stays where it is.
+      const fromRow = shelf.row?.settled ?? false;
+      ctx.registry.set('reader', 'forward', fromRow ? 14 : 0);
+      ctx.registry.set('reader', 'scale', fromRow ? 1.1 : 1);
+      reader.open(current().slug, page);
+    } else reader.close();
     sync();
   }
 
@@ -277,7 +307,7 @@ async function boot(): Promise<void> {
   };
   /** Brings a featured book to the centre. Measured: one second per screen height under a square root, 0.4 to 1.8 s. */
   function stepTo(slot: number, ms?: number): void {
-    const to = Math.max(0, Math.min(library.featured.length - 1, slot)) * slotPx();
+    const to = Math.max(0, Math.min(library.featured.length, slot)) * slotPx();
     glideTo(to, ms ?? Math.max(400, Math.min(1800, 1000 * Math.sqrt(Math.abs(to - scrollY) / Math.max(1, innerHeight)))));
   }
   const letGo = (): void => {
@@ -296,7 +326,7 @@ async function boot(): Promise<void> {
   const showNext = (): void => {
     if (!showing) return;
     const slot = Math.round(scrollY / slotPx());
-    if (Math.abs(scrollY - slot * slotPx()) > 50 || slot >= library.featured.length - 1) return endShow();
+    if (Math.abs(scrollY - slot * slotPx()) > 50 || slot >= library.featured.length) return endShow();
     if (!document.hidden && !reader.isOpen && !detailOpen) stepTo(slot + 1, 1000);
     showTimer = window.setTimeout(showNext, 4000);
   };
@@ -326,7 +356,11 @@ async function boot(): Promise<void> {
         setReading(false);
       } else home();
     }
-    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && reader.isOpen) {
+    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !reader.isOpen && shelf.row?.settled) {
+      // In the row the arrows choose the next book.
+      e.preventDefault();
+      shelf.row.step(e.key === 'ArrowRight' ? 1 : -1);
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && reader.isOpen) {
       e.preventDefault();
       if (!e.repeat) leaf(e.key === 'ArrowRight' ? 1 : -1, e.key);
     } else if (e.key === 'm' && !e.repeat) setLens(!magnifier.on);
@@ -343,10 +377,13 @@ async function boot(): Promise<void> {
   });
   ctx.events.on('book-focus', () => {
     applyTheme();
-    sync();
+    // The details follow the choice in the row.
+    if (detailOpen) setDetail(true);
+    else sync();
   });
 
   // ---------------------------------------------------------------- per frame
+  const sectionLabel = $('section-label');
   let trackX = 0;
   ctx.onFrame('before-render', (f) => {
     // Measured: the book moves aside in 0.64 s, slow at both ends.
@@ -375,6 +412,8 @@ async function boot(): Promise<void> {
     }
     const active = Math.round(p);
     for (const [k, el] of titles.entries()) el.classList.toggle('is-current', k === active);
+    const label = active >= library.featured.length ? 'All books' : 'Featured';
+    if (sectionLabel.textContent !== label) sectionLabel.textContent = label;
   });
 
   // ---------------------------------------------------------------- deep links
@@ -385,8 +424,13 @@ async function boot(): Promise<void> {
     if (index < 0) return;
     const slot = library.featured.indexOf(m[1]!);
     if (slot >= 0) scrollTo(0, slot * slotPx());
+    else {
+      // A book that is not featured lives in the row.
+      scrollTo(0, library.featured.length * slotPx());
+      shelf.row?.select(m[1]!);
+    }
     engine.state.active = index;
-    shelf.state.active = Math.max(0, slot);
+    shelf.state.active = slot >= 0 ? slot : library.featured.length;
     setDetail(true);
     if (m[2]) setReading(true, Number(m[2]));
   }
