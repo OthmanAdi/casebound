@@ -7,7 +7,7 @@ import { createContext, type ContextOptions, type EngineContext } from './core/a
 import { Book, type BookRecord } from './book/book';
 import { PAGE_ARCH } from './book/volume';
 import { COVER_RELIEF, DEFAULT_FACES, type Typefaces } from './book/painter';
-import { JOINT, createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
+import { FOIL, JOINT, createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
 import type { FrameInfo } from './core/loop';
 import { smoothstep } from './core/math';
 import type { ParamSpec, Tag } from './core/registry';
@@ -154,6 +154,19 @@ export function createEngine(opts: EngineOptions): Engine {
     },
     onChange: () => ctx.invalidate(),
   });
+  const foil = tunable(ctx.registry, {
+    id: 'book.foil',
+    label: 'Foil',
+    kind: 'material-effect',
+    tags: ['material', 'shader', 'cover', 'light'],
+    describe: 'How foil takes light on every cover. A cover chooses its foil colour and how iridescent it is (`cover.foil`, `cover.foilRainbow`) and can set `material.foilDetail` and `material.foilSpecular`.',
+    source: 'src/engine/book/surface.ts',
+    params: {
+      tint: { value: FOIL.tint, min: 0, max: 0.5, help: 'How much of each colour in turn an iridescent foil holds back. Measured: saturation 0.10 to 0.25 at a value of 0.90 to 0.98, which 0.14 gives. 0.38 is a full rainbow' },
+      grain: { value: FOIL.grain, min: 0, max: 1, help: 'Share of the grain of the material that shows through foil. Measured: about a third' },
+    },
+    onChange: () => ctx.invalidate(),
+  });
   const rig = new LightRig(ctx.registry);
   const wall = new ShadowWall(ctx.registry);
   ctx.scene.add(rig.group, wall.mesh);
@@ -259,6 +272,7 @@ export function createEngine(opts: EngineOptions): Engine {
     fx.uShoulder.value = 1 - Math.min(smoothstep(0.03, 0.25, state.parted), smoothstep(0.5, 1, state.inside));
     fx.uStamp.value = relief.depth;
     fx.uJointShape.value.set(joint.corner, joint.drop, joint.start, joint.run);
+    fx.uFoilLook.value.set(foil.tint, foil.grain);
     fx.uFilmSeed.value = (f.frame * 37) % 1024;
     // Measured: the effects follow the pointer with a short lag instead of jumping to it.
     if (ctx.pointer) fx.uFxPointer.value.lerp(ctx.pointer, ctx.still ? 1 : 1 - Math.exp(-12.8 * Math.min(f.dt, 0.05)));

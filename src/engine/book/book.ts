@@ -162,7 +162,7 @@ export class Book {
       bumpEmboss: record.material?.bumpEmboss ?? 0.119,
       foilColor: foil ?? undefined,
       foilRainbow: record.cover.foilRainbow ?? 0,
-      foilSpecular: record.material?.foilSpecular ?? 1.2,
+      foilSpecular: record.material?.foilSpecular ?? 0,
       foilDetail: record.material?.foilDetail ?? 2.6,
       joint: { back: atlas.back[1], front: atlas.front[0], half: atlas.hinge, length: stripLength },
       fx,

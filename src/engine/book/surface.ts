@@ -35,7 +35,21 @@ export interface SurfaceFx {
   uStamp: IUniform<number>;
   /** The joint of a case, see `JOINT`: corner, drop, start, run. */
   uJointShape: IUniform<Vector4>;
+  /** Foil, see `FOIL`: tint of an iridescent foil, share of the grain that shows through foil. */
+  uFoilLook: IUniform<Vector2>;
 }
+
+/**
+ * Foil. Measured on an iridescent foil at shelf distance: saturation 0.10 to 0.25 at a value of 0.90 to 0.98,
+ * the hue running through more than half the circle across one cover and staying within 6 degrees while the
+ * pointer moves. The grain under a foil shows at about a third of its strength.
+ */
+export const FOIL = {
+  /** How much of each colour in turn an iridescent foil holds back, 0 to 0.5. 0.14 gives the measured pastel, 0.38 a full rainbow. */
+  tint: 0.14,
+  /** Share of the grain of the material that shows through foil, 0 to 1. */
+  grain: 0.3,
+} as const;
 
 /**
  * The joint: where a board meets the spine. Measured across the joint of a closed book on the shelf: the spine is
@@ -87,6 +101,7 @@ export const createSurfaceFx = (): SurfaceFx => ({
   uShoulder: { value: 1 },
   uStamp: { value: 1 },
   uJointShape: { value: new Vector4(JOINT.corner, JOINT.drop, JOINT.start, JOINT.run) },
+  uFoilLook: { value: new Vector2(FOIL.tint, FOIL.grain) },
 });
 
 /**
@@ -279,6 +294,7 @@ uniform float uFoilRainbow;
 uniform float uFoilOpacity;
 uniform float uFoilSpecular;
 uniform float uFoilDetail;
+uniform vec2 uFoilLook;
 uniform float uFxTime;
 uniform float uHolo;
 uniform float uRadio;
@@ -342,10 +358,21 @@ vec3 bPerturb( vec3 surfPos, vec3 surfNorm, vec2 dHdxy, float faceDir ) {
 	return normalize( abs( det ) * surfNorm - grad );
 }
 
+// Where in its run of tones a foil is, from -0.5 to 0.5: sines of the normal and of the place in view, so the
+// tone changes across a cover and as the book turns (SPEC S-BOOK-8). A stamped wall or a thread tilts the normal
+// and so takes a tone of its own.
+float bFoilPhase( vec3 n ) {
+	float ax = - n.x * uFoilDetail + vViewPosition.x * uFoilDetail * 0.1;
+	float ay = - n.y * uFoilDetail + vViewPosition.y * uFoilDetail * 0.1;
+	return 0.25 * ( sin( ay ) + cos( ax ) );
+}
+
 vec3 bFoilTone( float t ) {
-	vec3 rainbow = 0.62 + 0.38 * cos( 6.28318 * ( t + vec3( 0.0, 0.33, 0.67 ) ) );
+	// Plain metal is the colour of the foil, a little darker and lighter along its run.
 	float metal = 0.78 + 0.22 * cos( 6.28318 * t );
-	return mix( uFoilColor * metal, rainbow, uFoilRainbow );
+	// An iridescent foil has a film over the metal that holds back a little of one colour at a time.
+	vec3 film = 1.0 - uFoilLook.x * ( 1.0 - cos( 6.28318 * ( t * 2.0 + vec3( 0.0, 0.33, 0.67 ) ) ) );
+	return uFoilColor * mix( vec3( metal ), film, uFoilRainbow );
 }
 
 #ifdef CASEBOUND_JOINT
@@ -447,11 +474,6 @@ const ALBEDO = /* glsl */ `
 	bMottle = bNoise( mUv ) * 0.62 + bNoise( mUv * 2.9 + 17.0 ) * 0.38 - 0.5;
 	diffuseColor.rgb *= 1.0 + uMottle * bCloth * bMottle * 2.0;
 
-	#ifdef CASEBOUND_FINISH
-		vec3 fN = normalize( vNormal );
-		float ft = dot( fN, vec3( 0.61, 0.33, 0.72 ) ) * uFoilDetail * 0.35 + dot( vViewPosition.xy, vec2( 0.07, 0.05 ) ) * uFoilDetail * 0.1;
-		diffuseColor.rgb = mix( diffuseColor.rgb, bFoilTone( ft ), bFoil );
-	#endif
 }
 `;
 
@@ -465,7 +487,9 @@ const READER_PIXEL = (2 * 76.1 * Math.tan((9 * Math.PI) / 180)) / 900 / 1.1;
 
 const SPECULAR = /* glsl */ `
 #include <specularmap_fragment>
-specularStrength *= 1.0 + bFoil * uFoilSpecular;
+// Foil adds to the strength of the highlight (measured per title: -0.49 to 2.2, median 0), and unlike cloth it
+// keeps all of it. The strength without foil is in the specular colour.
+specularStrength = max( 0.0, specularStrength + bFoil * uFoilSpecular / max( specular.r, 0.01 ) );
 `;
 
 const BUMP = /* glsl */ `
@@ -476,7 +500,8 @@ const BUMP = /* glsl */ `
 	float gy = texture2D( tGrain, gUv + dFdy( gUv ) ).r;
 	// The grain tile holds heights from 0 to 1. The strength of the material (0.01 to 0.10, SPEC S-BOOK-6) scales
 	// them to a depth in world units.
-	float gs = uBumpGrain * uGrainRelief * bCloth;
+	// Foil is pressed onto the material and keeps a part of its grain.
+	float gs = uBumpGrain * uGrainRelief * mix( 1.0, uFoilLook.y, bFoil );
 	vec2 dH = vec2( gx - g0, gy - g0 ) * gs;
 	// The tooth catches the light as well.
 	dH += vec2( dFdx( bMottle ), dFdy( bMottle ) ) * uMottle * bCloth * ${(1.6 * SHELF_PIXEL).toFixed(4)};
@@ -498,6 +523,9 @@ const BUMP = /* glsl */ `
 		dH += vec2( bRing( vRingUv + dFdx( vRingUv ) ) - r0, bRing( vRingUv + dFdy( vRingUv ) ) - r0 ) * ${(0.09 * READER_PIXEL).toFixed(5)} * uRadio;
 	}
 	normal = bPerturb( - vViewPosition, normal, dH, faceDirection );
+	#ifdef CASEBOUND_FINISH
+		diffuseColor.rgb = mix( diffuseColor.rgb, bFoilTone( bFoilPhase( normal ) ), bFoil );
+	#endif
 }
 `;
 
@@ -629,10 +657,11 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     tGrain: { value: o.grain },
     tEmboss: { value: o.emboss ?? null },
     tFinish: { value: o.finish ?? null },
-    uFoilColor: { value: new Color(o.foilColor ?? '#d9b25a') },
+    // The colour is written out as it is given, like the colour map.
+    uFoilColor: { value: new Color(o.foilColor ?? '#d9b25a').convertLinearToSRGB() },
     uFoilRainbow: { value: o.foilRainbow ?? 0 },
     uFoilOpacity: { value: o.foilOpacity ?? 1 },
-    uFoilSpecular: { value: o.foilSpecular ?? 1.2 },
+    uFoilSpecular: { value: o.foilSpecular ?? 0 },
     uFoilDetail: { value: o.foilDetail ?? 2.6 },
     tBack: { value: null },
     uBleed: { value: 0.3 },
