@@ -3,7 +3,7 @@
 //
 //   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900]
 //
-// Scenes: shelf, reader, lens, light, pointer, night. Turn the frames into a GIF or a video with ffmpeg, for example:
+// Scenes: shelf, reader, drag, lens, light, pointer, night. Turn the frames into a GIF or a video with ffmpeg, for example:
 //   ffmpeg -framerate 30 -i <out dir>/f%04d.png -vf "scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" out.gif
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -61,6 +61,24 @@ const SCENES = {
     { at: sec(3.4), run: (p) => p.mouse.move(520, 420) },
     { at: sec(4.2), run: (p) => p.hover('#row-audio') },
     { at: sec(7.2), run: (p) => p.mouse.move(520, 420) },
+  ] },
+  drag: { path: '/?midday', frames: sec(10.6), actions: [
+    { at: 1, run: (p) => p.mouse.move(980, 470) },
+    key(sec(0.3), 'Space'),
+    // Pull a leaf all the way over and let go.
+    { at: sec(2.7), run: (p) => p.mouse.down() },
+    ...glide(sec(2.8), 0, sec(1.6), [[980, 470], [700, 430], [380, 470]]),
+    { at: sec(4.5), run: (p) => p.mouse.up() },
+    // Lift the next one half way, bring it back past where it was taken and let it fall.
+    ...glide(sec(5.1), 0, sec(0.5), [[380, 470], [1000, 520]]),
+    { at: sec(5.7), run: (p) => p.mouse.down() },
+    ...glide(sec(5.8), 0, sec(1.8), [[1000, 520], [640, 470], [1012, 520]]),
+    { at: sec(7.7), run: (p) => p.mouse.up() },
+    // Pull one back from the left.
+    ...glide(sec(8.1), 0, sec(0.4), [[1012, 520], [440, 480]]),
+    { at: sec(8.6), run: (p) => p.mouse.down() },
+    ...glide(sec(8.7), 0, sec(1), [[440, 480], [900, 440]]),
+    { at: sec(9.8), run: (p) => p.mouse.up() },
   ] },
   pointer: { path: '/?midday', frames: sec(6), actions: glide(sec(0.2), 0, sec(5.4), [[300, 300], [1100, 300], [1150, 700], [330, 720], [720, 450], [300, 300]]) },
   night: { path: '/?theme=dark', frames: sec(7), actions: [
