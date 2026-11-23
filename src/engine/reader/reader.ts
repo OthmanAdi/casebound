@@ -7,6 +7,7 @@ import type { Book } from '../book/book';
 import type { Engine } from '../index';
 import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/math';
 import { tunable } from '../core/tune';
+import { CURL_DEFAULT, curlFlat, resetCurl, stepCurl } from './curl';
 import { Leaf } from './leaf';
 import { LEAF_DEFAULT, sendLeaf, stepLeaf } from './leaf-physics';
 import { flowPages } from '../book/painter';
@@ -92,6 +93,44 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     },
   });
 
+  const curlTune = tunable(ctx.registry, {
+    id: 'reader.curl',
+    label: 'Corner curl',
+    kind: 'animation',
+    tags: ['animation', 'paper', 'interaction'],
+    describe: 'The page under the pointer lifts its corner, a page held by a hand folds over where it is held, and a leaf let go carries a curl that relaxes as it lands. Not shown under reduced motion.',
+    source: 'src/engine/reader/curl.ts',
+    params: {
+      amount: { value: CURL_DEFAULT.amount, min: 0, max: 20, unit: 'rad', help: 'Base strength: radians of roll over one span. Measured 7.02. 0 turns the curl off' },
+      hover: { value: CURL_DEFAULT.hover, min: 0, max: 1, help: 'Share of the base strength under a resting pointer. Measured 2 x 0.14, which gives 1.97 rad. 0 mounts no sheet for hover' },
+      drag: { value: CURL_DEFAULT.drag, min: 0, max: 4, help: 'Share while a hand holds the page. Measured 1.82: 12.8 rad, far past the half turn the roll stops at, so the held region folds flat over' },
+      flight: { value: CURL_DEFAULT.flight, min: 0, max: 2, help: 'Share of the held strength a leaf carries in the air' },
+      power: { value: CURL_DEFAULT.power, min: 0.3, max: 3, help: 'Exponent of the roll. Below 1 the sheet turns up early past the fold line' },
+      tilt: { value: CURL_DEFAULT.tilt, min: 0, max: 60, unit: 'deg', help: 'Slant of the fold line with the pointer at the head or foot of the page' },
+      flightTilt: { value: CURL_DEFAULT.flightTilt, min: 0, max: 60, unit: 'deg', help: 'Least slant of the fold line on a leaf in the air. Its direction follows the pointer height' },
+      pivot: { value: CURL_DEFAULT.pivot, min: 0.2, max: 1, help: 'Where the fold line crosses the middle of the page, as a share of the page width from the spine' },
+      span: { value: CURL_DEFAULT.span, min: 0.2, max: 6, help: 'Length over which the roll builds up, in page widths. Measured 32.4 on a page 15.6 wide' },
+      inner: { value: CURL_DEFAULT.inner, min: 0, max: 4, help: 'How much longer the span gets for a grab at the spine: span x (1 + inner)' },
+      innerLoss: { value: CURL_DEFAULT.innerLoss, min: 0, max: 1, help: 'Share of the strength lost for a grab at the spine' },
+      dragRate: { value: CURL_DEFAULT.dragRate, min: 0.005, max: 1, help: 'How fast the fold builds under a hand: share per 60 Hz frame' },
+      hoverRate: { value: CURL_DEFAULT.hoverRate, min: 0.005, max: 1, help: 'How fast the corner lifts under a resting pointer: share per 60 Hz frame' },
+      flightRate: { value: CURL_DEFAULT.flightRate, min: 0.005, max: 1, help: 'How fast the curl builds on a leaf in the air: share per 60 Hz frame' },
+      relaxRate: { value: CURL_DEFAULT.relaxRate, min: 0.005, max: 1, help: 'How fast a corner comes down once the pointer has left: share per 60 Hz frame' },
+      handoffRate: { value: CURL_DEFAULT.handoffRate, min: 0.005, max: 1, help: 'The same for a sheet another leaf is about to land on' },
+      dragTiltRate: { value: CURL_DEFAULT.dragTiltRate, min: 0.005, max: 1, help: 'How fast the fold line follows a hand: share per 60 Hz frame' },
+      tiltRate: { value: CURL_DEFAULT.tiltRate, min: 0.005, max: 1, help: 'How fast the fold line follows the pointer otherwise' },
+      rise: { value: CURL_DEFAULT.rise, min: 0, max: 1, unit: 's', help: 'Time for the drawn curl to rise to a stronger one' },
+      fall: { value: CURL_DEFAULT.fall, min: 0, max: 1, unit: 's', help: 'Time for the drawn curl to fall to a weaker one. Measured as immediate; a short fall keeps the fold from jumping when the page is let go' },
+      fadeFrom: { value: CURL_DEFAULT.fadeFrom, min: 0, max: 1, help: 'Share of its turn at which a leaf in the air starts to relax its curl' },
+      fadeTo: { value: CURL_DEFAULT.fadeTo, min: 0, max: 1, help: 'Share of its turn at which the curl is gone' },
+      boost: { value: CURL_DEFAULT.boost, min: 0, max: 2, help: 'Extra strength early in the turn' },
+      boostFrom: { value: CURL_DEFAULT.boostFrom, min: 0, max: 1, help: 'Share of the turn at which the early extra starts to go' },
+      boostTo: { value: CURL_DEFAULT.boostTo, min: 0, max: 1, help: 'Share of the turn at which the early extra is gone' },
+      edge: { value: CURL_DEFAULT.edge, min: 0.01, max: 1, help: 'The curl fades as the leaf turns edge-on: it is whole once the cosine of the leaf angle passes this' },
+    },
+    onChange: () => ctx.invalidate(),
+  });
+
   let book: Book | null = null;
   let source: PageSource = () => ({ folio: null, left: true });
   /** Leaves lying on the left. The spread shows pages 2 x spread and 2 x spread + 1. */
@@ -173,16 +212,21 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     leaf.active = false;
     leaf.dragTarget = null;
     leaf.mesh.visible = false;
+    resetCurl(leaf.curl);
   };
 
   /** The leaf in the air that is outermost on a stack (0 = right, 1 = left): the one a hand or a key reaches first. */
   const outer = (side: 0 | 1): Leaf | undefined => leaves.find((l) => l.active && l.side === side && l.index === (side === 1 ? spread - 1 : spread));
 
-  /** Lifts the top leaf off a stack: 1 = off the right stack, -1 = off the left. It stays counted where it was. */
-  const take = (direction: 1 | -1): Leaf | null => {
+  /**
+   * Lifts the top leaf off a stack: 1 = off the right stack, -1 = off the left. It stays counted where it was.
+   * With none free, `steal` allows taking the one that has all but landed.
+   */
+  const take = (direction: 1 | -1, steal = true): Leaf | null => {
     if (!book || !opening || pages < 0.9) return null;
     let leaf = leaves.find((l) => !l.active);
     if (!leaf) {
+      if (!steal) return null;
       // None free: take the one that has all but landed. A held leaf is never taken away.
       const near = (l: Leaf): number => (l.dragTarget !== null ? 9 : Math.abs(l.side * Math.PI - l.motion.angle));
       leaf = leaves.reduce((a, b) => (near(a) <= near(b) ? a : b));
@@ -199,6 +243,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     leaf.motion.velocity = 0;
     leaf.motion.target = leaf.side;
     leaf.motion.resting = false;
+    resetCurl(leaf.curl);
     leaf.setPages(texture(index * 2 + 1), texture(index * 2 + 2));
     leaf.mesh.visible = true;
     paintSpread();
@@ -233,9 +278,12 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const centre = new Vector3();
   const ignore = opts.ignore ?? 'button, a, input, select, textarea, label, aside, header, footer, nav, [role="toolbar"], [role="dialog"]';
 
-  /** Which half of the spread lies under a point of the window: 1 = right, -1 = left, 0 = neither. */
-  const halfAt = (x: number, y: number): 1 | -1 | 0 => {
-    if (!book || !opening || pages < 0.9) return 0;
+  /**
+   * Where a point of the window lies on the spread: the half (1 = right, -1 = left), how far from the spine
+   * (0, to 1 at the fore-edge) and how high on the page (0 at the foot, 1 at the head).
+   */
+  const where = (x: number, y: number): { half: 1 | -1; u: number; v: number; inside: boolean } | null => {
+    if (!book || !opening || pages < 0.9) return null;
     book.root.getWorldPosition(centre);
     const perWorld = ctx.size.y / ctx.visibleHeightAt(centre.z);
     centre.project(ctx.camera);
@@ -243,9 +291,77 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const dx = x - (rect.left + (centre.x * 0.5 + 0.5) * rect.width);
     const dy = y - (rect.top + (0.5 - centre.y * 0.5) * rect.height);
     const scale = book.root.scale.x * perWorld;
-    if (Math.abs(dx) > book.dims.pageW * scale * 1.06 || Math.abs(dy) > book.dims.pageH * scale * 0.56) return 0;
-    return dx >= 0 ? 1 : -1;
+    const w = book.dims.pageW * scale;
+    const h = book.dims.pageH * scale;
+    return { half: dx >= 0 ? 1 : -1, u: clamp(Math.abs(dx) / w, 0, 1), v: clamp(0.5 - dy / h, 0, 1), inside: Math.abs(dx) <= w * 1.06 && Math.abs(dy) <= h * 0.56 };
   };
+
+  /** Which half of the spread lies under a point of the window: 1 = right, -1 = left, 0 = neither. */
+  const halfAt = (x: number, y: number): 1 | -1 | 0 => {
+    const at = where(x, y);
+    return at && at.inside ? at.half : 0;
+  };
+
+  /** The leaf a hand reaches on a half of the spread: one in the air over it, whichever way it was going. Otherwise the top of the stack. */
+  const reach = (half: 1 | -1, steal = true): Leaf | null => {
+    const near: 0 | 1 = half === 1 ? 0 : 1;
+    const far = outer(near === 1 ? 0 : 1);
+    const over = far && (half === 1 ? far.motion.angle < Math.PI / 2 : far.motion.angle > Math.PI / 2) ? far : undefined;
+    return outer(near) ?? over ?? take(half, steal);
+  };
+
+  // ---------------------------------------------------------------- corner curl (SPEC S-RD-11)
+  /** The last place a mouse was seen, and whether it was over something that is not the book. */
+  let point: { x: number; y: number; blocked: boolean } | null = null;
+  /** The leaf the pointer rests on. */
+  let hovered: Leaf | null = null;
+  /** Where on the page the pointer is. */
+  const grab = { u: 1, v: 0.5 };
+
+  /**
+   * Finds the leaf under the pointer, once a frame. A corner can only lift on a live sheet, so if the page under
+   * the pointer is the top of a stack, a sheet is mounted there. It lies exactly on the stack, shows the same
+   * pages and is counted where it lies, so the page count does not move.
+   */
+  const lookUnder = (): void => {
+    const at = point && !ctx.still ? where(point.x, point.y) : null;
+    if (at && (drag || at.inside)) {
+      grab.u = at.u;
+      grab.v = at.v;
+    }
+    if (drag) hovered = drag.leaf;
+    else hovered = at && at.inside && !point!.blocked && curlTune.amount > 0 && curlTune.hover > 0 ? reach(at.half, false) : null;
+  };
+
+  /** Advances the curl of one leaf. */
+  const bend = (leaf: Leaf, dt: number): void => {
+    if (ctx.still || curlTune.amount <= 0) {
+      resetCurl(leaf.curl);
+      return;
+    }
+    const m = leaf.motion;
+    stepCurl(
+      leaf.curl,
+      {
+        pages,
+        held: leaf.dragTarget !== null,
+        hovered: leaf === hovered,
+        covered: outer(leaf.side) !== leaf,
+        grabU: grab.u,
+        grabV: grab.v,
+        pointerY: ctx.pointer?.y ?? 0,
+        angle: m.angle,
+        velocity: m.velocity,
+        target: m.target,
+        shown: m.shown,
+      },
+      dt,
+      curlTune,
+    );
+  };
+
+  /** True for a sheet that stays mounted on its stack: the pointer rests on it, or its corner is still coming down. */
+  const lying = (leaf: Leaf): boolean => !ctx.still && (leaf === hovered || !curlFlat(leaf.curl));
 
   /** How far a pull of `px` pixels turns the leaf, 0..1: a quick start, then in step with the hand. */
   const pull = (px: number): number => Math.min(1, 0.08 * (1 - Math.exp(-px / 12)) + (0.92 * px) / Math.max(1, window.innerWidth * t.dragWidth * (ctx.compact ? 2 : 1)));
@@ -256,10 +372,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const half = halfAt(ev.clientX, ev.clientY);
     if (!half) return;
     // Catch a leaf that is in the air over this half, whichever way it was going. Otherwise lift the top one.
-    const near: 0 | 1 = half === 1 ? 0 : 1;
-    const far = outer(near === 1 ? 0 : 1);
-    const over = far && (half === 1 ? far.motion.angle < Math.PI / 2 : far.motion.angle > Math.PI / 2) ? far : undefined;
-    const leaf = outer(near) ?? over ?? take(half);
+    const leaf = reach(half);
     if (!leaf || leaf.dragTarget !== null) return;
     drag = { leaf, id: ev.pointerId, startX: ev.clientX, startAngle: leaf.motion.angle, remembered: leaf.side, half, travel: 0, dx: 0 };
     leaf.dragTarget = leaf.motion.angle;
@@ -270,9 +383,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   };
 
   const onMove = (ev: PointerEvent): void => {
+    const blocked = ev.target instanceof Element && !!ev.target.closest(ignore);
+    point = ev.pointerType === 'mouse' ? { x: ev.clientX, y: ev.clientY, blocked } : null;
     if (!drag) {
       if (opening && ev.pointerType === 'mouse') {
-        const over = !(ev.target instanceof Element && ev.target.closest(ignore)) && halfAt(ev.clientX, ev.clientY) !== 0;
+        const over = !blocked && halfAt(ev.clientX, ev.clientY) !== 0;
         document.documentElement.style.cursor = over ? 'grab' : '';
       }
       return;
@@ -307,10 +422,17 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     ctx.invalidate();
   };
 
+  /** The mouse left the window: nothing is under it any more. */
+  const onLeave = (): void => {
+    point = null;
+    ctx.invalidate();
+  };
+
   window.addEventListener('pointerdown', onDown);
   window.addEventListener('pointermove', onMove, { passive: true });
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onUp);
+  document.documentElement.addEventListener('pointerleave', onLeave);
 
   const reader: Reader = {
     get isOpen() {
@@ -374,6 +496,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         leaf.mesh.visible = false;
       }
       drag = null;
+      hovered = null;
       paintSpread();
       emitView();
     },
@@ -384,8 +507,10 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
+      document.documentElement.removeEventListener('pointerleave', onLeave);
       ctx.registry.remove('reader');
       ctx.registry.remove('reader.leaf');
+      ctx.registry.remove('reader.curl');
     },
   };
 
@@ -394,6 +519,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     for (const leaf of leaves) leaf.dispose();
     leaves = [];
     drag = null;
+    hovered = null;
     document.documentElement.style.cursor = '';
     for (const tex of cache.values()) tex.dispose();
     cache.clear();
@@ -437,6 +563,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
 
     // Leaves in the air.
     const frames = 60 * Math.min(f.dt, 0.05);
+    lookUnder();
     for (const leaf of leaves) {
       if (!leaf.active) continue;
       if (leaf.dragTarget !== null) {
@@ -446,11 +573,14 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         m.angle += (leaf.dragTarget - m.angle) * (1 - Math.pow(t.dragFollow, frames));
         m.velocity = (m.angle - before) / Math.max(1e-3, frames);
         m.shown += (m.angle - m.shown) * (1 - Math.pow(leafTune.follow, frames));
+        bend(leaf, f.dt);
         continue;
       }
       stepLeaf(leaf.motion, f.dt, { ...LEAF_DEFAULT, ...leafTune });
+      bend(leaf, f.dt);
       if (leaf.motion.resting || ctx.still) {
         leaf.motion.angle = leaf.motion.shown = leaf.side * Math.PI;
+        if (lying(leaf)) continue;
         retire(leaf);
         paintSpread();
         emitView();
