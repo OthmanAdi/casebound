@@ -161,6 +161,7 @@ export class Book {
       foilRainbow: record.cover.foilRainbow ?? 0,
       foilSpecular: record.material?.foilSpecular ?? 1.2,
       foilDetail: record.material?.foilDetail ?? 2.6,
+      joint: { back: atlas.back[1], front: atlas.front[0], half: atlas.hinge, length: stripLength },
       fx,
     }));
     volume.caseMesh.material = [coverMat, endpaper];
@@ -247,12 +248,16 @@ export class Book {
     const closed = 1 - this.open;
     // The pages part by turning everything before the reading place over in one wad, first leaf up until it lands.
     // The volume lets both stacks trail their boards on the way (see `VolumePose.turn`).
-    this.volume.setPose({
+    const pose = {
       front: this.open * OPEN_ANGLE * (2 - 2 * n) + this.flap.front * closed,
       back: this.open * OPEN_ANGLE * 2 * n + this.flap.back * closed,
       split: this.open > 0 ? this.reading : 0,
       turn: this.pages,
-    });
+    };
+    this.volume.setPose(pose);
+    // The joint relief follows the hinges: a quarter turn when the book is closed, none when a board lies flat.
+    const hinge = (this.coverMaterial.userData.uniforms as { uHinge: { value: { set(x: number, y: number): void } } }).uHinge;
+    hinge.value.set(Math.max(0, Math.PI / 2 - pose.back), Math.max(0, Math.PI / 2 - pose.front));
     this.applyTurn();
   }
 

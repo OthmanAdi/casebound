@@ -7,7 +7,7 @@ import { createContext, type ContextOptions, type EngineContext } from './core/a
 import { Book, type BookRecord } from './book/book';
 import { PAGE_ARCH } from './book/volume';
 import { COVER_RELIEF, DEFAULT_FACES, type Typefaces } from './book/painter';
-import { createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
+import { JOINT, createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
 import type { FrameInfo } from './core/loop';
 import { smoothstep } from './core/math';
 import type { ParamSpec, Tag } from './core/registry';
@@ -139,6 +139,21 @@ export function createEngine(opts: EngineOptions): Engine {
       ctx.invalidate();
     },
   });
+  const joint = tunable(ctx.registry, {
+    id: 'book.joint',
+    label: 'Joint of the case',
+    kind: 'material-effect',
+    tags: ['material', 'shader', 'cover', 'light'],
+    describe: 'Where a board meets the spine: a relief that makes the round hinge read as a square back with a groove beside it. Measured across the joint of a closed book: board brightness 0.16 world units from the edge of the spine, 14 percent darker 0.25 further on, level again after 0.45.',
+    source: 'src/engine/book/surface.ts',
+    params: {
+      corner: { value: JOINT.corner, min: 0, max: 1.5, help: 'How square the back reads. 0 leaves the hinge round as it is built' },
+      drop: { value: JOINT.drop, min: 0, max: 0.5, unit: 'world', help: 'How far the cloth comes down from the edge of the spine onto the board. This is the depth of the groove. 0 leaves none' },
+      start: { value: JOINT.start, min: -0.3, max: 0.6, unit: 'world', help: 'Where the descent starts, measured from the middle of the hinge toward the board' },
+      run: { value: JOINT.run, min: 0.05, max: 1.5, unit: 'world', help: 'Length of the descent. Shorter is a sharper groove' },
+    },
+    onChange: () => ctx.invalidate(),
+  });
   const rig = new LightRig(ctx.registry);
   const wall = new ShadowWall(ctx.registry);
   ctx.scene.add(rig.group, wall.mesh);
@@ -242,6 +257,7 @@ export function createEngine(opts: EngineOptions): Engine {
     // Measured on the first leaf of an opening book: its light is held down until the pages start to part.
     fx.uShoulder.value = 1 - smoothstep(0.03, 0.25, state.parted);
     fx.uStamp.value = relief.depth;
+    fx.uJointShape.value.set(joint.corner, joint.drop, joint.start, joint.run);
     fx.uFilmSeed.value = (f.frame * 37) % 1024;
     // Measured: the effects follow the pointer with a short lag instead of jumping to it.
     if (ctx.pointer) fx.uFxPointer.value.lerp(ctx.pointer, ctx.still ? 1 : 1 - Math.exp(-12.8 * Math.min(f.dt, 0.05)));

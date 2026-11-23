@@ -366,19 +366,8 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
     c.fillText((text.imprint ?? 'CASEBOUND').toUpperCase(), bx + bw * 0.11, H - bw * 0.12);
   }, false);
 
-  // The joints: where each board meets the spine, the cloth is pressed into a groove. It goes into the relief,
-  // so the lights shade it, and a little into the colour, because a groove gathers shade.
-  const joint = W * 0.0125;
-  for (const x of [bx + bw - joint * 0.3, fx + joint * 0.3]) {
-    for (const [c, deep] of [[e, 0.8], [g, 0.3]] as const) {
-      const band = c.createLinearGradient(x - joint, 0, x + joint, 0);
-      band.addColorStop(0, 'rgba(0,0,0,0)');
-      band.addColorStop(0.5, `rgba(0,0,0,${deep})`);
-      band.addColorStop(1, 'rgba(0,0,0,0)');
-      c.fillStyle = band;
-      c.fillRect(x - joint, 0, joint * 2, H);
-    }
-  }
+  // The joints, where each board meets the spine, are not painted: the surface computes their relief (see JOINT
+  // in surface.ts), so the lights shade them at any size.
 
   // A stamp has a wall, not a step: the blur gives it its width. The texture's own smaller copies keep it from
   // flickering when the book is far away.

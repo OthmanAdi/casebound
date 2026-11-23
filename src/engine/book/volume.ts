@@ -147,8 +147,11 @@ export class Volume {
   readonly caseMesh: Mesh;
   readonly leftBlock: Mesh;
   readonly rightBlock: Mesh;
-  /** Horizontal ranges of the cover atlas, for the painter: back cover, spine, front cover. */
-  readonly atlas: { back: [number, number]; spine: [number, number]; front: [number, number]; aspect: number };
+  /**
+   * Horizontal ranges of the cover atlas, for the painter: back cover, spine, front cover. A hinge lies half in the
+   * spine's range and half in its board's; `hinge` is that half as a share of the strip.
+   */
+  readonly atlas: { back: [number, number]; spine: [number, number]; front: [number, number]; aspect: number; hinge: number };
   pose: VolumePose = { front: 0, back: 0, split: 0.5 };
   /** The belly of the pages. Call `setPose` after changing it. */
   arch: PageArch = { ...PAGE_ARCH };
@@ -185,7 +188,7 @@ export class Volume {
     const boardLen = d.coverW - d.hinge - d.board / 2;
     const total = 2 * (spineHalf + arc + boardLen);
     const boardShare = (boardLen + arc / 2) / total;
-    this.atlas = { back: [0, boardShare], spine: [boardShare, 1 - boardShare], front: [1 - boardShare, 1], aspect: total / d.coverH };
+    this.atlas = { back: [0, boardShare], spine: [boardShare, 1 - boardShare], front: [1 - boardShare, 1], aspect: total / d.coverH, hinge: arc / 2 / total };
     this.setPose(this.pose);
   }
 

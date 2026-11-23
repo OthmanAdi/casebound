@@ -10,7 +10,7 @@
  * The sheen distribution is the inverted-Gaussian form published by Estevez and Kulla (2017), with the
  * visibility term of Neubelt and Pettineo (2013). Bump uses Mikkelsen's unparametrised surface gradient.
  */
-import { Color, DoubleSide, FrontSide, MeshPhongMaterial, MeshStandardMaterial, NoColorSpace, ShaderChunk, Vector2, type IUniform, type Side, type Texture } from 'three';
+import { Color, DoubleSide, FrontSide, MeshPhongMaterial, MeshStandardMaterial, NoColorSpace, ShaderChunk, Vector2, Vector4, type IUniform, type Side, type Texture } from 'three';
 
 /** Uniforms shared by every book surface, driven by the effects module. */
 export interface SurfaceFx {
@@ -33,6 +33,43 @@ export interface SurfaceFx {
   uShoulder: IUniform<number>;
   /** Depth of stamped relief, as a multiple of each cover's own strength. */
   uStamp: IUniform<number>;
+  /** The joint of a case, see `JOINT`: corner, drop, start, run. */
+  uJointShape: IUniform<Vector4>;
+}
+
+/**
+ * The joint: where a board meets the spine. Measured across the joint of a closed book on the shelf: the spine is
+ * evenly lit up to its edge, the cloth reaches the brightness of the board within 5 pixels (0.16 world units), is
+ * 14 percent darker 0.25 units further on, and is back at the brightness of the board after 0.45.
+ * The case is built with a round hinge, so the relief does two things. It turns the normals of the hinge toward
+ * the spine before its middle and toward the board after it, which reads as a square back. And it lets the cloth
+ * come down from that edge onto the board, which is the groove.
+ */
+export const JOINT = {
+  /** How square the back reads: 0 leaves the hinge round as built, 1 turns the normals by the bend of its centre line, and the outer face of a board needs about 1.25. */
+  corner: 1.25,
+  /** How far the cloth comes down from the edge of the spine onto the board, world units. */
+  drop: 0.14,
+  /** Where the descent starts, measured from the middle of the hinge toward the board, world units. */
+  start: 0.05,
+  /** Length of the descent, world units. */
+  run: 0.4,
+} as const;
+
+/**
+ * Slope of the joint relief along the cover, at `s` world units from the middle of a hinge toward its board.
+ * `half` is half the length of the hinge, `bend` the angle it is bent by in radians (a quarter turn when the
+ * book is closed). Positive slopes rise toward the board. The shader holds the same formula.
+ */
+export function jointSlope(s: number, half: number, bend: number, shape: { corner: number; drop: number; start: number; run: number } = JOINT): number {
+  const p = Math.max(-1, Math.min(1, s / half));
+  const edge = Math.min(1, Math.abs(p) / 0.35);
+  const soft = edge * edge * (3 - 2 * edge);
+  const turn = Math.min(1.2, Math.max(0, bend) * 0.5 * (1 - Math.abs(p)));
+  const corner = Math.abs(s) < half ? shape.corner * Math.tan(turn) * soft * (p < 0 ? 1 : -1) : 0;
+  const q = (s - shape.start) / Math.max(1e-4, shape.run);
+  const descent = q > 0 && q < 1 ? (-shape.drop / Math.max(1e-4, shape.run)) * 6 * q * (1 - q) : 0;
+  return corner + descent;
 }
 
 export const createSurfaceFx = (): SurfaceFx => ({
@@ -49,6 +86,7 @@ export const createSurfaceFx = (): SurfaceFx => ({
   uGutterShade: { value: 1 },
   uShoulder: { value: 1 },
   uStamp: { value: 1 },
+  uJointShape: { value: new Vector4(JOINT.corner, JOINT.drop, JOINT.start, JOINT.run) },
 });
 
 /**
@@ -158,6 +196,12 @@ export interface SurfaceOptions {
   bleed?: boolean;
   /** A single sheet. Set `uAloft` on the uniforms: 0 while it lies on a stack, 1 in the air, where it takes shadows only on the side that faces the light. */
   sheet?: boolean;
+  /**
+   * A case: where its two hinges lie along u. `back` and `front` are the middles of the hinges, `half` is half the
+   * length of a hinge, all as shares of the strip, and `length` is the strip in world units. The surface then shows
+   * the joints (see `JOINT`). Set `uHinge` on the uniforms to how far each hinge is bent.
+   */
+  joint?: { back: number; front: number; half: number; length: number };
 }
 
 /**
@@ -283,6 +327,29 @@ vec3 bFoilTone( float t ) {
 	return mix( uFoilColor * metal, rainbow, uFoilRainbow );
 }
 
+#ifdef CASEBOUND_JOINT
+	// uJoint: u of the middle of the back hinge and of the front hinge, half a hinge in u, world units per u.
+	// uHinge: how far the back and the front hinge are bent, radians. uJointShape: corner, drop, start, run.
+	uniform vec4 uJoint;
+	uniform vec2 uHinge;
+	uniform vec4 uJointShape;
+	// Slope of the joint relief along the cover. The same formula as jointSlope() in surface.ts.
+	float bJointSlope( float u ) {
+		float sb = ( uJoint.x - u ) * uJoint.w;
+		float sf = ( u - uJoint.y ) * uJoint.w;
+		float s = max( sb, sf );
+		float bend = sf > sb ? uHinge.y : uHinge.x;
+		float hl = uJoint.z * uJoint.w;
+		float p = clamp( s / hl, - 1.0, 1.0 );
+		float turn = min( 1.2, max( bend, 0.0 ) * 0.5 * ( 1.0 - abs( p ) ) );
+		float corner = uJointShape.x * tan( turn ) * smoothstep( 0.0, 0.35, abs( p ) ) * ( p < 0.0 ? 1.0 : - 1.0 ) * step( abs( s ), hl );
+		float run = max( uJointShape.w, 1e-4 );
+		float q = ( s - uJointShape.z ) / run;
+		float descent = - uJointShape.y / run * 6.0 * q * ( 1.0 - q ) * step( 0.0, q ) * step( q, 1.0 );
+		return corner + descent;
+	}
+#endif
+
 float bRing( vec2 uv ) {
 	float d = distance( uv, vec2( 1.0, 0.0 ) );
 	return sin( d * 69.8 - uFxTime * 1.53 * 6.28318 );
@@ -389,6 +456,11 @@ const BUMP = /* glsl */ `
 		// The relief map holds heights from 0 to 1. The strength of a title (0.05 to 0.25, SPEC S-BOOK-6) scales
 		// them to a depth in world units.
 		dH += vec2( ex - e0, ey - e0 ) * uBumpEmboss * uStamp;
+	#endif
+	#ifdef CASEBOUND_JOINT
+		// The joint runs along the cover only: the thin faces at head and tail are left alone.
+		float jOn = step( 0.004, vMapUv.y ) * step( vMapUv.y, 0.996 );
+		dH += vec2( dFdx( vMapUv.x ), dFdy( vMapUv.x ) ) * uJoint.w * bJointSlope( vMapUv.x ) * jOn;
 	#endif
 	if ( uRadio > 0.001 ) {
 		float r0 = bRing( vMapUv );
@@ -510,10 +582,13 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uCeiling: { value: o.cloth.ceiling ?? 0 },
     uFilmShare: { value: o.cloth.film ?? 0 },
     uGutter: { value: o.gutter ?? -1 },
+    uJoint: { value: o.joint ? new Vector4(o.joint.back, o.joint.front, o.joint.half, o.joint.length) : new Vector4() },
+    uHinge: { value: new Vector2(Math.PI / 2, Math.PI / 2) },
     ...o.fx,
   };
   mat.userData.uniforms = uniforms;
   mat.defines = { ...(mat.defines ?? {}) };
+  if (o.joint) mat.defines.CASEBOUND_JOINT = '';
   if (o.emboss) mat.defines.CASEBOUND_EMBOSS = '';
   if (o.finish) mat.defines.CASEBOUND_FINISH = '';
   if (o.bleed) mat.defines.CASEBOUND_BLEED = '';
@@ -536,7 +611,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     if (o.sheet) shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', SHEET_LIGHTS);
     shader.vertexShader = shader.vertexShader.replace('#include <uv_pars_vertex>', VERTEX_PARS).replace('#include <begin_vertex>', VERTEX_DISPLACE);
   };
-  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}${o.sheet ? 's' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
+  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}${o.sheet ? 's' : ''}${o.joint ? 'j' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
   return mat;
 }
 
