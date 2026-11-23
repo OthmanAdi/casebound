@@ -161,7 +161,8 @@ export function createEngine(opts: EngineOptions): Engine {
     const wallMoving = wall.update(f.dt, active ? reach(active) : 18.5, state.inside, ctx.still);
     const rigMoving = rig.update(f.dt, { pointer: ctx.pointer, inside: state.inside, bookColor: active?.record.background ?? null, shadowCentre: wall.centre, compact: ctx.compact }, ctx.still);
     fx.uFxTime.value = f.time;
-    if (ctx.pointer) fx.uFxPointer.value.set(ctx.pointer.x, ctx.pointer.y);
+    // Measured: the effects follow the pointer with a short lag instead of jumping to it.
+    if (ctx.pointer) fx.uFxPointer.value.lerp(ctx.pointer, ctx.still ? 1 : 1 - Math.exp(-12.8 * Math.min(f.dt, 0.05)));
     if (wallMoving || rigMoving || fx.uHolo.value > 0.001 || fx.uRadio.value > 0.001) ctx.invalidate();
   });
 

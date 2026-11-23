@@ -28,14 +28,16 @@ export function createSurfaceEffects(engine: Engine): SurfaceEffects {
     source: 'src/engine/book/surface.ts',
     params: {
       hologramDelay: { value: 0.1, min: 0, max: 2, unit: 's', help: 'Wait before the hologram starts to appear' },
-      hologramRate: { value: 6, min: 0.2, max: 60, unit: '1/s' },
-      radioIn: { value: 20, min: 0.2, max: 60, unit: '1/s' },
+      hologramRate: { value: 6.32, min: 0.2, max: 60, unit: '1/s', help: 'Measured: a tenth of the way per 60 Hz frame' },
+      radioDelay: { value: 0.1, min: 0, max: 2, unit: 's', help: 'Wait before the rings start to appear' },
+      radioIn: { value: 24.33, min: 0.2, max: 60, unit: '1/s', help: 'Measured: a third of the way per 60 Hz frame' },
       radioOut: { value: 10, min: 0.2, max: 60, unit: '1/s' },
       canvasOpacity: { value: 0.9, min: 0.2, max: 1, help: 'Canvas opacity while an effect runs' },
     },
   });
   const want = { holo: false, radio: false };
   let holoWait = 0;
+  let radioWait = 0;
   let release: (() => void) | null = null;
 
   const unsub = ctx.onFrame('effects', (f) => {
@@ -53,7 +55,9 @@ export function createSurfaceEffects(engine: Engine): SurfaceEffects {
     holoWait = want.holo ? holoWait + f.dt : 0;
     const holoGoal = want.holo && holoWait >= t.hologramDelay ? 1 : 0;
     fx.uHolo.value = ctx.still ? holoGoal : approach(fx.uHolo.value, holoGoal, t.hologramRate, f.dt);
-    fx.uRadio.value = ctx.still ? (want.radio ? 1 : 0) : approach(fx.uRadio.value, want.radio ? 1 : 0, want.radio ? t.radioIn : t.radioOut, f.dt);
+    radioWait = want.radio ? radioWait + f.dt : 0;
+    const radioGoal = want.radio && radioWait >= t.radioDelay ? 1 : 0;
+    fx.uRadio.value = ctx.still ? radioGoal : approach(fx.uRadio.value, radioGoal, want.radio ? t.radioIn : t.radioOut, f.dt);
     ctx.canvas.style.opacity = String(1 - (1 - t.canvasOpacity) * Math.max(fx.uHolo.value, fx.uRadio.value));
   });
 
