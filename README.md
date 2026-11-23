@@ -246,7 +246,7 @@ The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 fram
 
 ## What is missing
 
-Touch works but was not measured against the reference. In the row of spines the neighbours of a book that is opened from the row do not close up behind it yet. The demo texts are excerpts, so a thick book repeats its pages.
+Touch works but was not measured against the reference. The demo texts are excerpts, so a thick book repeats its pages.
 
 ## Licence
 
