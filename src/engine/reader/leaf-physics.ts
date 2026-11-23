@@ -17,7 +17,7 @@ export interface LeafTuning {
   follow: number;
   /** Pull toward the nearer side when the leaf has no target. */
   gravity: number;
-  /** Steady pull inside the landing zone, so the leaf comes down instead of hovering. */
+  /** Extra steady pull inside the landing zone. 0 matches the measured turn, which creeps down over seconds. */
   settle: number;
   /** Speed a button-triggered turn starts with, radians per normalised frame. */
   kick: number;
@@ -32,7 +32,7 @@ export const LEAF_DEFAULT: LeafTuning = {
   landingZone: 0.3,
   follow: 0.15,
   gravity: 0.003,
-  settle: 0.006,
+  settle: 0,
   kick: 0.08,
   restAngle: 0.005,
   restSpeed: 5e-4,
