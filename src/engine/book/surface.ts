@@ -235,6 +235,12 @@ export interface SurfaceOptions {
    * the joints (see `JOINT`). Set `uHinge` on the uniforms to how far each hinge is bent.
    */
   joint?: { back: number; front: number; half: number; length: number };
+  /**
+   * The inside of a case: the cloth of the cover is turned in over the edges of the boards, and the colour map
+   * (the endpaper) shows only inside that margin. `margin` is its width as a share of the surface in u and v,
+   * `repeat` is how often the colour map repeats across the surface. Both can be set later on the uniform `uTurnIn`.
+   */
+  turnIn?: { color: string; margin: [number, number]; repeat: [number, number] };
 }
 
 /**
@@ -302,6 +308,11 @@ uniform vec2 uFxPointer;
 uniform float uFilm;
 uniform float uFilmSeed;
 uniform float uFilmShare;
+#ifdef CASEBOUND_TURNIN
+	// Width of the margin as a share of the surface in u and v, and how often the colour map repeats across it.
+	uniform vec4 uTurnIn;
+	uniform vec3 uTurnInColor;
+#endif
 uniform float uGutter;
 uniform float uBounce;
 uniform float uBounceReach;
@@ -319,6 +330,7 @@ uniform float uCeiling;
 uniform float uShoulder;
 
 float bCloth = 1.0;
+float bTurnedIn = 0.0;
 float bFoil = 0.0;
 float bLod = 1.0;
 float bMottle = 0.0;
@@ -459,6 +471,14 @@ const ALBEDO = /* glsl */ `
 		diffuseColor.rgb = mix( diffuseColor.rgb, shifted, uHolo );
 	}
 
+	#ifdef CASEBOUND_TURNIN
+		// The cloth of the case is turned in over the edges of the boards. The endpaper starts inside that margin.
+		vec2 inner = vMapUv / uTurnIn.zw;
+		vec2 toEdge = min( inner, 1.0 - inner ) / uTurnIn.xy;
+		bTurnedIn = 1.0 - smoothstep( 0.96, 1.0, min( toEdge.x, toEdge.y ) );
+		diffuseColor.rgb = mix( diffuseColor.rgb, uTurnInColor, bTurnedIn );
+	#endif
+
 	#ifdef CASEBOUND_BLEED
 		vec3 behind = texture2D( tBack, vec2( 1.0 - vMapUv.x, vMapUv.y ) ).rgb;
 		diffuseColor.rgb *= mix( vec3( 1.0 ), behind, uBleed * sin( PI * uTurn ) );
@@ -587,13 +607,13 @@ if ( uRadio > 0.001 ) {
 	gl_FragColor.rgb += vec3( 0.02, 0.06, 0.09 ) * wave * 2.0;
 	gl_FragColor.rgb *= 1.0 + wave * 0.35;
 }
-if ( uFilm * uFilmShare > 0.0 ) {
+if ( uFilm * uFilmShare * ( 1.0 - bTurnedIn ) > 0.0 ) {
 	// Film grain (SPEC S-RD-13): new on every drawn frame, one value per colour, stronger in the shadows.
 	float lum = dot( gl_FragColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
 	float mask = 0.3 + 0.7 * ( 1.0 - smoothstep( 0.3, 1.2, lum ) );
 	vec2 at = gl_FragCoord.xy + uFilmSeed;
 	vec3 speck = vec3( bHash( at ), bHash( at + 19.19 ), bHash( at + 47.53 ) ) - 0.5;
-	gl_FragColor.rgb += speck * uFilm * uFilmShare * mask;
+	gl_FragColor.rgb += speck * uFilm * uFilmShare * ( 1.0 - bTurnedIn ) * mask;
 }
 #include <dithering_fragment>
 `;
@@ -673,6 +693,9 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uCeiling: { value: o.cloth.ceiling ?? 0 },
     uFilmShare: { value: o.cloth.film ?? 0 },
     uGutter: { value: o.gutter ?? -1 },
+    uTurnIn: { value: o.turnIn ? new Vector4(...o.turnIn.margin, ...o.turnIn.repeat) : new Vector4(0, 0, 1, 1) },
+    // Written out as given, and at the brightness the cloth has on the outside of the case.
+    uTurnInColor: { value: new Color(o.turnIn?.color ?? '#000000').convertLinearToSRGB().multiplyScalar(0.9 / (o.exposure ?? o.cloth.exposure ?? 0.9)) },
     uJoint: { value: o.joint ? new Vector4(o.joint.back, o.joint.front, o.joint.half, o.joint.length) : new Vector4() },
     uHinge: { value: new Vector2(Math.PI / 2, Math.PI / 2) },
     ...o.fx,
@@ -683,6 +706,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
   if (o.emboss) mat.defines.CASEBOUND_EMBOSS = '';
   if (o.finish) mat.defines.CASEBOUND_FINISH = '';
   if (o.bleed) mat.defines.CASEBOUND_BLEED = '';
+  if (o.turnIn) mat.defines.CASEBOUND_TURNIN = '';
   liveMaterials.add(mat);
   mat.addEventListener('dispose', () => liveMaterials.delete(mat));
   mat.onBeforeCompile = (shader) => {
@@ -702,7 +726,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     if (o.sheet) shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', SHEET_LIGHTS);
     shader.vertexShader = shader.vertexShader.replace('#include <uv_pars_vertex>', VERTEX_PARS).replace('#include <begin_vertex>', VERTEX_DISPLACE);
   };
-  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}${o.sheet ? 's' : ''}${o.joint ? 'j' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
+  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}${o.sheet ? 's' : ''}${o.joint ? 'j' : ''}${o.turnIn ? 't' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
   return mat;
 }
 

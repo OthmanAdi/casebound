@@ -53,6 +53,13 @@ export interface BookRecord {
   headings?: Record<number, string>;
 }
 
+/**
+ * Width of the cloth that is turned in over the edges of the boards, world units. It has to be wider than the
+ * boards stand out beyond the pages (0.335), or endpaper shows beside the page block. Range 0.4 to 2; on a real
+ * book it is about 1.4.
+ */
+export const TURN_IN = 0.7;
+
 /** Opening angle of each board when the book lies open at its middle (SPEC S-RD-3: 28 degrees x 3.36). */
 export const OPEN_ANGLE = 94 * DEG;
 
@@ -138,6 +145,8 @@ export class Book {
       shininess: 12,
       reflectiveness: 0.2,
       bumpGrain: 0.04,
+      // The margin is set below, once the length of the case is known.
+      turnIn: { color: record.cover.cloth, margin: [0, 0], repeat: [6, 4] },
       fx,
     });
     end.repeat.set(6, 4);
@@ -148,6 +157,7 @@ export class Book {
     const atlas = volume.atlas;
     const cover = (this.cover = this.paintCover(relief));
     const stripLength = atlas.aspect * dims.coverH;
+    (endpaper.userData.uniforms as { uTurnIn: { value: { set(x: number, y: number, z: number, w: number): void } } }).uTurnIn.value.set(TURN_IN / stripLength, TURN_IN / dims.coverH, 6, 4);
     const coverMat = (this.coverMaterial = createSurfaceMaterial({
       map: cover.map,
       grain: grainTexture(grainKind),
