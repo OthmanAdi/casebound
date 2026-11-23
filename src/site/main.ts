@@ -94,7 +94,7 @@ async function boot(): Promise<void> {
     return Math.min(1, room / spread);
   };
   const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
-  const magnifier = createMagnifier(engine);
+  const magnifier = createMagnifier(engine, { centreOffsetPx: offset });
   const effects = createSurfaceEffects(engine);
 
   // Extensions: any file in `extensions/` with a default export. Listed in content/library.json or in `?ext=a,b`.

@@ -47,21 +47,33 @@ void main() {
 	float scale = ( 1.0 - uMagnification * glass ) * ( 1.0 + uBarrel * glass * dist * dist );
 	vec4 colour = texture2D( tScene, uCentre + delta * scale );
 
-	// Rim: a dark ring with a bright band just inside it.
-	float soft = uRadius * 0.006;
-	float halfW = uRingThickness * 0.5;
-	float outer = 1.0 - smoothstep( halfW, halfW + soft, abs( dist - uRadius ) );
-	float inner = 1.0 - smoothstep( halfW * 0.6, halfW * 0.6 + soft, abs( dist - ( uRadius - uRingThickness * 1.1 ) ) );
-	float ring = outer * uRingOpacity * uAmount;
-	float band = inner * 0.8 * uRingOpacity * uAmount;
-	vec4 result = mix( colour, vec4( 0.0, 0.0, 0.0, 1.0 ), ring );
-	result = mix( result, vec4( 1.0 ), band * ( 1.0 - ring ) );
+	// Rim, as measured: a dark ring across the edge of the glass with a bright band in its outer part.
+	float lo = uRadius - uRingThickness * 0.5;
+	float hi = uRadius + uRingThickness * 0.5;
+	float softDark = uRadius * 0.01;
+	float softBright = uRadius * 0.005;
+	float ring = smoothstep( lo - softDark, lo + softDark, dist ) * ( 1.0 - smoothstep( hi - softDark, hi + softDark, dist ) );
+	float from = lo + uRingThickness * 0.7;
+	float band = smoothstep( from - softBright, from + softBright, dist ) * ( 1.0 - smoothstep( hi - softBright, hi + softBright, dist ) );
+	vec4 result = mix( colour, vec4( 0.0, 0.0, 0.0, 1.0 ), ring * uRingOpacity * uAmount );
+	result = mix( result, vec4( 1.0 ), band * 0.8 * uRingOpacity * uAmount );
 	gl_FragColor = result;
 }
 `;
 
-export function createMagnifier(engine: Engine): Magnifier {
+export interface MagnifierOptions {
+  /** Where the lens opens, as an offset from the canvas centre in CSS pixels. Default: the centre. */
+  centreOffsetPx?: () => { x: number; y: number };
+}
+
+export function createMagnifier(engine: Engine, opts: MagnifierOptions = {}): Magnifier {
   const { ctx } = engine;
+  const home = { x: 0.5, y: 0.5 };
+  const findHome = (): void => {
+    const o = opts.centreOffsetPx?.() ?? { x: 0, y: 0 };
+    home.x = 0.5 + o.x / Math.max(1, ctx.size.x);
+    home.y = 0.5 - o.y / Math.max(1, ctx.size.y);
+  };
   const t = tunable(ctx.registry, {
     id: 'effect.magnifier',
     label: 'Magnifier',
@@ -104,6 +116,9 @@ export function createMagnifier(engine: Engine): Magnifier {
   let target: FramebufferTexture | null = null;
   let on = false;
   let amount = 0;
+  /** Where the pointer was when the lens was switched on. The lens stays in the middle until it moves from there. */
+  const anchor = new Vector2();
+  let following = false;
   let release: (() => void) | null = null;
 
   const ensureTarget = (): void => {
@@ -144,8 +159,10 @@ export function createMagnifier(engine: Engine): Magnifier {
     u.uRingThickness.value = t.ringThickness;
     u.uRingOpacity.value = t.ringOpacity;
     u.uAspect.value = ctx.size.x / Math.max(1, ctx.size.y);
-    const gx = ctx.pointer ? (ctx.pointer.x + 1) / 2 : 0.5;
-    const gy = ctx.pointer ? (ctx.pointer.y + 1) / 2 : 0.5;
+    if (!following && ctx.pointerPx.distanceTo(anchor) > 2) following = true;
+    if (!following) findHome();
+    const gx = ctx.pointer && following ? (ctx.pointer.x + 1) / 2 : home.x;
+    const gy = ctx.pointer && following ? (ctx.pointer.y + 1) / 2 : home.y;
     const k = ctx.still ? 1 : expFactor(t.follow, Math.min(f.dt, 0.05));
     u.uCentre.value.set(u.uCentre.value.x + (gx - u.uCentre.value.x) * k, u.uCentre.value.y + (gy - u.uCentre.value.y) * k);
   });
@@ -159,7 +176,11 @@ export function createMagnifier(engine: Engine): Magnifier {
       on = next;
       if (on) {
         release ??= ctx.lease('magnifier');
-        if (ctx.pointer) uniforms.uCentre.value.set((ctx.pointer.x + 1) / 2, (ctx.pointer.y + 1) / 2);
+        // Measured: the lens opens in the middle of the picture, not on the button that switched it on.
+        findHome();
+        uniforms.uCentre.value.set(home.x, home.y);
+        anchor.copy(ctx.pointerPx);
+        following = false;
       }
       ctx.invalidate();
     },
