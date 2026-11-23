@@ -105,7 +105,9 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
   background-size: cover;
   background-position: center;
   overflow: hidden;
-  transition: width 0.64s cubic-bezier(0.45, 0, 0.55, 1);
+  /* A stated width, because a change from `auto` does not animate. Measured: the picture narrows from 150 ms to 570 ms. */
+  width: calc(100vw - var(--gutter) * 2);
+  transition: width 0.42s cubic-bezier(0.45, 0, 0.55, 1) 0.15s;
 }
 .panel::after {
   /* A veil that takes the picture toward the page colour, so the book reads against it. */
@@ -145,7 +147,7 @@ html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   border-radius: 6px 6px 0 0;
   z-index: 45;
-  animation: rise 0.3s ease both;
+  animation: rise 0.13s ease both;
 }
 .toolbar[hidden], .detail[hidden] { display: none; }
 #folio { min-width: 92px; text-align: center; }
@@ -203,7 +205,7 @@ html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
   .m-title { font-size: 34px; }
   .marquee { top: 76px; height: 50px; }
   .grain { display: none; }
-  html[data-detail] .panel { width: auto; }
+  html[data-detail] .panel { width: calc(100vw - var(--gutter) * 2); }
   .detail { left: var(--gutter); width: auto; top: 46vh; background: var(--bg); }
   .detail h2 { font-size: 32px; }
   .byline { margin-bottom: 20px; }

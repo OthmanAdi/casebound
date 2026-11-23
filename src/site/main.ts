@@ -9,7 +9,7 @@ import '@fontsource/ibm-plex-mono/500.css';
 import './site.css';
 import { createEngine, type BookRecord, type Extension } from '../engine';
 import { fan } from '../../extensions/fan';
-import { approach } from '../engine/core/math';
+import { easeInOutQuad } from '../engine/core/math';
 import { createMagnifier } from '../engine/effects/magnifier';
 import { createSurfaceEffects } from '../engine/effects/surface-effects';
 import { createReader, type Reader } from '../engine/reader/reader';
@@ -73,6 +73,8 @@ async function boot(): Promise<void> {
   // ---------------------------------------------------------------- views
   /** How far the canvas content is shifted left to make room for the detail column, 0..1. */
   let shift = 0;
+  let shiftFrom = 0;
+  let shiftClock = 1;
   let detailOpen = false;
   const offset = (): { x: number; y: number } => {
     const nav = parseFloat(getComputedStyle(html).getPropertyValue('--nav')) || 162;
@@ -114,6 +116,10 @@ async function boot(): Promise<void> {
   }
 
   function setDetail(on: boolean): void {
+    if (on !== detailOpen) {
+      shiftFrom = shift;
+      shiftClock = 0;
+    }
     detailOpen = on;
     const d = $('detail');
     if (on) {
@@ -144,7 +150,8 @@ async function boot(): Promise<void> {
   /** Brings the page furniture in line with the engine state. */
   function sync(): void {
     const reading = reader.isOpen;
-    $('toolbar').hidden = !reading;
+    // Measured: the reader's controls appear when the pages have parted, not at the click.
+    $('toolbar').hidden = !(reading && (reader.parted >= 0.985 || ctx.still));
     $('open').textContent = reading ? 'Close book [-]' : 'Open book [+]';
     $('open').setAttribute('aria-label', reading ? 'Close book' : `Open book: ${current().title}`);
     $('details').setAttribute('aria-label', detailOpen ? 'Close details' : `View details: ${current().title}`);
@@ -221,7 +228,13 @@ async function boot(): Promise<void> {
     if (e.key === ' ' && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof HTMLAnchorElement)) {
       e.preventDefault();
       if (!e.repeat) setReading(!reader.isOpen);
-    } else if (e.key === 'Escape') home();
+    } else if (e.key === 'Escape') {
+      // One step back at a time: out of the book first, then out of the details.
+      if (reader.isOpen) {
+        setLens(false);
+        setReading(false);
+      } else home();
+    }
     else if (e.key === 'ArrowRight' && reader.isOpen) reader.next();
     else if (e.key === 'ArrowLeft' && reader.isOpen) reader.previous();
     else if (e.key === 'm') setLens(!magnifier.on);
@@ -236,9 +249,12 @@ async function boot(): Promise<void> {
   // ---------------------------------------------------------------- per frame
   let trackX = 0;
   ctx.onFrame('before-render', (f) => {
+    // Measured: the book moves aside in 0.64 s, slow at both ends.
     const before = shift;
-    shift = ctx.still ? (detailOpen ? 1 : 0) : approach(shift, detailOpen && !ctx.compact ? 1 : 0, 7, f.dt);
-    if (Math.abs(shift - before) > 1e-4) ctx.invalidate();
+    const aside = detailOpen && !ctx.compact ? 1 : 0;
+    shiftClock = ctx.still ? 1 : Math.min(1, shiftClock + f.dt / 0.64);
+    shift = shiftFrom + (aside - shiftFrom) * easeInOutQuad(shiftClock);
+    if (Math.abs(shift - before) > 1e-4 || shiftClock < 1) ctx.invalidate();
     html.style.setProperty('--shift', `${offset().x}px`);
 
     // Marquee: the current title sits at the centre of the picture; neighbours slide with the scroll.
