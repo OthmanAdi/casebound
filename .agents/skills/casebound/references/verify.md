@@ -7,7 +7,19 @@ npm run check        # typecheck, unit tests, production build
 npm run test         # unit tests only
 ```
 
-Unit tests cover the parts that can be wrong without anyone noticing by eye: motion primitives at different frame rates, the frame loop, the leaf cross-section, the page turn curve, the scroll pipeline, the registry.
+Unit tests cover the parts that can be wrong without anyone noticing by eye: motion primitives at different frame rates, the frame loop, the leaf cross-section, the page turn curve, the scroll pipeline, the turning of a book by hand, the registry.
+
+## Use it like a reader would
+
+Two checks run the site in a real browser and act on it with the pointer and the keys. They stop the engine's own clock and step it by hand, so the result is the same on a slow machine. Each prints one line per step and exits with 1 if a step fails.
+
+```sh
+npm run build && npx vite preview --port 5185 &
+node tools/capture/check-reader.mjs http://127.0.0.1:5185   # keys, a page pulled over, one let go, taps, a leaf caught in the air
+node tools/capture/check-shelf.mjs http://127.0.0.1:5185    # a book turned by hand, its coasting, a press that opens the details
+```
+
+Run both after any change to the reader, the shelf, the pointer handling or the site's keys. Add a step when you add an interaction. Run them against a production build: the dev server reloads modules under them.
 
 ## Look at it
 
@@ -38,7 +50,18 @@ casebound.effects.hologram(true), 1                       // hologram on
 casebound.engine.ctx.registry.describe('reader')          // print values
 ```
 
-Check at least: the closed book on the shelf, a scroll half way between two books, the open spread, a leaf in mid-turn, the lens, the two surface effects, the Night theme, a 390 by 844 viewport, and reduced motion.
+Check at least: the closed book on the shelf, a scroll half way between two books, a book turned by hand, the open spread near the first page, in the middle and near the last page, a leaf in mid-turn, a held leaf, the lens, the two surface effects, the Night theme, a 390 by 844 viewport, and reduced motion.
+
+## Record it
+
+For anything that moves, record a scripted visit as exact frames and look at several of them. The recorder steps the engine's clock, one frame per step.
+
+```sh
+node tools/capture/record.mjs http://127.0.0.1:5185 out/rec/drag drag     # scenes: shelf, spin, reader, drag, lens, light, pointer, night, nightlens
+node tools/capture/gif.mjs out/rec/drag out/drag.gif --w 720 --fps 15     # needs ffmpeg on the PATH, or its path in FFMPEG
+```
+
+A scene is a list of actions at frame numbers in `tools/capture/record.mjs`: pointer paths, key presses, scrolls. Add one for a new interaction; it doubles as the source of a README GIF.
 
 The page announces its state for tools: `data-casebound-ready="true"` when it has settled, `data-casebound-view` with the current address (`/`, `/book/<slug>`, `/book/<slug>/page/<n>`).
 
@@ -59,8 +82,8 @@ Captures can be large (hundreds of megabytes each). Keep them out of git.
 
 ## What "done" means for a visible change
 
-1. `npm run check` passes.
-2. You looked at the changed state in a browser and at one state that should not have changed.
+1. `npm run check` passes, and so do `check-reader.mjs` and `check-shelf.mjs` when the change touches what they cover.
+2. You looked at the changed state in a browser and at one state that should not have changed. For motion, you looked at recorded frames, not at one picture.
 3. New numbers are registered and described.
 4. Reduced motion still ends in the right state.
 5. The commit message says what changed and, if a measured default was moved, why.

@@ -22,7 +22,7 @@ Put it in `extensions/<name>.ts`. Load it with `?ext=<name>` or by listing `<nam
 | `ctx.pointer` | Pointer in -1..1, y up, or null on touch |
 | `ctx.still` | True when the reader asked for reduced motion |
 | `ctx.compact` | True under 900 px wide |
-| `ctx.events` | `on('book-focus' | 'view' | 'page-turn' | 'theme' | 'resize', fn)` |
+| `ctx.events` | `on('book-focus' | 'book-click' | 'view' | 'page-turn' | 'theme' | 'resize', fn)` |
 | `books`, `book(slug)` | The loaded books. Each has `root`, `volume`, `dims`, `record`, `setOpen` |
 | `state.active`, `state.inside` | Index of the current book; 0 on the shelf, 1 with the reader open |
 | `rig`, `wall`, `fx` | Light rig, shadow wall, uniforms shared by all book surfaces |
