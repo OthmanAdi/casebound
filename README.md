@@ -1,6 +1,6 @@
 # Casebound
 
-Casebound is a three.js toolkit and coding-agent skill for 3D books in the browser: lit hardcovers on a shelf you scroll, books that open, pages that turn like paper, a magnifier, and light effects that run over the print.
+Casebound is a three.js toolkit and coding-agent skill for 3D books in the browser: lit hardcovers on a shelf you scroll, books you turn in your hand, books that open, pages you pull over like paper, a magnifier, and light effects that run over the print.
 
 ![An open hardcover in front of a painted landscape. A leaf lifts, curls over and lands, and the print on its other side shows through while it is in the air](docs/media/reader-demo.gif)
 
@@ -8,9 +8,13 @@ Casebound is a three.js toolkit and coding-agent skill for 3D books in the brows
 
 [Live demo](https://othmanadi.github.io/casebound/) | [Install the skill](#install-the-skill) | [Add a book](#add-a-book) | [Extend it](#extend-it) | [How it was measured](#how-it-was-measured)
 
+| On the shelf | Open | At night |
+| --- | --- | --- |
+| ![A closed hardcover with a rayed cover leans in front of a painted landscape and throws a soft shadow](docs/media/shot-shelf.jpg) | ![An open book with two full pages of justified text, a dark fold down the middle and stacked page edges at both sides](docs/media/shot-spread.jpg) | ![A red cloth hardcover lit warmly from one side in front of a landscape at dusk](docs/media/shot-night.jpg) |
+
 ## What it is
 
-Casebound draws hardcover books with three.js and WebGL and puts an ordinary web page around them. You scroll through a shelf, one book per screen. Each book holds at the centre for a moment, tilts toward the pointer and catches a spot of light that follows it. Press Space and the cover swings open, the pages part, and you can read. The pages are real text set on real leaves, and a leaf turns the way paper does: it lifts, bows against the air and lets the print on its far side show through.
+Casebound draws hardcover books with three.js and WebGL and puts an ordinary web page around them. You scroll through a shelf, one book per screen. Each book holds at the centre for a moment, tilts toward the pointer and catches a spot of light that follows it. Drag it and it turns in your hand and coasts on. Press Space and the cover swings open, the pages part, and you can read. The pages are real text, set line by line on real leaves, and a leaf turns the way paper does: you pull it over or let it fall back, it bows against the air, and the print on its far side shows through.
 
 It loads no model files and no pictures. The case, the hinges, the page blocks and the turning leaves are generated from a handful of dimensions. The cover, with its cloth weave, embossed title and foil, is painted in code from a few lines of JSON, and so are the page edges, the endpapers and the landscape behind each book. To add a book you add a folder with one small file.
 
@@ -26,12 +30,14 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | --- | --- |
 | Scroll | Books ride up with the page, hold at the centre, and turn away as they leave |
 | Move the pointer | The book tilts and a spot of light follows |
+| Drag the book | It turns in your hand, coasts on, and its trailing cover lifts |
 | `Space`, or **Open book** | The cover swings open, then the pages part |
-| `→` and `←` | A leaf turns |
+| `→` and `←`, or a tap on a page | A leaf turns |
+| Drag a page | The leaf follows your hand. Let go to turn it, or bring it back and it falls |
 | `m`, or the lens button | A round magnifier follows the pointer |
-| **View details**, then hover **E-book** or **Audiobook** | Scanlines, or rings, run over the whole book |
+| Press the book, or **View details**, then hover **E-book** or **Audiobook** | Scanlines, or rings, run over the whole book |
 | The theme button | Morning, Noon and Night light |
-| `Esc` | Back to the shelf |
+| `Esc` | One step back: out of the book, then out of the details |
 
 To run it yourself:
 
@@ -52,27 +58,39 @@ Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with
 
    *Recorded from the demo: three books, one scroll each.*
 
-2. Cloth, foil and paper take light differently. Covers are shaded as cloth, with a soft sheen at grazing angles, dark gaps between threads and a highlight that stays broad. Foil shifts its colour as the book turns. Four lights sit in presets that blend between Morning, Noon and Night, and the shadow of each book falls softly on a wall behind it.
+2. A book turns in your hand. Drag the centred book and it follows through a spring, coasts when you let go, and the cover that trails the turn lifts off the pages for a moment.
 
-3. A book opens in two stages. The front cover swings all the way round and shows the first page, then the pages part to where you were reading and the book turns to face you.
+   ![A closed hardcover is dragged round by the pointer, shows its spine and back, coasts on and comes to rest](docs/media/spin-demo.gif)
 
-4. Leaves turn like paper. One function describes the cross-section of every sheet in the book, the stacked pages and the single leaf in the air alike, so a turning leaf starts and ends exactly on its stack. Its motion follows a simple physical rule in three phases: a push, a steady pace and a braked landing.
+   *Recorded from the demo: one drag, the coasting after it, and a second drag back.*
 
-5. The magnifier is a second pass over the finished frame. It draws a round lens that enlarges the scene under the pointer and bends it toward the rim.
+3. Cloth, foil and paper take light differently. Covers are shaded as cloth, with a soft sheen at grazing angles, dark gaps between threads and a highlight that stays broad. Foil shifts its colour as the book turns. Four lights sit in presets that blend between Morning, Noon and Night, and the shadow of each book falls softly on a wall behind it.
+
+4. A book opens in two stages. The front cover swings all the way round and shows the first page, then the pages part to where you were reading and the book turns to face you.
+
+5. Leaves turn like paper. One function describes the cross-section of every sheet in the book, the stacked pages and the single leaf in the air alike, so a turning leaf starts and ends exactly on its stack. Released, it follows a simple physical rule in three phases: a push, a steady pace and a braked landing. Held, it follows your hand: any pull that ends on the turning side turns the page, a pull you bring back lets it fall, and a leaf that is still in the air can be caught.
+
+   ![A hand pulls a leaf of an open book over to the left and lets go, lifts the next one half way and lets it fall back, then pulls one back from the left](docs/media/drag-demo.gif)
+
+   *Recorded from the demo: a page pulled over, one let go half way, one pulled back.*
+
+6. The pages are typeset. The text is flowed line by line in the book's typeface, justified, with running heads and folios, and a paragraph runs on over the page break, so every page is full.
+
+7. The magnifier is a second pass over the finished frame. It draws a round lens that enlarges the scene under the pointer and bends it toward the rim.
 
    ![A round glass lens moves over an open book and enlarges the lines of text under it](docs/media/lens-demo.gif)
 
    *Recorded from the demo: the lens over a page of Hooke's Micrographia.*
 
-6. Two light effects cover the whole book. Hover the e-book row and scanlines run down covers and pages, lines shear sideways and colours split. Hover the audiobook row and rings travel across the paper and ripple it.
+8. Two light effects cover the whole book. Hover the e-book row and scanlines run down covers and pages, lines shear sideways and colours split. Hover the audiobook row and rings travel across the paper and ripple it.
 
    ![The pages of an open book take a lilac glow with scanlines, then rings travel across them](docs/media/light-demo.gif)
 
    *Recorded from the demo: first the e-book row, then the audiobook row.*
 
-7. At night the same shelf uses the dark preset, with a warm key light from the side.
+9. At night the light is dimmed. The picture falls back into dusk, the book is lit by a spot that follows the pointer, and the lens works in it like a reading glass under a lamp.
 
-   ![A dark page with a hardcover lit from the left. The pointer moves and the highlight on the cover moves with it](docs/media/night-demo.gif)
+   ![An open book in dim light. A pool of light follows the pointer over the pages, then a round lens enlarges the lit text](docs/media/night-demo.gif)
 
    *Recorded from the demo with `?theme=dark`.*
 
@@ -168,14 +186,14 @@ The rebuild is then captured with the same tool, the same settings and the same 
 
 | Compared | Result |
 | --- | --- |
+| Every light at rest, on the shelf and in the reader: colours, directions, cone, shadow bias | equal to six digits |
 | Page turn forward, turn progress over 2.4 s | mean difference 0.0002 of a turn, worst 0.0008 |
-| Page turn backward | mean 0.0065, ours starts one frame early |
-| Pointer spot light position while the pointer moves | mean difference 0.3 to 0.6 % of its range |
-| Key light direction while the pointer moves | mean difference under 0.001 |
-| Hologram fade after the hover | same rate; start time corrected by 50 ms |
-| Opening sequence | rebuilt in two stages after the first comparison showed one; to be measured again |
+| Page turn backward | mean 0.0069, ours starts one frame early |
+| Pointer spot light while the pointer moves | mean difference 0.3 % of its range |
+| Key and sun light direction while the pointer moves | mean difference under 0.0001 |
+| Lens magnification at the centre | 1.440 against 1.442 |
 
-Parts that are not measured yet are listed in the log, and so are the mistakes made on the way.
+A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. All twelve were changed and are waiting to be measured again. The log lists each one with its numbers, and the mistakes made on the way.
 
 No code, shader, model, artwork, text or typeface of the reference is in this repository, and the project is not affiliated with Stripe. [`PROVENANCE.md`](PROVENANCE.md) says what is here and where it came from. The capture tools are in [`tools/`](tools) and work on any page, including this one.
 
@@ -184,15 +202,18 @@ No code, shader, model, artwork, text or typeface of the reference is in this re
 | Command | Purpose |
 | --- | --- |
 | `npm run check` | Type check, unit tests and a production build |
+| `node tools/capture/check-reader.mjs <url>` | The reader in a real browser: keys, a page pulled over, one let go, taps, a leaf caught in the air |
+| `node tools/capture/check-shelf.mjs <url>` | The shelf in a real browser: a book turned by hand, its coasting, a press that opens the details |
 | `node tools/capture/shot.mjs <url> <out.png>` | One picture of a page in a real browser, with console errors |
 | `node tools/capture/record.mjs <url> <dir> <scene>` | A scripted visit as exact frames, for GIFs and review |
+| `node tools/capture/gif.mjs <dir> <out.gif>` | Those frames as a GIF |
 | `node tools/reanimate/capture-series.mjs --base <url> --out <dir>` | Frame-by-frame capture of the standard interactions |
 
-The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 frames per second, the page turn against the measured curve, the scroll pipeline and the leaf geometry.
+The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 frames per second, the page turn against the measured curve, the scroll pipeline, the leaf geometry and the coasting of a turned book. The two browser checks drive the engine's clock by hand, so they give the same result on a slow machine.
 
 ## What is missing
 
-Dragging a page by hand, the curl of a page corner under the pointer, a row of spines for the books that are not featured, and spinning a book by dragging it. Touch layouts work but were not measured against the reference.
+The curl of a page corner under the pointer, the riffle of the top leaves when a book opens, and a row of spines for the books that are not featured. Touch works but was not measured against the reference. The demo texts are excerpts, so a thick book repeats its pages.
 
 ## Licence
 

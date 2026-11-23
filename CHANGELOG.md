@@ -14,25 +14,30 @@ Books:
 - Three binding materials (buckram, paper, cardboard) with a tiled grain, shaded as cloth: wrapped diffuse, a fabric sheen, softened highlights, darker gaps between threads and fine fibre streaks that fade with distance.
 - Foil that takes its colour from the angle of view, from plain metal to fully iridescent.
 - Page edges with one stripe per leaf, endpapers in the book's colour, and typeset pages with running heads, justified text and folios.
+- Text flowed line by line in the book's typeface: a paragraph runs on over the page break and every page is full.
+- Page stacks that stay on their board however far it is folded back, so a book can lie open at its first or last page.
 
 Light:
 
 - Four lights in four presets (shelf, shelf at night, reader, reader at night) that blend field by field.
 - Three themes, Morning, Noon and Night, chosen by the hour of the day or fixed with `?theme=light|colour|dark`.
 - A spot light that follows the pointer and a key light that shifts with it.
-- A wall behind the books that receives a soft shadow, filtered with 16 samples on a rotated disk, fading as a book comes forward.
+- A wall behind the books that receives a soft shadow, filtered with 16 samples on a rotated disk. It fades by the point of the book that is farthest from the wall.
+- At night the picture behind the books falls back into dusk and the pointer's spot of light carries the scene.
 
 Motion:
 
 - A shelf driven by native scrolling: each book holds at the centre for 150 px, then follows with a critically damped motion.
-- Poses for leaving and arriving, a tilt toward the pointer, and an intro.
-- A reader that opens in two stages, leans toward the pointer and turns leaves with a small physical rule. A leaf in the air lets the print on its other side show through.
+- Poses for leaving and arriving, a tilt toward the pointer about the axes of the room, and an intro.
+- A closed book that turns in the hand: a spring between the pointer and the book, coasting after release, a trailing cover that lifts while it turns, and pitch that levels when the book was left upside down.
+- A reader that opens in two stages after the measured pause, leans toward the pointer and turns leaves with a small physical rule. A leaf in the air lets the print on its other side show through.
+- Pages turned by hand: a held leaf follows the pointer with the measured mapping, a pull that ends on the turning side turns the page, a pull brought back lets it fall, a tap turns one page, and a leaf in the air can be caught.
 - Reduced motion is honoured in the scene: with it on, every animation jumps to its end.
 
 Effects:
 
-- A magnifier as a second pass over the frame, with magnification, barrel bend and a rim.
-- Two looks for every book surface, hologram and radio, with fades.
+- A magnifier as a second pass over the frame, with magnification, barrel bend and the measured rim. It opens in the middle of the picture and follows the pointer from its next move.
+- Two looks for every book surface, hologram and radio, with the measured waits and fades.
 
 System:
 
@@ -40,17 +45,19 @@ System:
 - Extension points for scene objects, surface effects, shelf layouts, light presets and page sources, with three example extensions.
 - A content folder: one record per book, optional text beside it, and a tool that fetches public-domain texts from Project Gutenberg.
 - An agent skill, `casebound`, with references for content, extending, tuning and verifying, and manifests for the Claude Code plugin marketplace.
-- A demo site with six public-domain books, deep links, a detail column and keyboard control.
+- A demo site with six public-domain books, deep links, a detail column and keyboard control. Escape goes one step back at a time.
 
 Measurement:
 
 - `research/SPEC.md`: about 110 numbered values measured from the reference, each with a note on how it was verified.
 - `research/PARITY.md`: comparisons of this build against the reference, frame by frame.
-- Tools: a screenshot script, a frame recorder that drives the engine's clock, a runner for frame-stepped capture with reanimate, a channel comparison and a scene pose reader.
+- `research/PARITY.md` holds two passes. The second compared all ten interactions and led to twelve corrections, from the darkness of the wall shadow to the timing of the opening.
+- Tools: a screenshot script, a frame recorder that drives the engine's clock, a GIF encoder for its frames, two functional checks that run the reader and the shelf in a real browser, a runner for frame-stepped capture with reanimate, a channel comparison and a scene pose reader.
 
 ### Known gaps
 
-- Pages cannot be dragged by hand yet, and a page corner does not curl under the pointer.
+- A page corner does not curl under the pointer, and the top leaves do not riffle when a book opens.
 - Books that are not featured are loaded but have no row of spines.
-- A book cannot be spun by dragging.
-- The closing sequence and the two-stage opening have not been compared with the reference again after their last change.
+- The twelve corrections of the second parity pass have not been captured again.
+- Page paper is still about 8 of 255 short in blue against the reference.
+- Touch works but was not measured.
