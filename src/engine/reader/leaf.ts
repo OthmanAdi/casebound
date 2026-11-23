@@ -29,8 +29,11 @@ const ALOFT_AT = 0.3;
 const REST_GAP = 0.012;
 /** The sheet throws a shadow once the sine of its turn passes this: about a degree off the stack. */
 const CAST_FROM = 0.02;
-/** Depth slope added to the sheet in the shadow map, in texels: a little more than the widest soft shadow reads. */
-const SHADOW_SLOPE = 12;
+/**
+ * Depth slope added to the sheet in the shadow map, in texels: a little more than the widest soft shadow reads
+ * (a radius of 10.4 texels in the dark themes, widened by up to a third by the wall).
+ */
+const SHADOW_SLOPE = 16;
 
 export class Leaf {
   readonly mesh: Mesh;
