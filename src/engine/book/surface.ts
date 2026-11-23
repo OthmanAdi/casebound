@@ -10,7 +10,7 @@
  * The sheen distribution is the inverted-Gaussian form published by Estevez and Kulla (2017), with the
  * visibility term of Neubelt and Pettineo (2013). Bump uses Mikkelsen's unparametrised surface gradient.
  */
-import { Color, DoubleSide, FrontSide, MeshPhongMaterial, MeshStandardMaterial, NoColorSpace, Vector2, type IUniform, type Side, type Texture } from 'three';
+import { Color, DoubleSide, FrontSide, MeshPhongMaterial, MeshStandardMaterial, NoColorSpace, ShaderChunk, Vector2, type IUniform, type Side, type Texture } from 'three';
 
 /** Uniforms shared by every book surface, driven by the effects module. */
 export interface SurfaceFx {
@@ -142,7 +142,19 @@ export interface SurfaceOptions {
   gutter?: 0 | 1;
   /** A leaf in the air lets the print on its other side show through. Set `tBack` and `uTurn` (0..1) on the uniforms. */
   bleed?: boolean;
+  /** A single sheet. Set `uAloft` on the uniforms: 0 while it lies on a stack, 1 in the air, where it takes shadows only on the side that faces the light. */
+  sheet?: boolean;
 }
+
+/**
+ * The light loop of a single sheet. Lying on its stack (`uAloft` 0) a sheet takes shadows like the page below it.
+ * In the air it takes them only on the side that faces the light: the side turned away is lit by what passes
+ * through the paper, and the sheet's own shadow would black that out.
+ */
+export const SHEET_LIGHTS = ShaderChunk.lights_fragment_begin.replace(
+  /directLight\.color \*= (\( directLight\.visible && receiveShadow \) \? get\w*Shadow\([^;]*\) : 1\.0);/g,
+  'directLight.color *= mix( 1.0, $1, mix( 1.0, smoothstep( 0.0, 0.25, dot( geometryNormal, directLight.direction ) ), uAloft ) );',
+);
 
 const PARS = /* glsl */ `
 varying vec3 vViewPosition;
@@ -190,6 +202,7 @@ uniform sampler2D tBack;
 uniform float uBleed;
 uniform float uTurn;
 uniform float uTransmit;
+uniform float uAloft;
 uniform float uExposure;
 
 float bCloth = 1.0;
@@ -443,6 +456,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uBleed: { value: 0.3 },
     uTurn: { value: 0 },
     uTransmit: { value: o.transmit ?? 0 },
+    uAloft: { value: 0 },
     uExposure: { value: o.exposure ?? o.cloth.exposure ?? 0.9 },
     uFilmShare: { value: o.cloth.film ?? 0 },
     uGutter: { value: o.gutter ?? -1 },
@@ -468,9 +482,10 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
       .replace('#include <opaque_fragment>', GUTTER)
       .replace('#include <colorspace_fragment>', '')
       .replace('#include <dithering_fragment>', FINAL.replace('#include <dithering_fragment>', extraFinal + '\n#include <dithering_fragment>'));
+    if (o.sheet) shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', SHEET_LIGHTS);
     shader.vertexShader = shader.vertexShader.replace('#include <uv_pars_vertex>', VERTEX_PARS).replace('#include <begin_vertex>', VERTEX_DISPLACE);
   };
-  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
+  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}${o.sheet ? 's' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
   return mat;
 }
 
