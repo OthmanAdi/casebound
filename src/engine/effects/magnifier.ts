@@ -63,6 +63,10 @@ void main() {
 export interface MagnifierOptions {
   /** Where the lens opens, as an offset from the canvas centre in CSS pixels. Default: the centre. */
   centreOffsetPx?: () => { x: number; y: number };
+  /** Called when the lens switches itself off: on a touch screen, two quick taps on the glass put it away. */
+  onToggle?: (on: boolean) => void;
+  /** A press on an element matching this selector opens the lens in the middle instead of under the pointer. */
+  controls?: string;
 }
 
 export function createMagnifier(engine: Engine, opts: MagnifierOptions = {}): Magnifier {
@@ -88,6 +92,8 @@ export function createMagnifier(engine: Engine, opts: MagnifierOptions = {}): Ma
       ringThickness: { value: 0.006, min: 0, max: 0.05 },
       ringOpacity: { value: 1, min: 0, max: 1 },
       follow: { value: 22, min: 1, max: 120, unit: '1/s', help: 'How fast the lens follows the pointer' },
+      pinnedMagnification: { value: 1.3, min: 0.5, max: 3, help: 'On a touch screen the lens rests in the middle: its magnification is multiplied by this' },
+      pinnedSize: { value: 0.858, min: 0.2, max: 2, help: 'On a touch screen: radius, edge and rim are multiplied by this (0.65 x 1.32)' },
       fade: { value: 120, min: 1, max: 240, unit: '1/s', help: 'How fast the lens appears and disappears. Measured on the reference: fully on within three frames' },
     },
     onChange: () => ctx.invalidate(),
@@ -118,7 +124,57 @@ export function createMagnifier(engine: Engine, opts: MagnifierOptions = {}): Ma
   /** Where the pointer was when the lens was switched on. The lens stays in the middle until it moves from there. */
   const anchor = new Vector2();
   let following = false;
+  /** On a touch screen the lens rests in the middle of the picture and the page moves under it. */
+  let pinned = false;
   let release: (() => void) | null = null;
+  const controls = opts.controls ?? 'button, a, input, [role="toolbar"], header, footer, nav';
+
+  // Two quick taps on the pinned glass put it away. Measured: 320 ms and 44 px apart at most, a tap being under 260 ms and 12 px.
+  const tap = { downAt: 0, x: 0, y: 0, moved: false, lastAt: 0, lastX: 0, lastY: 0 };
+  const onGlass = (x: number, y: number): boolean => {
+    const u = uniforms.uCentre.value;
+    const dx = (x / Math.max(1, ctx.size.x) - u.x) * (ctx.size.x / Math.max(1, ctx.size.y));
+    const dy = 1 - y / Math.max(1, ctx.size.y) - u.y;
+    return Math.hypot(dx, dy) <= uniforms.uRadius.value + 0.02;
+  };
+  const onTouchStart = (ev: TouchEvent): void => {
+    tap.downAt = 0;
+    const touch = ev.touches[0];
+    if (!on || !pinned || ev.touches.length !== 1 || !touch) return;
+    const rect = ctx.canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    if (!onGlass(x, y)) return;
+    const now = performance.now();
+    if (tap.lastAt && now - tap.lastAt <= 320 && Math.hypot(x - tap.lastX, y - tap.lastY) <= 44) {
+      tap.lastAt = 0;
+      magnifier.set(false);
+      opts.onToggle?.(false);
+      return;
+    }
+    tap.downAt = now;
+    tap.x = x;
+    tap.y = y;
+    tap.moved = false;
+  };
+  const onTouchMove = (ev: TouchEvent): void => {
+    const touch = ev.touches[0];
+    if (!tap.downAt || !touch) return;
+    const rect = ctx.canvas.getBoundingClientRect();
+    if (Math.hypot(touch.clientX - rect.left - tap.x, touch.clientY - rect.top - tap.y) > 12) tap.moved = true;
+  };
+  const onTouchEnd = (): void => {
+    if (tap.downAt && !tap.moved && performance.now() - tap.downAt <= 260) {
+      tap.lastAt = performance.now();
+      tap.lastX = tap.x;
+      tap.lastY = tap.y;
+    } else tap.lastAt = 0;
+    tap.downAt = 0;
+  };
+  window.addEventListener('touchstart', onTouchStart, { passive: true });
+  window.addEventListener('touchmove', onTouchMove, { passive: true });
+  window.addEventListener('touchend', onTouchEnd, { passive: true });
+  window.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
   const ensureTarget = (): void => {
     ctx.renderer.getDrawingBufferSize(buffer);
@@ -151,14 +207,15 @@ export function createMagnifier(engine: Engine, opts: MagnifierOptions = {}): Ma
     }
     const u = uniforms;
     u.uAmount.value = amount;
-    u.uMagnification.value = t.magnification;
-    u.uRadius.value = t.radius;
-    u.uEdge.value = t.edge;
+    const size = pinned ? t.pinnedSize : 1;
+    u.uMagnification.value = Math.min(0.9, t.magnification * (pinned ? t.pinnedMagnification : 1));
+    u.uRadius.value = t.radius * size;
+    u.uEdge.value = t.edge * size;
     u.uBarrel.value = t.barrel;
-    u.uRingThickness.value = t.ringThickness;
+    u.uRingThickness.value = t.ringThickness * size;
     u.uRingOpacity.value = t.ringOpacity;
     u.uAspect.value = ctx.size.x / Math.max(1, ctx.size.y);
-    if (!following && ctx.pointerPx.distanceTo(anchor) > 2) following = true;
+    if (!following && !pinned && ctx.pointerPx.distanceTo(anchor) > 2) following = true;
     if (!following) findHome();
     const gx = ctx.pointer && following ? (ctx.pointer.x + 1) / 2 : home.x;
     const gy = ctx.pointer && following ? (ctx.pointer.y + 1) / 2 : home.y;
@@ -175,11 +232,19 @@ export function createMagnifier(engine: Engine, opts: MagnifierOptions = {}): Ma
       on = next;
       if (on) {
         release ??= ctx.lease('magnifier');
-        // Measured: the lens opens in the middle of the picture, not on the button that switched it on.
         findHome();
-        uniforms.uCentre.value.set(home.x, home.y);
-        anchor.copy(ctx.pointerPx);
-        following = false;
+        pinned = typeof matchMedia === 'function' && matchMedia('(hover: none), (pointer: coarse)').matches && ctx.pointer === null;
+        const under = ctx.pointer ? document.elementFromPoint(ctx.pointerPx.x, ctx.pointerPx.y) : null;
+        if (ctx.pointer && !pinned && !under?.closest(controls)) {
+          // Switched on by a key: the lens is under the pointer at once.
+          uniforms.uCentre.value.set((ctx.pointer.x + 1) / 2, (ctx.pointer.y + 1) / 2);
+          following = true;
+        } else {
+          // Switched on by its button, or on a touch screen: it opens in the middle of the picture, not on the button.
+          uniforms.uCentre.value.set(home.x, home.y);
+          anchor.copy(ctx.pointerPx);
+          following = false;
+        }
       }
       ctx.invalidate();
     },
@@ -189,6 +254,10 @@ export function createMagnifier(engine: Engine, opts: MagnifierOptions = {}): Ma
     },
     dispose: () => {
       unsub();
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
       ctx.setRenderer(previous);
       release?.();
       target?.dispose();

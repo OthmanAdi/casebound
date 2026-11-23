@@ -10,7 +10,7 @@ import './site.css';
 import { createEngine, type BookRecord, type Extension } from '../engine';
 import { fan } from '../../extensions/fan';
 import { easeInOutQuad } from '../engine/core/math';
-import { createMagnifier } from '../engine/effects/magnifier';
+import { createMagnifier, type Magnifier } from '../engine/effects/magnifier';
 import { createSurfaceEffects } from '../engine/effects/surface-effects';
 import { createReader, type Reader } from '../engine/reader/reader';
 import { createShelf } from '../engine/shelf/shelf';
@@ -98,7 +98,7 @@ async function boot(): Promise<void> {
     return Math.min(1, room / spread);
   };
   const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
-  const magnifier = createMagnifier(engine, { centreOffsetPx: offset });
+  const magnifier: Magnifier = createMagnifier(engine, { centreOffsetPx: offset, onToggle: (on) => setLens(on) });
   const effects = createSurfaceEffects(engine);
 
   // Extensions: any file in `extensions/` with a default export. Listed in content/library.json or in `?ext=a,b`.
