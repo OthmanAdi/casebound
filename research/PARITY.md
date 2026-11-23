@@ -17,7 +17,8 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Pointer tilt on the shelf | world rotation of the book at five times | equal to 0.001 degrees at four of them, 0.026 at the fifth; no roll | matches |
 | Shelf and reader height | pivot of the book | -3.0547 and -2.9817 against -3.0553 and -2.9819 | matches |
 | Key shadow radius | shelf and reader | 6.000 and 9.739 against 6 and 9.74 | matches |
-| Wall shadow | opacity on the shelf and in the reader | 0.192 and 0.0534 against 0.193 and 0.0534 | matches |
+| Wall shadow | opacity on the shelf and in the reader | 0.193 and 0.0534 against 0.193 and 0.0534 | matches |
+| Wall shadow while a book changes | darkness at six moments of a 1.4 s glide | 0.190, 0.180, 0.179, 0.183, 0.188, 0.191 against 0.187, 0.179, 0.179, 0.180, 0.184, 0.193 (it fell to 0.143) | matches to 0.004 |
 | Detail view | sideways move of the book over time | same curve and end value (-9.1229 against -9.1239), one frame late in the capture; corrected afterwards | close |
 | Shelf, a wheel notch | 10, 50, 90, 99 % of the book's move | 29, 93, 173, 265 ms against 29, 93, 173, 265 (it was 1, 39, 112, 203) | matches |
 | Shelf, the dwell | how far a book has moved after 75 px of scroll | within 0.5 px of the reference's 11.8 px (it was 0) | matches |
@@ -52,13 +53,15 @@ What already agreed: the damper (SmoothDamp 0.0945 s x 0.7; after a jump our hei
 | 2 | The dwell | the book creeps through it: 11.8 px after 75 px of scroll | 0 px, then a kink | within 0.5 px, no kink |
 | 3 | Scroll from one book to the next | 872 px (943 from the first) | 730 px | 872 px |
 | 4 | Turn of the arriving book after a fast scroll | 54, 98, 195, 344 ms | 43, 104, 253, 466 ms | 37, 81, 178, 328 ms |
-| 5 | Wall shadow while the book changes | dips by 7 % | dips by 25 % | open |
+| 5 | Wall shadow while the book changes | dips by 7 %: 0.179 | dipped by 25 %: 0.143 | 0.179 |
 | 6 | A scripted scroll jump | shows one frame later | shows at once | open; not seen with real wheel events |
 | 7 | Rise of a book per frame | capped at 4 units | 4.24, 4.31, 3.65 | open (17 px for three frames) |
 | 8 | The first book | dwells 110 px, not 75 | like the others | open |
 | 9 | The push of a leaving book upward | capped: 74.9 units | grew without bound, 1333 | capped |
 
 The reference's pictures are taller than the room between its header and the bar at the foot, 856 px in a window 900 high, and run on under the bar. That is where its longer way from book to book comes from; ours ended above the bar. With the same picture height the settled curve stays within 7 px of the reference's and a glide between two middle books within 24 px. The height during a long glide from the first book is still 30 to 60 px off at the worst frame, because the reference's first slot is longer than its others.
+
+The wall shadow fades by how far the book reaches toward the camera. Ours measured that on its own case and stretched it by 1.26, which was right for a resting book and far too much for one that turns away: its far corner comes forward by 2 units, and stretched that took a quarter of the shadow. The reference measures a box around a larger model, whose far corner is 10.5 units in front of the pivot at rest and comes only 0.7 nearer in the turn. Ours now adds a fixed 7.6 units and a third of its own reach. Darkness after a jump of the scroll bar, at 50, 100, 150, 200, 300, 400, 600 and 800 ms: 0.192, 0.187, 0.182, 0.182, 0.188, 0.192, 0.194, 0.195 against 0.191, 0.181, 0.179, 0.184, 0.188, 0.191, 0.195, 0.195. Settled half way between two books ours is now 0.188 where the reference has 0.164 to 0.173; it was 0.134.
 
 Every reference number here is one reading at 1440x900. The wheel was one notch size and rhythm with the browser's own smooth scrolling off; trackpad and touch were not captured.
 

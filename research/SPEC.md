@@ -64,7 +64,7 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 |---|---|---|---|
 | S-WALL-1 | Books float in front of a wall, there is no floor. Plane 172.74 square at (0, -1.482, -54.5), facing the camera, shadow-only material colour #0a0a12, opacity 0.855 | code | R §8 |
 | S-WALL-2 | Soft shadow: 16 taps on a Vogel disk, rotated per pixel by interleaved gradient noise. Radius = light radius x (1 + 0.06 x 1.69 x (1 + 2.25 distT)) | code | R §8 |
-| S-WALL-3 | distT = smoothstep of the distance from the wall to the farthest corner of the active book's bounding box, over 2 to 36, eased at 10 per second. Opacity x (1 - 0.875 distT), and x 0.5 more while the reader opens | code | R §8 |
+| S-WALL-3 | distT = smoothstep of the distance from the wall to the farthest corner of the active book's bounding box, over 2 to 36, eased at 10 per second. Captured: that corner is 10.5 in front of the pivot of a resting book and 11.2 at most while a book turns away. Opacity x (1 - 0.875 distT), and x 0.5 more while the reader opens | code | R §8 |
 | S-WALL-4 | Tinted grain on the wall, amplitude 0.03, re-seeded each drawn frame | code | R §8 |
 | S-WALL-5 | The key light's shadow camera is recentred on the wall centre every frame | code | R §8 |
 | S-WALL-6 | In the reader the wall group moves from z -70.25 to -54.5 | live | L §B |
