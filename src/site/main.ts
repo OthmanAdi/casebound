@@ -7,7 +7,8 @@ import '@fontsource-variable/newsreader/opsz-italic.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import './site.css';
-import { createEngine, type BookRecord } from '../engine';
+import { createEngine, type BookRecord, type Extension } from '../engine';
+import { fan } from '../../extensions/fan';
 import { approach } from '../engine/core/math';
 import { createMagnifier } from '../engine/effects/magnifier';
 import { createSurfaceEffects } from '../engine/effects/surface-effects';
@@ -80,10 +81,18 @@ async function boot(): Promise<void> {
   };
   const slotPx = (): number => (panels.firstElementChild as HTMLElement).offsetHeight + 16;
 
-  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset });
+  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, layout: query.get('layout') === 'fan' ? fan : undefined });
   const reader = createReader(engine, { centreOffsetPx: offset, fit: () => 1 - 0.3 * shift });
   const magnifier = createMagnifier(engine);
   const effects = createSurfaceEffects(engine);
+
+  // Extensions: any file in `extensions/` with a default export. Listed in content/library.json or in `?ext=a,b`.
+  const available = import.meta.glob<{ default: Extension }>('../../extensions/*.ts');
+  for (const name of [...library.extensions, ...(query.get('ext')?.split(',') ?? [])].filter(Boolean)) {
+    const load = available[`../../extensions/${name}.ts`];
+    if (!load) console.warn(`bindery: no extension "${name}". Available: ${Object.keys(available).map((p) => p.split('/').at(-1)!.replace('.ts', '')).join(', ')}`);
+    else engine.use((await load()).default);
+  }
 
   const current = (): BookRecord => engine.books[engine.state.active]!.record;
 

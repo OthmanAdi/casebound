@@ -16,6 +16,8 @@ export interface Library {
   featured: string[];
   /** Slugs of further books. */
   shelf: string[];
+  /** Names of files in `extensions/` to load at start. */
+  extensions: string[];
   books: BookRecord[];
 }
 
@@ -35,5 +37,5 @@ export function loadLibrary(): Library {
   const order = [...library.featured, ...library.shelf];
   for (const slug of order) if (!bySlug.has(slug)) throw new Error(`content: library.json lists "${slug}" but content/books/${slug}/book.json does not exist`);
   const books = [...order.map((s) => bySlug.get(s)!), ...[...bySlug.values()].filter((b) => !order.includes(b.slug))];
-  return { name: library.name, tagline: library.tagline, featured: library.featured, shelf: library.shelf, books };
+  return { name: library.name, tagline: library.tagline, featured: library.featured, shelf: library.shelf, extensions: (library as { extensions?: string[] }).extensions ?? [], books };
 }

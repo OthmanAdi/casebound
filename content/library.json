@@ -2,5 +2,6 @@
   "name": "Bindery",
   "tagline": "Books on light, small things and long arguments",
   "featured": ["opticks", "micrographia", "chemical-history-of-a-candle", "flatland"],
-  "shelf": ["on-the-origin-of-species", "walden"]
+  "shelf": ["on-the-origin-of-species", "walden"],
+  "extensions": []
 }
