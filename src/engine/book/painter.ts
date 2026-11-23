@@ -393,7 +393,7 @@ export const GRAIN_PER_UNIT: Readonly<Record<Grain, number>> = { buckram: 3.2, p
  * Page edges: one stripe per leaf, with darker gaps and the odd cooler or warmer sheet (SPEC S-BOOK-9).
  * u runs across the leaves, v along the edge.
  */
-export function edgeTexture(seed: number, paper = '#f2ece0'): CanvasTexture {
+export function edgeTexture(seed: number, paper = '#f6f4ee'): CanvasTexture {
   const W = 1024;
   const H = 256;
   const [c, g] = canvas(W, H);
@@ -461,7 +461,7 @@ export interface PageContent {
  * Paints one page: running head, body text set justified, folio. Returns a texture in page proportions.
  * Pages are painted when they are about to be seen and can be disposed afterwards.
  */
-export function paintPage(content: PageContent, pageAspect: number, faces: Typefaces = DEFAULT_FACES, height = 1536, paper = '#f6f1e6'): CanvasTexture {
+export function paintPage(content: PageContent, pageAspect: number, faces: Typefaces = DEFAULT_FACES, height = 1536, paper = '#f3f2ee'): CanvasTexture {
   const H = height;
   const W = Math.round(H * pageAspect);
   const [c, g] = canvas(W, H);

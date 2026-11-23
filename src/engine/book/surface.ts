@@ -399,8 +399,8 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
 }
 
 /** Page edges: a plain lit material. Written out without tone mapping so the paper keeps its brightness. */
-export function createEdgeMaterial(map: Texture, tint = '#f1ece1'): MeshStandardMaterial {
-  const mat = new MeshStandardMaterial({ map, color: tint, roughness: 0.85, metalness: 0, side: DoubleSide });
+export function createEdgeMaterial(map: Texture, tint = '#f6f3ec'): MeshStandardMaterial {
+  const mat = new MeshStandardMaterial({ map, color: tint, emissive: '#262522', roughness: 0.85, metalness: 0, side: DoubleSide });
   mat.toneMapped = false;
   return mat;
 }
