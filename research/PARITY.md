@@ -19,14 +19,64 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Key shadow radius | shelf and reader | 6.000 and 9.739 against 6 and 9.74 | matches |
 | Wall shadow | opacity on the shelf and in the reader | 0.192 and 0.0534 against 0.193 and 0.0534 | matches |
 | Detail view | sideways move of the book over time | same curve and end value (-9.1229 against -9.1239), one frame late in the capture; corrected afterwards | close |
-| Open book | when the book turns | 10, 50, 90 and 99 % at 1160, 1741, 2107 and 2224 ms against 1335, 1835, 2146 and 2252 | close: up to 175 ms early at the start, 28 ms at the end |
+| Open book | when the book turns | 10, 50, 90 and 99 % at 1222, 1803, 2120 and 2226 ms against 1335, 1835, 2146 and 2252 | close: 113 ms early at the start, 26 to 32 ms from half way on |
 | Pages parting | page progress at seven times, 1700 to 2300 ms | 0.159, 0.300, 0.477, 0.665, 0.833, 0.962, 1 against 0.172, 0.292, 0.458, 0.639, 0.808, 0.943, 1 | matches to 0.03 |
-| Pages parting | path of the two stacks | both swing out by their final angle times the square of the page progress, as read in the reference's code and seen in its frames | matches by rule; no capture of ours since |
+| Pages parting | path of the two stacks | both swing out by their final angle times the square of the page progress, as read in the reference's code and seen in its frames | matches by rule; frames of a new capture agree within two to three frames |
+| Closing | frames side by side | ours runs about three frames ahead: the reference lets the pages rise for a moment before the cover moves | close |
+| Hologram | ink and paper under the effect | ink 174, 155, 170 against 155, 124, 176; both clip to white at the peak of the pulse | close: ours less violet |
+| Radio rings | shape and reach | rings cross the whole spread from its upper right corner and lift the surface, five to six along the top edge of a page on both sides | matches by eye; lift not measured |
+| Cloth | grain of a buckram spine, percent of brightness | 2.9 to 3.0 against 3.0 | matches |
+| Foil | saturation of iridescent silver foil | 0.09 to 0.25 against 0.10 to 0.25 | matches |
+| Page block | colour of its tail on the shelf | 102, 96, 85 against 106, 99, 86 | matches |
+| Joint | shade of the far wall of the groove | -16 to -17.5 % against -20 % | close |
 | First leaf under the opening cover | brightness on screen | 228 and 210 of 255 at the two brightest frames against 228 and 214; it was 255, burnt out, before | matches |
 | Pointer over the open book | reading place the case answers to, pointer on three buttons | 0.560, 0.688 and 0.352 from the rule against 0.556, 0.694 and 0.360 captured | matches to 0.008 |
 | Resting spread | belly of the pages | about 1.1 units high, a third of the way out; ours built to that | built from one frame, not measured again |
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, the nine largest corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758 | close: three differences open |
+
+## 2026-11-23 · Fifth pass: a new capture, the page lights, the covers
+
+**A new capture of ours** (`ours-6`, light theme pinned, after the changes of the fourth pass). World rotation of the opening book: 10, 50, 90 and 99 % at 1222, 1803, 2120 and 2226 ms against 1335, 1835, 2146 and 2252. Half way and later it is 26 to 32 ms early; the start is 113 ms early. Part of that start is a real difference: during the 650 ms before the cover moves the reference's book goes on following the pointer (4.7 degrees at 200 ms, 7.8 at 600 ms), ours stands still. The capture also showed that ours ended its turn 15 degrees short of the reference's. That was the place the book opened at: ours opened at 42 percent of the book, the reference at the middle leaf, and where a book is open decides how far it turns to face the camera. Ours now opens at the middle.
+
+Frames of the new capture beside the reference's at the same frame number: cover, first leaf, wad, fan and resting spread follow each other within two to three frames, ours ahead.
+
+**Closing.** Frame by frame ours is about three frames ahead. The reference lets the pages rise for a moment before the cover starts to close; ours starts both at once. While it closes, the first leaf met the lamps of the shelf with its brightness ceiling still off and burnt out for two frames. The ceiling now comes back with the cover.
+
+**The page lights.** Set beside a frame, our hologram was a pink wash that made the text unreadable, and our radio rings were stripes of light. The reference's shader does this, and ours now does the same:
+
+- Hologram: the print is read again, sheared sideways in two wave trains (0.003 and 0.006 of the page width, 65 and 11 waves down the page), mixed in by half; red and blue are read 0.0147 of the page to either side along the pointer's direction and mixed in by 0.3; two trains of scanlines of strength 0.055 and 0.0385; grain in 4 px cells that changes 12 times a second; a pulse of light of up to 30 percent; a tint of 0.004, 0.015, 0.087.
+- Rings: one carrier of 69.8 radians per unit of distance, 1.53 turns a second, squared, fading to nothing 1.2 away. They start at the upper right corner of the spread, not of each page, which is why a page shows five to six rings along its top edge and not eleven. The surface is lifted where a ring passes (0.92 model units in the reference's settings, 0.7 world units on ours), the light is raised by 35 percent and tinted 0.02, 0.06, 0.09 times two.
+- An older approximation of the hologram had stayed in our shader and shifted the print a second time. Removed.
+
+Paper and ink between the lines under the hologram, as drawn on the page (the canvas is shown at 0.9 opacity during the effect on both sides):
+
+| | paper | ink |
+| --- | --- | --- |
+| reference | 229, 228, 237 | 155, 124, 176 |
+| ours before | 246, 246, 245 | 204, 184, 198 |
+| ours now | 233, 228, 223 | 174, 155, 170 |
+
+Ours is less violet: the book in our capture is printed on cream paper, and our text is lighter. At the peak of the pulse both clip to white.
+
+**The covers** (measured by a second session against frames of the reference, all numbers ours before, ours now, reference):
+
+| What | before | now | reference |
+| --- | --- | --- | --- |
+| Grain of a buckram spine facing the camera, percent of brightness | 1.8 | 2.9 to 3.0 | 3.0 |
+| The same at a strength of 0.037 and of 0.073 | n/a | 2.0 and 3.8 | 1.9 and 4.2 |
+| Blotches 4 px across on plain cloth | 1.3 % | 0.3 % | 0.2 % |
+| Grain of a paper cover (it carried the film grain of the pages) | 5.1 % | 2.1 % | 1.9 % |
+| Film grain on a flat part of a page, levels of luminance | 0.66 | 1.41 | 1.40 |
+| Iridescent silver foil, saturation | 0.39 to 0.47 | 0.09 to 0.25 | 0.10 to 0.25 |
+| The same, value | 0.99, clipped | 0.90 to 0.98 | 0.90 to 0.98 |
+| Strip of board below the page tail | 240, 225, 200 | 46, 49, 74 | 33, 32, 26 |
+| Tail of the page block on the shelf | 152, 149, 141 | 102, 96, 85 | 106, 99, 86 |
+| Far wall of the joint groove, cover facing the camera | -5 % | -16 to -17.5 % | -20 % |
+
+The strip below the tail was endpaper and the brightest thing in the picture: on a real case the cloth is turned in over the edges of the boards, and the reference shows that. The speckle its covers show at shelf distance is mostly the grain layer of the page, not the cloth.
+
+Not verified: the numbers for the covers come from a branch without the paper ceiling, the page belly and the rebuilt opening, and from stills only. The lift of the rings was set by eye from one frame. Night and narrow screens were not looked at after these changes.
 
 ## 2026-11-23 · Fourth pass: the opening beside its frames, the pointer, the page shape, the row
 
