@@ -4,6 +4,10 @@
 //
 // Usage:
 //   node tools/reanimate/capture-series.mjs --base https://example.org --out <dir> [--only a,b] [--fps 60] [--query midday]
+//        [--ready-attr data-press-agent-ready] [--reader-path /book/<slug>/page/<n>] [--ebook-at fx,fy] [--audio-at fx,fy]
+//
+// Defaults fit the reference. For our own build:
+//   --ready-attr data-bindery-ready --reader-path "/#/book/micrographia/page/116" --ebook-at 0.764,0.648 --audio-at 0.764,0.697
 //
 // Env:
 //   REANIMATE_SCRIPTS  absolute path of reanimate's `skills/reanimate/scripts` folder (required)
@@ -41,15 +45,20 @@ if (!base || !outRoot || !scripts) {
 
 // The page under test marks a settled view with this attribute. A promise that waits for it would
 // deadlock under the virtual clock, so the check throws and the run fails loudly instead.
-const READY = `if (document.documentElement.getAttribute('data-press-agent-ready') !== 'true') throw new Error('view not settled')`;
+const readyAttr = arg("ready-attr", "data-press-agent-ready");
+const READY = `if (document.documentElement.getAttribute('${readyAttr}') !== 'true') throw new Error('view not settled')`;
 const click = (label) => `${READY}; document.querySelector('button[aria-label="${label}"]').click()`;
 
-const url = (path) => base.replace(/\/$/, "") + path + (query ? (path.includes("?") ? "&" : "?") + query : "");
-const READER = "/book/maintenance-part-one/page/116";
+// The query goes before a hash, if the path has one.
+const url = (path) => {
+  const [plain, hash] = path.split("#");
+  return base.replace(/\/$/, "") + plain + (query ? (plain.includes("?") ? "&" : "?") + query : "") + (hash === undefined ? "" : "#" + hash);
+};
+const READER = arg("reader-path", "/book/maintenance-part-one/page/116");
 
 // Fractions of the 1440x900 canvas. The canvas ignores pointer events, so a point over a DOM control hits that control.
-const EBOOK_ROW = "0.764,0.936";
-const AUDIOBOOK_ROW = "0.764,0.982";
+const EBOOK_ROW = arg("ebook-at", "0.764,0.936");
+const AUDIOBOOK_ROW = arg("audio-at", "0.764,0.982");
 
 // Home captures must trigger within about 5 s of load: after that the page starts to scroll by itself.
 const HOME_SETTLE = "3000";

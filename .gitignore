@@ -11,3 +11,6 @@ research/runtime/explore-*.json
 
 # Screenshots of our own build, taken while developing.
 research/shots/
+
+# Frame-by-frame captures (large).
+research/captures/
