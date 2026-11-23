@@ -169,6 +169,11 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           leaveAt: { value: ROW_DEFAULT.leaveAt, min: 0.2, max: 1, help: 'A row that stood fully starts to sink below this value of the eased scroll' },
           farDrop: { value: ROW_DEFAULT.farDrop, min: 0, max: 10, help: 'How much deeper the far books start than the near ones' },
           anchorYawTime: { value: ROW_DEFAULT.anchorYawTime, min: 0.01, max: 3, unit: 's', help: 'Time for the last featured book to turn its cover' },
+          glideBase: { value: ROW_DEFAULT.glideBase, min: 0, max: 2, unit: 's', help: 'A choice more than one place away is reached by a timed glide: this long, plus glidePerPlace for every place. Measured: 0.4 s for three places' },
+          glidePerPlace: { value: ROW_DEFAULT.glidePerPlace, min: 0, max: 0.5, unit: 's' },
+          glideMax: { value: ROW_DEFAULT.glideMax, min: 0.3, max: 3, unit: 's' },
+          followYawTime: { value: ROW_DEFAULT.followYawTime, min: 0.01, max: 2, unit: 's', help: 'Time for a cover to follow the hand while the row is pulled or glides' },
+          endRoom: { value: ROW_DEFAULT.endRoom, min: 0, max: 20, help: 'Each end of the row keeps one spine and this much inside the window. A row that fits the window is centred and does not slide' },
           gateTime: { value: ROW_DEFAULT.gateTime, min: 0.01, max: 3, unit: 's' },
           assembleTime: { value: ROW_DEFAULT.assembleTime, min: 0.01, max: 3, unit: 's' },
           hoverPop: { value: ROW_DEFAULT.hoverPop, min: 0, max: 20, help: 'How far a spine under the pointer steps forward' },
@@ -241,7 +246,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           },
           select: (slug) => {
             const pos = display.findIndex((i) => engine.books[i]!.record.slug === slug);
-            const moved = pos >= 0 && choose(row, pos);
+            const moved = pos >= 0 && choose(row, pos, rowTune ?? undefined);
             if (moved) ctx.invalidate();
             return moved;
           },
@@ -411,7 +416,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
         const fresh = ev.type === 'pointerup' && first && last && last.t > first.t && clock - last.t < 80;
         const speed = fresh ? (last.x - first.x) / (Math.max(1, last.t - first.t) / 1000) : 0;
         releaseRow(row, rowWidths, speed * rowWorldPerPx, Math.abs(speed) > 250, rowTune!);
-      } else if (row && ev.type === 'pointerup') choose(row, p.pick);
+      } else if (row && ev.type === 'pointerup') choose(row, p.pick, rowTune!);
       ctx.invalidate();
       return;
     }
@@ -454,6 +459,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       rowPast = !rowPastSeeded || ctx.still ? rawPast : smoothDamp(rowPast, rawPast, rowPastVel, 0.063, clamp(f.dt, 1 / 240, 1 / 30));
       rowPastSeeded = true;
       if (Math.abs(rowPast - rawPast) > 1e-4) moving = true;
+      // The row needs the width of the window at its depth to know where its ends may stand.
+      row.window = (ctx.visibleHeightAt(t.planeZ - rowTune.depth) * ctx.size.x) / Math.max(1, ctx.size.y) / 2;
       if (stepRow(row, widths, rowPast, hoveredSpine, f.dt, rowTune, ctx.still)) moving = true;
       rowLive = rowSettled(row, rowPast, rowTune);
     }

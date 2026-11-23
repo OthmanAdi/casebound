@@ -34,6 +34,14 @@ export interface RowTuning {
   farDrop: number;
   /** Seconds for the last featured book to turn its cover when the choice changes. */
   anchorYawTime: number;
+  /** A choice more than one place away is reached by a timed glide: seconds for the first place and for every further one, and the longest. */
+  glideBase: number;
+  glidePerPlace: number;
+  glideMax: number;
+  /** Seconds for a cover to follow the hand while the row is pulled or glides. */
+  followYawTime: number;
+  /** Each end of the row keeps one spine and this much inside the window, world units. */
+  endRoom: number;
   gateTime: number;
   assembleTime: number;
   /** How far a spine under the pointer steps forward, and how fast. */
@@ -59,6 +67,11 @@ export const ROW_DEFAULT: RowTuning = {
   leaveAt: 0.96,
   farDrop: 4.38,
   anchorYawTime: 0.14,
+  glideBase: 0.25,
+  glidePerPlace: 0.05,
+  glideMax: 0.9,
+  followYawTime: 0.12,
+  endRoom: 2,
   gateTime: 0.22,
   assembleTime: 0.238,
   hoverPop: 3.78,
@@ -108,6 +121,10 @@ export interface RowState {
   /** While a hand drags the row: how far it has pulled it sideways, world units. */
   drag: number;
   dragging: boolean;
+  /** A timed glide to a choice more than one place away: where it started, how long it runs, how long it has run. */
+  glide: { from: number; seconds: number; age: number } | null;
+  /** Half the width of the window at the depth of the row, world units. 0 while unknown: then the row is not held at its ends. */
+  window: number;
 }
 
 export function createRow(count: number, anchor: number): RowState {
@@ -138,6 +155,8 @@ export function createRow(count: number, anchor: number): RowState {
     sinceStep: 1,
     drag: 0,
     dragging: false,
+    glide: null,
+    window: 0,
   };
 }
 
@@ -182,15 +201,47 @@ export const rowSettled = (s: RowState, _past?: number, _t: RowTuning = ROW_DEFA
 /** Moves the choice by a number of books. Refused when the last step was a moment ago. */
 export function stepChoice(s: RowState, delta: number, t: RowTuning = ROW_DEFAULT): boolean {
   if (s.sinceStep < t.stepPause) return false;
-  return choose(s, s.selected + delta);
+  return choose(s, s.selected + delta, t);
 }
 
-export function choose(s: RowState, index: number): boolean {
+export function choose(s: RowState, index: number, t: RowTuning = ROW_DEFAULT): boolean {
   const next = clamp(Math.round(index), 0, s.yaw.length - 1);
   if (next === s.selected) return false;
+  const places = Math.abs(next - s.selected);
+  // Measured: a choice three places away is reached in about 0.4 s on a timed curve, not by the damper of a step.
+  s.glide = places > 1 && s.settled ? { from: s.selected, seconds: clamp(t.glideBase + t.glidePerPlace * places, 0.3, t.glideMax), age: 0 } : null;
   s.selected = next;
   s.sinceStep = 0;
   return true;
+}
+
+/** The place in the row, with its fraction, that the resting coordinate `x` falls on. */
+export function placeUnder(x0: number[], x: number): number {
+  const last = x0.length - 1;
+  if (last < 1 || x <= x0[0]!) return 0;
+  if (x >= x0[last]!) return last;
+  let i = 0;
+  while (i < last - 1 && x > x0[i + 1]!) i++;
+  return i + (x - x0[i]!) / (x0[i + 1]! - x0[i]!);
+}
+
+/** Zero slope and zero bend at both ends: a move that starts and ends without a jolt. */
+const smootherstep = (u: number): number => {
+  const k = clamp(u, 0, 1);
+  return k * k * k * (k * (k * 6 - 15) + 10);
+};
+
+/**
+ * How far the row may slide: each end keeps one spine and `endRoom` inside the window. Returns the largest and
+ * the smallest offset. When the largest is the smaller of the two, the whole row fits and is centred instead.
+ */
+export function rowLimits(s: RowState, widths: number[], x0: number[], t: RowTuning = ROW_DEFAULT): { left: number; right: number } {
+  const last = widths.length - 1;
+  const half = (i: number): number => widths[i]! / 2 + (t.slot / 2 - widths[i]! / 2) * s.yaw[i]!;
+  return {
+    left: -s.window + widths[0]! + t.endRoom - (x0[0]! + pushAt(0, widths, s.yaw, t.slot) - half(0)),
+    right: s.window - widths[last]! - t.endRoom - (x0[last]! + pushAt(last, widths, s.yaw, t.slot) + half(last)),
+  };
 }
 
 /**
@@ -253,11 +304,29 @@ export function stepRow(s: RowState, widths: number[], past: number, hovered: nu
 
   let moving = false;
   const x0 = restX(widths, s.anchor, t.gap);
+  // Where the row is asked to be: on the chosen book, moved by the hand that pulls it, or on its way in a glide.
+  if (s.glide && (still || !s.settled)) s.glide = null;
+  if (s.glide) {
+    s.glide.age += dt;
+    if (s.glide.age >= s.glide.seconds) s.glide = null;
+    else moving = true;
+  }
+  const aim = !s.settled ? 0 : s.glide ? -(x0[s.glide.from]! + (x0[s.selected]! - x0[s.glide.from]!) * smootherstep(s.glide.age / s.glide.seconds)) : -x0[s.selected]! + s.drag;
+  // Measured: while the row is pulled or glides, the cover turn travels with it. The book that passes the middle
+  // shows its cover, its neighbours part of theirs.
+  const follow = s.settled && !still && (s.dragging || s.glide !== null);
+  const under = follow ? placeUnder(x0, -aim) : 0;
   for (let i = 0; i < widths.length; i++) {
     // The cover turn: the chosen book shows its cover only while the row stands. Measured: the last featured
     // book has a damper of its own, the others follow an exponential.
-    const turn = s.settled && i === s.selected ? 1 : 0;
-    const y = still ? turn : i === s.anchor ? smoothDamp(s.yaw[i]!, turn, s.yawVel[i]!, t.anchorYawTime, dt) : s.yaw[i]! + (turn - s.yaw[i]!) * expFactor(1 / t.yawTime, dt);
+    const turn = follow ? smoothstep(0, 1, 1 - Math.abs(under - i)) : s.settled && i === s.selected ? 1 : 0;
+    const y = still
+      ? turn
+      : follow
+        ? smoothDamp(s.yaw[i]!, turn, s.yawVel[i]!, t.followYawTime, dt)
+        : i === s.anchor
+          ? smoothDamp(s.yaw[i]!, turn, s.yawVel[i]!, t.anchorYawTime, dt)
+          : s.yaw[i]! + (turn - s.yaw[i]!) * expFactor(1 / t.yawTime, dt);
     if (Math.abs(y - s.yaw[i]!) > 1e-5) moving = true;
     s.yaw[i] = Math.abs(turn - y) < 1e-4 ? turn : clamp(y, 0, 1);
 
@@ -278,8 +347,18 @@ export function stepRow(s: RowState, widths: number[], past: number, hovered: nu
   // The row slides so the chosen book stands in the middle. Measured: the aim is the resting place of the chosen
   // book alone; the push of the turning covers is not part of it, or the slide overshoots.
   // A hand that drags the row is followed closely.
-  const want = s.settled ? -x0[s.selected]! + s.drag : 0;
-  s.offset = still ? want : smoothDamp(s.offset, want, s.offsetVel, s.dragging ? 0.06 : t.offsetTime, dt);
+  let want = aim;
+  if (s.settled && s.window > 0 && widths.length > 1) {
+    // Measured: each end of the row keeps a spine and a little more inside the window, so the first and the last
+    // book are not brought to the middle. A row that fits the window is centred as a whole and does not slide.
+    const { left, right } = rowLimits(s, widths, x0, t);
+    want = right > left ? (left + right) / 2 : clamp(want, right, left);
+  }
+  if (s.glide && !still && want === aim) {
+    // A glide is timed: the row is where the curve puts it.
+    s.offset = want;
+    s.offsetVel.v = 0;
+  } else s.offset = still ? want : smoothDamp(s.offset, want, s.offsetVel, s.dragging ? 0.06 : t.offsetTime, dt);
   return moving || Math.abs(s.assemble + s.offset + s.seat - before) > 1e-5;
 }
 
@@ -323,19 +402,16 @@ export function releaseRow(s: RowState, widths: number[], velocity: number, flic
   const pulled = s.drag + (flick ? velocity * 0.15 : 0);
   s.drag = 0;
   s.dragging = false;
-  // Pulling the row to the right brings the books on the left to the middle.
-  const dir = pulled > 0 ? -1 : 1;
-  let pick = s.selected;
-  let left = Math.abs(pulled);
-  for (let n = 0; n < 3; n++) {
-    const next = pick + dir;
-    if (next < 0 || next >= widths.length) break;
-    const way = (widths[pick]! + widths[next]!) / 2 + t.gap + (n === 0 ? (t.slot - widths[pick]!) / 2 : 0);
-    if (left < way * (n === 0 ? 0.25 : 0.55)) break;
-    pick = next;
-    left -= way;
-  }
-  return choose(s, pick);
+  // Measured: the book the hand has brought to the middle is the choice, counted in the resting places of the
+  // spines. Pulling the row to the right brings the books on the left to the middle.
+  const x0 = restX(widths, s.anchor, t.gap);
+  const pick = clamp(Math.round(placeUnder(x0, x0[s.selected]! - pulled)), 0, widths.length - 1);
+  if (pick === s.selected) return false;
+  // The row is there already: no glide, the damper settles the rest.
+  s.selected = pick;
+  s.glide = null;
+  s.sinceStep = 0;
+  return true;
 }
 
 /** How far the last featured book has moved from its featured pose into the row, 0..1. */
