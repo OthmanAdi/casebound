@@ -67,6 +67,10 @@ async function boot(): Promise<void> {
       t.append(sup);
     }
     track.append(t);
+    const slot = titles.length;
+    t.addEventListener('click', () => {
+      if (!reader.isOpen && !detailOpen) stepTo(slot);
+    });
     titles.push(t);
   }
 
@@ -228,8 +232,69 @@ async function boot(): Promise<void> {
     row.addEventListener('blur', () => fn(false));
   }
 
+  // ---------------------------------------------------------------- along the shelf without the wheel
+  /** A scroll the page makes by itself. A wheel, a touch, a press or a scroll of the reader's own takes it back. */
+  let glide: { from: number; to: number; start: number; ms: number; wrote: number } | null = null;
+  const glideTo = (to: number, ms: number): void => {
+    if (ctx.still || ms <= 0) {
+      scrollTo(0, to);
+      return;
+    }
+    const mine = (glide = { from: scrollY, to, start: performance.now(), ms, wrote: scrollY });
+    const step = (): void => {
+      if (glide !== mine || Math.abs(scrollY - mine.wrote) > 2) {
+        if (glide === mine) glide = null;
+        return;
+      }
+      const k = Math.min(1, (performance.now() - mine.start) / mine.ms);
+      scrollTo(0, mine.from + (mine.to - mine.from) * (0.5 - 0.5 * Math.cos(Math.PI * k)));
+      mine.wrote = scrollY;
+      if (k < 1) requestAnimationFrame(step);
+      else glide = null;
+    };
+    requestAnimationFrame(step);
+  };
+  /** Brings a featured book to the centre. Measured: one second per screen height under a square root, 0.4 to 1.8 s. */
+  function stepTo(slot: number, ms?: number): void {
+    const to = Math.max(0, Math.min(library.featured.length - 1, slot)) * slotPx();
+    glideTo(to, ms ?? Math.max(400, Math.min(1800, 1000 * Math.sqrt(Math.abs(to - scrollY) / Math.max(1, innerHeight)))));
+  }
+  const letGo = (): void => {
+    glide = null;
+  };
+  for (const type of ['wheel', 'touchstart', 'pointerdown'] as const) addEventListener(type, letGo, { passive: true });
+
+  // Left alone, the shelf shows its books one after another. Measured: after 3 s of quiet, a move of 1 s.
+  // Any input ends it for good, and a browser driven by a script never sees it.
+  let showing = !ctx.still && !navigator.webdriver && !query.has('quiet');
+  let showTimer = 0;
+  const endShow = (): void => {
+    showing = false;
+    clearTimeout(showTimer);
+  };
+  const showNext = (): void => {
+    if (!showing) return;
+    const slot = Math.round(scrollY / slotPx());
+    if (Math.abs(scrollY - slot * slotPx()) > 50 || slot >= library.featured.length - 1) return endShow();
+    if (!document.hidden && !reader.isOpen && !detailOpen) stepTo(slot + 1, 1000);
+    showTimer = window.setTimeout(showNext, 4000);
+  };
+  if (showing) {
+    showTimer = window.setTimeout(showNext, 5000);
+    for (const type of ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const) addEventListener(type, endShow, { passive: true, once: true });
+  }
+
   addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !reader.isOpen && !detailOpen) {
+      // One press brings the next book to the centre. A key held down scrolls the page as usual.
+      if (e.repeat) glide = null;
+      else {
+        e.preventDefault();
+        stepTo(Math.round((glide?.to ?? scrollY) / slotPx()) + (e.key === 'ArrowDown' ? 1 : -1));
+      }
+      return;
+    }
     if (e.key === ' ' && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof HTMLAnchorElement)) {
       e.preventDefault();
       if (!e.repeat) setReading(!reader.isOpen);

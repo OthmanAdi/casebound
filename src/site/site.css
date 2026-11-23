@@ -92,6 +92,7 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
   font-style: italic;
   color: var(--dim);
   transition: color 0.45s ease;
+  cursor: pointer;
 }
 .m-title sup { font: 400 11px/1 var(--display); font-style: normal; letter-spacing: 0; margin-left: 8px; vertical-align: 30px; opacity: 0.8; }
 .m-title.is-current { font-style: normal; color: var(--ink); }
