@@ -3,7 +3,7 @@
 //
 //   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900]
 //
-// Scenes: shelf, reader, drag, lens, light, pointer, night, nightlens. Turn the frames into a GIF or a video with ffmpeg, for example:
+// Scenes: shelf, spin, reader, drag, lens, light, pointer, night, nightlens. Turn the frames into a GIF or a video with ffmpeg, for example:
 //   ffmpeg -framerate 30 -i <out dir>/f%04d.png -vf "scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" out.gif
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -79,6 +79,18 @@ const SCENES = {
     { at: sec(8.6), run: (p) => p.mouse.down() },
     ...glide(sec(8.7), 0, sec(1), [[440, 480], [900, 440]]),
     { at: sec(9.8), run: (p) => p.mouse.up() },
+  ] },
+  spin: { path: '/?midday', frames: sec(8), settle: 2400, actions: [
+    { at: 1, run: (p) => p.mouse.move(640, 520) },
+    // Turn the book round by hand and let it coast.
+    { at: sec(0.5), run: (p) => p.mouse.down() },
+    ...glide(sec(0.55), 0, sec(0.7), [[640, 520], [900, 500]]),
+    { at: sec(1.3), run: (p) => p.mouse.up() },
+    // Catch it and bring it back to the front.
+    { at: sec(4.2), run: (p) => p.mouse.move(760, 500) },
+    { at: sec(4.4), run: (p) => p.mouse.down() },
+    ...glide(sec(4.45), 0, sec(1.4), [[760, 500], [560, 470], [700, 540]]),
+    { at: sec(5.9), run: (p) => p.mouse.up() },
   ] },
   pointer: { path: '/?midday', frames: sec(6), actions: glide(sec(0.2), 0, sec(5.4), [[300, 300], [1100, 300], [1150, 700], [330, 720], [720, 450], [300, 300]]) },
   night: { path: '/?theme=dark', frames: sec(7), actions: [

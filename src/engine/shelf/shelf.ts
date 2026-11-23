@@ -169,6 +169,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   let spun = -1;
   let press: { id: number; x: number; y: number; at: number; touch: boolean; grab: SpinGrab | null; trail: { t: number; x: number; y: number }[] } | null = null;
   const centre = new Vector3();
+  /** The engine's own time in milliseconds. The speed of the hand is taken on this clock, so a recording that steps the clock coasts like a live session. */
+  let clock = 0;
 
   const centred = (): Book | null => (shelf.enabled ? (engine.books[order[clamp(state.active, 0, order.length - 1)]!] ?? null) : null);
 
@@ -191,7 +193,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     if (ev.target instanceof Element && ev.target.closest(ignore)) return;
     if (!onBook(ev.clientX, ev.clientY)) return;
     const touch = ev.pointerType === 'touch';
-    press = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, at: performance.now(), touch, grab: null, trail: [] };
+    press = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, at: clock, touch, grab: null, trail: [] };
     // A mouse press on the book must not start a text selection. A finger may still scroll the page.
     if (!touch) ev.preventDefault();
   };
@@ -218,9 +220,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       document.documentElement.style.cursor = 'grabbing';
     }
     dragSpin(spin, press.grab, dx, dy, spinTune);
-    const now = performance.now();
-    press.trail.push({ t: now, x: ev.clientX, y: ev.clientY });
-    while (press.trail.length > 2 && now - press.trail[0]!.t > 100) press.trail.shift();
+    press.trail.push({ t: clock, x: ev.clientX, y: ev.clientY });
+    while (press.trail.length > 2 && clock - press.trail[0]!.t > 100) press.trail.shift();
     ctx.invalidate();
   };
 
@@ -231,16 +232,15 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     document.documentElement.style.cursor = '';
     if (!p.grab) {
       const book = centred();
-      if (ev.type === 'pointerup' && book && performance.now() - p.at < 500) ctx.events.emit('book-click', { slug: book.record.slug });
+      if (ev.type === 'pointerup' && book && clock - p.at < 500) ctx.events.emit('book-click', { slug: book.record.slug });
       return;
     }
     // Speed of the hand over its last 100 ms. A hand that stopped before letting go gives none.
-    const now = performance.now();
     const first = p.trail[0];
     const last = p.trail[p.trail.length - 1];
     let vx = 0;
     let vy = 0;
-    if (ev.type === 'pointerup' && first && last && last !== first && now - last.t < 80) {
+    if (ev.type === 'pointerup' && first && last && last.t > first.t && clock - last.t < 80) {
       const span = Math.max(1, last.t - first.t) / 1000;
       vx = (last.x - first.x) / span;
       vy = (last.y - first.y) / span;
@@ -255,6 +255,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   window.addEventListener('pointercancel', onUp);
 
   const unsub = ctx.onFrame('layout', (f) => {
+    clock = f.time * 1000;
     if (!shelf.enabled) return;
     const tuning = ctx.compact ? SCROLL_COMPACT : SCROLL_DESKTOP;
     let moving = stepScroll(state, scrollY(), slotPx(), order.length, tuning, f.dt, ctx.still);
