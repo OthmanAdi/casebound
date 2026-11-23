@@ -255,8 +255,9 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
   drawPattern(g, design.pattern ?? 'plain', fx, 0, fw, H, design.ink, accent, rnd);
   drawPattern(g, design.pattern === 'marble' ? 'marble' : 'plain', bx, 0, bw, H, design.ink, accent, rnd);
 
-  // Text is drawn three times: ink on the colour map, raised on the emboss map, solid on the foil mask.
-  const layers: [CanvasRenderingContext2D, string][] = [[g, foil ? design.cloth : design.ink], [e, '#ffffff'], [f, '#ffffff']];
+  // Text is drawn three times: ink on the colour map, pressed into the emboss map, solid on the foil mask.
+  // A stamped title sits below the cloth around it, so the light catches the far wall of every letter.
+  const layers: [CanvasRenderingContext2D, string][] = [[g, foil ? design.cloth : design.ink], [e, '#161616'], [f, '#ffffff']];
   const drawText = (fn: (c: CanvasRenderingContext2D) => void, withFoil = true): void => {
     for (const [c, style] of layers) {
       if (c === f && !(foil && withFoil)) continue;
@@ -335,9 +336,23 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
     c.fillText((text.imprint ?? 'CASEBOUND').toUpperCase(), bx + bw * 0.11, H - bw * 0.12);
   }, false);
 
-  // Soften the emboss so its slopes shade instead of aliasing.
+  // The joints: where each board meets the spine, the cloth is pressed into a groove. It goes into the relief,
+  // so the lights shade it, and a little into the colour, because a groove gathers shade.
+  const joint = W * 0.0125;
+  for (const x of [bx + bw - joint * 0.3, fx + joint * 0.3]) {
+    for (const [c, deep] of [[e, 0.8], [g, 0.3]] as const) {
+      const band = c.createLinearGradient(x - joint, 0, x + joint, 0);
+      band.addColorStop(0, 'rgba(0,0,0,0)');
+      band.addColorStop(0.5, `rgba(0,0,0,${deep})`);
+      band.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = band;
+      c.fillRect(x - joint, 0, joint * 2, H);
+    }
+  }
+
+  // Soften the relief so its walls are wide enough to shade from across the room instead of aliasing.
   const [bc, b] = canvas(W, H);
-  b.filter = `blur(${Math.max(1, W / 1024)}px)`;
+  b.filter = `blur(${Math.max(1.5, W / 520)}px)`;
   b.drawImage(ec, 0, 0);
 
   return { map: texture(cc, { anisotropy: 16 }), emboss: texture(bc, { anisotropy: 4 }), finish: texture(fc, { anisotropy: 4 }) };
