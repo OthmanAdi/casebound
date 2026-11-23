@@ -1,0 +1,11 @@
+{
+  "name": "casebound",
+  "displayName": "Casebound",
+  "description": "Build, extend and tune lit 3D hardcover books in the browser with three.js: a damped shelf, real page turns, a magnifier and page light effects.",
+  "author": { "name": "OthmanAdi", "url": "https://github.com/OthmanAdi" },
+  "homepage": "https://othmanadi.github.io/casebound/",
+  "repository": "https://github.com/OthmanAdi/casebound",
+  "license": "Apache-2.0",
+  "keywords": ["threejs", "webgl", "3d-book", "page-turn", "bookshelf", "typescript"],
+  "skills": ["./.agents/skills/"]
+}

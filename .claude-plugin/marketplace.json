@@ -1,0 +1,12 @@
+{
+  "name": "casebound",
+  "description": "The Casebound agent skill.",
+  "owner": { "name": "OthmanAdi" },
+  "plugins": [
+    {
+      "name": "casebound",
+      "source": "./",
+      "description": "Build, extend and tune lit 3D hardcover books in the browser: shelf, page turns, magnifier, light effects."
+    }
+  ]
+}
