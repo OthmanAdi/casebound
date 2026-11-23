@@ -23,7 +23,8 @@ html {
   scrollbar-width: none;
 }
 html::-webkit-scrollbar { display: none; }
-html[data-lock] { overflow: hidden; }
+/* While a book is open, a sideways touch belongs to the page under the finger, not to the browser. */
+html[data-lock] { overflow: hidden; touch-action: pan-y pinch-zoom; }
 
 body {
   margin: 0;

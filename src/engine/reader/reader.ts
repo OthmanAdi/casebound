@@ -18,6 +18,8 @@ export interface ReaderOptions {
   centreOffsetPx?: () => { x: number; y: number };
   /** Extra scale for the open book, for layouts where it shares the screen. Default 1. */
   fit?: () => number;
+  /** A press that starts inside an element matching this selector never grabs a page. */
+  ignore?: string;
 }
 
 export interface Reader {
@@ -61,6 +63,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       lean: { value: 0.38, min: 0, max: 1.2, unit: 'rad', help: 'How far the open book turns toward the pointer side' },
       leanRate: { value: 7, min: 0.1, max: 40, unit: '1/s' },
       pageHeight: { value: 1536, min: 256, max: 4096, help: 'Height of a painted page in pixels' },
+      dragWidth: { value: 0.73, min: 0.2, max: 3, help: 'Share of the window width a pointer travels to pull a leaf all the way over' },
+      dragFollow: { value: 0.4, min: 0.01, max: 0.95, help: 'How far a held leaf lags the hand: remaining share per 60 Hz frame' },
+      tapPx: { value: 5, min: 0, max: 40, unit: 'px', help: 'Pointer travel below which a press counts as a tap' },
     },
     onChange: () => ctx.invalidate(),
   });
@@ -149,31 +154,153 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     ctx.events.emit('view', book && (opening || cover > 0) ? { view: 'reader', slug: book.record.slug, page: Math.max(1, spread * 2) } : { view: 'shelf', slug: null, page: null });
   };
 
-  const launch = (direction: 1 | -1): boolean => {
-    if (!book || !opening || pages < 0.9) return false;
-    const leafIndex = direction === 1 ? spread : spread - 1;
-    if (leafIndex < 0 || leafIndex >= book.dims.leaves) return false;
-    // Take a free leaf, or the one that has all but landed.
+  // ---------------------------------------------------------------- leaves in the air
+  // `spread` counts the leaves that lie on the left or are on their way there. Every leaf in the air knows
+  // which stack it is counted on (`side`), so the count only moves when a leaf is sent the other way.
+
+  /** Puts a leaf back into the pool. */
+  const retire = (leaf: Leaf): void => {
+    leaf.active = false;
+    leaf.dragTarget = null;
+    leaf.mesh.visible = false;
+  };
+
+  /** The leaf in the air that is outermost on a stack (0 = right, 1 = left): the one a hand or a key reaches first. */
+  const outer = (side: 0 | 1): Leaf | undefined => leaves.find((l) => l.active && l.side === side && l.index === (side === 1 ? spread - 1 : spread));
+
+  /** Lifts the top leaf off a stack: 1 = off the right stack, -1 = off the left. It stays counted where it was. */
+  const take = (direction: 1 | -1): Leaf | null => {
+    if (!book || !opening || pages < 0.9) return null;
     let leaf = leaves.find((l) => !l.active);
     if (!leaf) {
-      const near = (l: Leaf): number => Math.abs((l.motion.target ?? 1) * Math.PI - l.motion.angle);
+      // None free: take the one that has all but landed. A held leaf is never taken away.
+      const near = (l: Leaf): number => (l.dragTarget !== null ? 9 : Math.abs(l.side * Math.PI - l.motion.angle));
       leaf = leaves.reduce((a, b) => (near(a) <= near(b) ? a : b));
-      if (near(leaf) > 0.6) return false;
-      leaf.active = false;
+      if (near(leaf) > 0.6) return null;
+      retire(leaf);
     }
+    const index = direction === 1 ? spread : spread - 1;
+    if (index < 0 || index >= book.dims.leaves) return null;
     leaf.active = true;
-    leaf.index = leafIndex;
-    leaf.motion.angle = leaf.motion.shown = direction === 1 ? 0 : Math.PI;
+    leaf.index = index;
+    leaf.side = direction === 1 ? 0 : 1;
+    leaf.dragTarget = null;
+    leaf.motion.angle = leaf.motion.shown = leaf.side * Math.PI;
     leaf.motion.velocity = 0;
-    leaf.setPages(texture(leafIndex * 2 + 1), texture(leafIndex * 2 + 2));
-    sendLeaf(leaf.motion, direction === 1 ? 1 : 0, leafTune.kick);
+    leaf.motion.target = leaf.side;
+    leaf.motion.resting = false;
+    leaf.setPages(texture(index * 2 + 1), texture(index * 2 + 2));
     leaf.mesh.visible = true;
-    spread += direction;
     paintSpread();
-    ctx.events.emit('page-turn', { slug: book.record.slug, leaf: leafIndex, direction });
+    return leaf;
+  };
+
+  /** Sends a leaf to a side and moves the page count with it. */
+  const aim = (leaf: Leaf, side: 0 | 1, kick: number): void => {
+    if (leaf.side !== side) {
+      spread += side === 1 ? 1 : -1;
+      leaf.side = side;
+      if (book) ctx.events.emit('page-turn', { slug: book.record.slug, leaf: leaf.index, direction: side === 1 ? 1 : -1 });
+    }
+    sendLeaf(leaf.motion, side, kick);
+    paintSpread();
     emitView();
+  };
+
+  /** Turns one page: 1 = forward, -1 = back. A leaf that is still in the air on that side is sent back instead of a new one. */
+  const launch = (direction: 1 | -1): boolean => {
+    const from: 0 | 1 = direction === 1 ? 0 : 1;
+    const flying = outer(from);
+    if (flying && flying.dragTarget !== null) return false;
+    const leaf = flying ?? take(direction);
+    if (!leaf) return false;
+    aim(leaf, direction === 1 ? 1 : 0, leafTune.kick);
     return true;
   };
+
+  // ---------------------------------------------------------------- turning a page by hand (SPEC S-RD-10)
+  let drag: { leaf: Leaf; id: number; startX: number; startAngle: number; remembered: 0 | 1; half: 1 | -1; travel: number; dx: number } | null = null;
+  const centre = new Vector3();
+  const ignore = opts.ignore ?? 'button, a, input, select, textarea, label, aside, header, footer, nav, [role="toolbar"], [role="dialog"]';
+
+  /** Which half of the spread lies under a point of the window: 1 = right, -1 = left, 0 = neither. */
+  const halfAt = (x: number, y: number): 1 | -1 | 0 => {
+    if (!book || !opening || pages < 0.9) return 0;
+    book.root.getWorldPosition(centre);
+    const perWorld = ctx.size.y / ctx.visibleHeightAt(centre.z);
+    centre.project(ctx.camera);
+    const rect = ctx.canvas.getBoundingClientRect();
+    const dx = x - (rect.left + (centre.x * 0.5 + 0.5) * rect.width);
+    const dy = y - (rect.top + (0.5 - centre.y * 0.5) * rect.height);
+    const scale = book.root.scale.x * perWorld;
+    if (Math.abs(dx) > book.dims.pageW * scale * 1.06 || Math.abs(dy) > book.dims.pageH * scale * 0.56) return 0;
+    return dx >= 0 ? 1 : -1;
+  };
+
+  /** How far a pull of `px` pixels turns the leaf, 0..1: a quick start, then in step with the hand. */
+  const pull = (px: number): number => Math.min(1, 0.08 * (1 - Math.exp(-px / 12)) + (0.92 * px) / Math.max(1, window.innerWidth * t.dragWidth * (ctx.compact ? 2 : 1)));
+
+  const onDown = (ev: PointerEvent): void => {
+    if (drag || ev.button !== 0 || !ev.isPrimary) return;
+    if (ev.target instanceof Element && ev.target.closest(ignore)) return;
+    const half = halfAt(ev.clientX, ev.clientY);
+    if (!half) return;
+    // Catch a leaf that is in the air over this half, whichever way it was going. Otherwise lift the top one.
+    const near: 0 | 1 = half === 1 ? 0 : 1;
+    const far = outer(near === 1 ? 0 : 1);
+    const over = far && (half === 1 ? far.motion.angle < Math.PI / 2 : far.motion.angle > Math.PI / 2) ? far : undefined;
+    const leaf = outer(near) ?? over ?? take(half);
+    if (!leaf || leaf.dragTarget !== null) return;
+    drag = { leaf, id: ev.pointerId, startX: ev.clientX, startAngle: leaf.motion.angle, remembered: leaf.side, half, travel: 0, dx: 0 };
+    leaf.dragTarget = leaf.motion.angle;
+    leaf.motion.resting = false;
+    document.documentElement.style.cursor = 'grabbing';
+    ev.preventDefault();
+    ctx.invalidate();
+  };
+
+  const onMove = (ev: PointerEvent): void => {
+    if (!drag) {
+      if (opening && ev.pointerType === 'mouse') {
+        const over = !(ev.target instanceof Element && ev.target.closest(ignore)) && halfAt(ev.clientX, ev.clientY) !== 0;
+        document.documentElement.style.cursor = over ? 'grab' : '';
+      }
+      return;
+    }
+    if (ev.pointerId !== drag.id) return;
+    drag.dx = ev.clientX - drag.startX;
+    drag.travel = Math.max(drag.travel, Math.abs(drag.dx));
+    // Pulling to the left raises the angle, which turns the leaf forward.
+    drag.leaf.dragTarget = clamp(drag.startAngle - Math.sign(drag.dx) * Math.PI * pull(Math.abs(drag.dx)), 0, Math.PI);
+    ctx.invalidate();
+  };
+
+  const onUp = (ev: PointerEvent): void => {
+    if (!drag || ev.pointerId !== drag.id) return;
+    const { leaf, travel, dx, startAngle, remembered, half } = drag;
+    drag = null;
+    document.documentElement.style.cursor = '';
+    leaf.dragTarget = null;
+    // Measured: a released leaf starts from rest, whatever speed the hand had.
+    leaf.motion.velocity = 0;
+    const wasLeft = startAngle > Math.PI / 2;
+    if (travel < t.tapPx) {
+      // A tap lets the leaf go where it was going, then turns one page like the button does.
+      aim(leaf, remembered, 0);
+      if (ev.type !== 'pointercancel') launch(half);
+    } else if (Math.abs(dx) >= t.tapPx && (wasLeft ? dx > 0 : dx < 0)) {
+      // Any pull that ends on the turning side turns the page, however far it got.
+      aim(leaf, wasLeft ? 0 : 1, 0);
+    } else {
+      aim(leaf, wasLeft ? 1 : 0, 0);
+    }
+    ctx.invalidate();
+  };
+
+  window.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointermove', onMove, { passive: true });
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 
   const reader: Reader = {
     get isOpen() {
@@ -227,14 +354,20 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       spread = clamp(Math.round(page / 2), 0, book.dims.leaves);
       for (const leaf of leaves) {
         leaf.active = false;
+        leaf.dragTarget = null;
         leaf.mesh.visible = false;
       }
+      drag = null;
       paintSpread();
       emitView();
     },
     dispose: () => {
       finish();
       unsub();
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
       ctx.registry.remove('reader');
       ctx.registry.remove('reader.leaf');
     },
@@ -244,6 +377,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (!book) return;
     for (const leaf of leaves) leaf.dispose();
     leaves = [];
+    drag = null;
+    document.documentElement.style.cursor = '';
     for (const tex of cache.values()) tex.dispose();
     cache.clear();
     blank?.dispose();
@@ -280,13 +415,24 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     engine.state.inside = cover;
 
     // Leaves in the air.
+    const frames = 60 * Math.min(f.dt, 0.05);
     for (const leaf of leaves) {
       if (!leaf.active) continue;
+      if (leaf.dragTarget !== null) {
+        // Held: the leaf follows the hand with a little lag. Its speed only tells the sheet which way to bow.
+        const m = leaf.motion;
+        const before = m.angle;
+        m.angle += (leaf.dragTarget - m.angle) * (1 - Math.pow(t.dragFollow, frames));
+        m.velocity = (m.angle - before) / Math.max(1e-3, frames);
+        m.shown += (m.angle - m.shown) * (1 - Math.pow(leafTune.follow, frames));
+        continue;
+      }
       stepLeaf(leaf.motion, f.dt, { ...LEAF_DEFAULT, ...leafTune });
       if (leaf.motion.resting || ctx.still) {
-        leaf.active = false;
-        leaf.mesh.visible = false;
+        leaf.motion.angle = leaf.motion.shown = leaf.side * Math.PI;
+        retire(leaf);
         paintSpread();
+        emitView();
       }
     }
 

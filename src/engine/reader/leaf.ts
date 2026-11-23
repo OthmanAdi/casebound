@@ -19,6 +19,10 @@ export class Leaf {
   /** Index of this leaf in the book: its front is page 2j + 1, its back page 2j + 2. */
   index = -1;
   active = false;
+  /** The stack this leaf is counted on while it is in the air: 0 = right, 1 = left. */
+  side: 0 | 1 = 0;
+  /** While a hand holds the leaf: the angle it is pulled toward. Null when it moves by itself. */
+  dragTarget: number | null = null;
 
   private readonly surface = new Surface((SAMPLES + 1) * 4);
   private readonly profile = new Float32Array((SAMPLES + 1) * PROFILE_STRIDE);
