@@ -202,11 +202,15 @@ The rebuild is then captured with the same tool, the same settings and the same 
 | Every light at rest, on the shelf and in the reader: colours, directions, cone, shadow bias | equal to six digits |
 | Page turn forward, turn progress over 2.4 s | mean difference 0.0002 of a turn, worst 0.0008 |
 | Page turn backward | mean 0.0069, ours starts one frame early |
+| Hologram and radio fades, per frame | equal to 0.0001 |
+| Pointer tilt of a book on the shelf | equal to 0.03 degrees, no roll |
 | Pointer spot light while the pointer moves | mean difference 0.3 % of its range |
-| Key and sun light direction while the pointer moves | mean difference under 0.0001 |
+| Height of the book on the shelf and in the reader | -3.0547 and -2.9817 against -3.0553 and -2.9819 |
+| Wall shadow opacity, shelf and reader | 0.192 and 0.0534 against 0.193 and 0.0534 |
 | Lens magnification at the centre | 1.440 against 1.442 |
+| Opening, when half the turn is done | 1741 ms against 1835 ms (it was 1216 ms before the second pass) |
 
-A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. All twelve were changed and are waiting to be measured again. The log lists each one with its numbers, and the mistakes made on the way.
+A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections; the table shows where they stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
 
 No code, shader, model, artwork, text or typeface of the reference is in this repository, and the project is not affiliated with Stripe. [`PROVENANCE.md`](PROVENANCE.md) says what is here and where it came from. The capture tools are in [`tools/`](tools) and work on any page, including this one.
 

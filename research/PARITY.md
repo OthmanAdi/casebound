@@ -12,15 +12,82 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Page turn forward | turn progress per frame, 50 to 2400 ms | mean difference 0.0002 of a turn, worst 0.0008 | matches |
 | Page turn backward | turn progress per frame, 50 to 2400 ms | mean 0.0069, ours starts one frame early | close, one-frame offset open |
 | Lens | magnification at the centre | 1.440 against 1.442 | matches |
-| Wall shadow | darkness and blur | ours 2.6 to 4.7 times too dark, its blur patch never ran | corrected, to measure again |
-| Open book | when the book turns | ours 0.6 to 0.8 s early | corrected, to measure again |
-| Shelf | height of the resting book | ours 45 px low | corrected, to measure again |
-| Shelf | pointer tilt | up to 0.97 degrees of roll that the reference does not have | corrected, to measure again |
-| Detail view | book shift and picture width over time | ours far too fast | corrected, to measure again |
-| Reader controls, Escape | when the controls appear, what Escape closes | ours at the click; ours closed everything | corrected |
-| Hologram and radio | fade rate and start | radio 20 per second with no wait, reference 24.3 after 100 ms | corrected, to measure again |
-| Lens | where it opens, rim | ours jumped to the pointer; rim band on the wrong side | corrected, to measure again |
-| Paper | brightness and colour of the pages | ours 6 to 11 percent darker and warmer | brightness corrected, a blue difference of about 8 of 255 remains |
+| Hologram fade | strength per frame after the hover | 0.1000, 0.1914, 0.2695, 0.3438 against 0.1000, 0.1915, 0.2695, 0.3439 | matches |
+| Radio fade | strength per frame after the hover | 0.3334, 0.5583, 0.7011, 0.8025 against 0.3333, 0.5582, 0.7010, 0.8025 | matches |
+| Pointer tilt on the shelf | world rotation of the book at five times | equal to 0.001 degrees at four of them, 0.026 at the fifth; no roll | matches |
+| Shelf and reader height | pivot of the book | -3.0547 and -2.9817 against -3.0553 and -2.9819 | matches |
+| Key shadow radius | shelf and reader | 6.000 and 9.739 against 6 and 9.74 | matches |
+| Wall shadow | opacity on the shelf and in the reader | 0.192 and 0.0534 against 0.193 and 0.0534 | matches |
+| Detail view | sideways move of the book over time | same curve and end value (-9.1229 against -9.1239), one frame late in the capture; corrected afterwards | close |
+| Open book | when the book turns | 10, 50, 90 and 99 % at 1160, 1741, 2107 and 2224 ms against 1335, 1835, 2146 and 2252 | close: up to 175 ms early at the start, 28 ms at the end |
+| Paper | brightness and colour of the pages | brightness corrected; blue about 8 of 255 short | open |
+| Row of spines | n/a | built from constants read in the code, no capture of the reference yet | being measured |
+
+## 2026-11-23 · Third pass: the corrections, measured
+
+All ten series were captured once more on the corrected build (`ours-4`) and the values read from the same channels as before.
+
+Opening (`c-open-book`), world rotation of the book from its shelf pose:
+
+| ms | reference | ours before | ours now |
+| --- | --- | --- | --- |
+| 1000 | 6.88 | 47.44 | 5.80 |
+| 1400 | 15.11 | 85.37 | 26.72 |
+| 1800 | 56.15 | 122.82 | 68.29 |
+| 2200 | 116.56 | 122.82 | 119.83 |
+| 2600 | 122.50 | 122.82 | 122.82 |
+
+Degrees. 10, 50, 90 and 99 % of the turn: reference 1335, 1835, 2146, 2252 ms; before 562, 1216, 1582, 1697 ms; now 1160, 1741, 2107, 2224 ms. The worst difference fell from 80 degrees to 12. What is left: during the cover stage our book body turns with the shelf-to-reader blend, while the reference keeps the body almost still until the pages part. That is a difference between a rig of bones and our two boards, and it is the open item here.
+
+Pointer tilt (`b-hover-home`), world rotation of the book from rest, pitch / yaw / roll in degrees:
+
+| ms | reference | ours before | ours now |
+| --- | --- | --- | --- |
+| 217 | 0.096 / -2.801 / 0.004 | 0.594 / -2.566 / 0.972 | 0.096 / -2.801 / 0.000 |
+| 417 | 0.297 / -2.356 / 0.012 | 0.672 / -2.173 / 0.696 | 0.297 / -2.356 / 0.000 |
+| 817 | -0.373 / 0.218 / 0.001 | -0.349 / 0.221 / 0.129 | -0.373 / 0.218 / 0.000 |
+| 1417 | 0.736 / -1.212 / 0.016 | 0.803 / -1.132 / 0.032 | 0.720 / -1.186 / 0.000 |
+| 2417 | 1.139 / -1.821 / 0.036 | 1.256 / -1.742 / 0.033 | 1.138 / -1.822 / 0.000 |
+
+Effect fades after the hover (`f-hologram-ebook-row`, `f-radio-audiobook-row`):
+
+| ms | hologram, reference | hologram, ours | radio, reference | radio, ours |
+| --- | --- | --- | --- | --- |
+| 50 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| 100 | 0.1000 | 0.1000 | 0.3333 | 0.3334 |
+| 117 | 0.1915 | 0.1914 | 0.5582 | 0.5583 |
+| 133 | 0.2695 | 0.2695 | 0.7010 | 0.7011 |
+| 150 | 0.3439 | 0.3438 | 0.8025 | 0.8025 |
+| 300 | 0.7458 | 0.7457 | 0.9949 | 0.9949 |
+| 800 | 0.9892 | 0.9892 | 1.0000 | 1.0000 |
+
+The pointer value both effects use eases the same way: 0.3412, 0.4609, 0.5240, 0.5841 at 50, 100, 150 and 300 ms against 0.3438, 0.4647, 0.5285, 0.5895. The small offset is the different place of the row on the two pages.
+
+Detail view (`g-view-details`), sideways position of the book:
+
+| ms | reference | ours |
+| --- | --- | --- |
+| 100 | -0.4455 | -0.3093 |
+| 200 | -1.7820 | -1.4972 |
+| 320 | -4.5602 | -4.1001 |
+| 450 | -7.5157 | -7.2203 |
+| 640 | -9.1227 | -9.1076 |
+| 800 | -9.1239 | -9.1229 |
+
+Ours follows the same curve one frame late. The clock of the move now starts on the frame of the press; that change is not captured yet.
+
+Still values: shelf pivot y -3.0547 (reference -3.0553), reader pivot y -2.9817 (-2.9819), key shadow radius 6.000 on the shelf and 9.739 in the reader (6 and 9.74).
+
+Wall shadow: the first correction was not enough. Captured, the wall opacity was 0.243 on the shelf against 0.193 and 0.127 in the reader against 0.053. The reference measures the far corner of a box around a larger model than our case. The reach of our case is now stretched by 1.26 and the fade is complete while the reader is open. Read from the running page after that change: 0.192 on the shelf, 0.0534 in the reader.
+
+Lens: after a press on its button neither side moves the lens (no channel changes), so both stay in the middle. Following the pointer, our centre differs from the reference by up to 0.017 of the screen width along the path; the two captures do not start from the same place, so this is not conclusive.
+
+Not measured again: the toolbar timing, the closing sequence, the lens rim, the paper colour.
+
+Found on the way, and changed:
+
+- The Noon theme carries the same lift of key and sun as Morning (3.971 and 2.893, read from the running reference). Ours had 3.61 and 2.63 there.
+- Next to a frame of the reference our covers were flat. Cloth now keeps a soft mottle at any distance, titles and ornaments are pressed into it, the joints have their groove, and book surfaces take sixteen shadow samples instead of five.
 
 ## 2026-11-23 · Second pass: every series compared, twelve differences
 
