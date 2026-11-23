@@ -173,7 +173,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           hoverPop: { value: ROW_DEFAULT.hoverPop, min: 0, max: 20, help: 'How far a spine under the pointer steps forward' },
           hoverRate: { value: ROW_DEFAULT.hoverRate, min: 0.5, max: 60, unit: '1/s' },
           stepPause: { value: ROW_DEFAULT.stepPause, min: 0, max: 2, unit: 's', help: 'Least time between two steps of the choice' },
-          seat: { value: 0.04, min: -0.5, max: 0.5, help: 'How far below the middle of the picture the row stands, as a share of the picture height' },
+          seat: { value: -0.064, min: -0.5, max: 0.5, help: 'How far below the middle of the picture the row stands, as a share of the picture height. Negative: above. Measured: the covers span 167 to 758 px of 900' },
         },
         onChange: () => ctx.invalidate(),
       })
