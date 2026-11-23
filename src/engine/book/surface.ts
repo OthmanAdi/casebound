@@ -113,7 +113,7 @@ export interface SurfaceOptions {
   transmit?: number;
   /** Overall brightness of the surface. Calibrated against reference frames. */
   exposure?: number;
-  /** A leaf in the air lets the print on its other side show through. Set `tBack` and `uBleed` on the uniforms. */
+  /** A leaf in the air lets the print on its other side show through. Set `tBack` and `uTurn` (0..1) on the uniforms. */
   bleed?: boolean;
 }
 
@@ -151,6 +151,7 @@ uniform float uRadio;
 uniform vec2 uFxPointer;
 uniform sampler2D tBack;
 uniform float uBleed;
+uniform float uTurn;
 uniform float uTransmit;
 uniform float uExposure;
 
@@ -252,7 +253,7 @@ const ALBEDO = /* glsl */ `
 
 	#ifdef BINDERY_BLEED
 		vec3 behind = texture2D( tBack, vec2( 1.0 - vMapUv.x, vMapUv.y ) ).rgb;
-		diffuseColor.rgb *= mix( vec3( 1.0 ), behind, uBleed );
+		diffuseColor.rgb *= mix( vec3( 1.0 ), behind, uBleed * sin( PI * uTurn ) );
 	#endif
 
 	float grain = texture2D( tGrain, gUv ).r;
@@ -366,7 +367,8 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uFoilSpecular: { value: o.foilSpecular ?? 1.2 },
     uFoilDetail: { value: o.foilDetail ?? 2.6 },
     tBack: { value: null },
-    uBleed: { value: 0 },
+    uBleed: { value: 0.3 },
+    uTurn: { value: 0 },
     uTransmit: { value: o.transmit ?? 0 },
     uExposure: { value: o.exposure ?? 0.9 },
     ...o.fx,

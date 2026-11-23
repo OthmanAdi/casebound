@@ -108,10 +108,9 @@ export class Leaf {
       s.quad(b[i * 2]!, b[(i + 1) * 2]!, b[(i + 1) * 2 + 1]!, b[i * 2 + 1]!, 1);
     }
     s.end();
-    // Print shows through most at mid-turn (SPEC S-RD-9).
-    const bleed = 0.3 * air;
-    (this.front.userData.uniforms as Record<string, { value: number }>).uBleed!.value = bleed;
-    (this.back.userData.uniforms as Record<string, { value: number }>).uBleed!.value = bleed;
+    // Print shows through most at mid-turn (SPEC S-RD-9). The shader derives it from the turn progress.
+    (this.front.userData.uniforms as Record<string, { value: number }>).uTurn!.value = turn;
+    (this.back.userData.uniforms as Record<string, { value: number }>).uTurn!.value = turn;
   }
 
   dispose(): void {
