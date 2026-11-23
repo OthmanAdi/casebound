@@ -1,4 +1,4 @@
-// bindery capture hook. Injected with page.addInitScript, so it runs before any page script.
+// casebound capture hook. Injected with page.addInitScript, so it runs before any page script.
 // Plain browser JS, no imports. Everything it exposes lives on window.__CAP__.
 //
 // How it reaches the live scene:

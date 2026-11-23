@@ -19,28 +19,28 @@ node tools/capture/shot.mjs "http://127.0.0.1:5183/?midday" out/home.png --wait 
 node tools/capture/shot.mjs "http://127.0.0.1:5183/?midday#/book/opticks/page/40" out/reader.png --wait 3200
 ```
 
-`shot.mjs` opens the page in Microsoft Edge (set `RE_CHANNEL=chrome` or `RE_CHANNEL=` for another browser), waits for `data-bindery-ready` on `<html>`, and reports console errors. Options:
+`shot.mjs` opens the page in Microsoft Edge (set `RE_CHANNEL=chrome` or `RE_CHANNEL=` for another browser), waits for `data-casebound-ready` on `<html>`, and reports console errors. Options:
 
 | Option | Meaning |
 | --- | --- |
 | `--w`, `--h` | Viewport, default 1440 by 900 |
 | `--wait <ms>` | Time to wait before the picture |
 | `--move x,y` | Move the pointer there first |
-| `--eval "<js>"` | Run code in the page and print its result. `bindery` is the engine handle |
+| `--eval "<js>"` | Run code in the page and print its result. `casebound` is the engine handle |
 
 Useful one-liners for `--eval`:
 
 ```js
-bindery.reader.open('opticks')                          // open a book
-setTimeout(() => bindery.reader.next(), 1500), 1        // turn a page shortly before the picture
-bindery.magnifier.set(true), 1                          // lens on
-bindery.effects.hologram(true), 1                       // hologram on
-bindery.engine.ctx.registry.describe('reader')          // print values
+casebound.reader.open('opticks')                          // open a book
+setTimeout(() => casebound.reader.next(), 1500), 1        // turn a page shortly before the picture
+casebound.magnifier.set(true), 1                          // lens on
+casebound.effects.hologram(true), 1                       // hologram on
+casebound.engine.ctx.registry.describe('reader')          // print values
 ```
 
 Check at least: the closed book on the shelf, a scroll half way between two books, the open spread, a leaf in mid-turn, the lens, the two surface effects, the Night theme, a 390 by 844 viewport, and reduced motion.
 
-The page announces its state for tools: `data-bindery-ready="true"` when it has settled, `data-bindery-view` with the current address (`/`, `/book/<slug>`, `/book/<slug>/page/<n>`).
+The page announces its state for tools: `data-casebound-ready="true"` when it has settled, `data-casebound-view` with the current address (`/`, `/book/<slug>`, `/book/<slug>/page/<n>`).
 
 ## Frame-by-frame capture and comparison
 

@@ -66,7 +66,7 @@ const canvas = (w: number, h: number): [HTMLCanvasElement, CanvasRenderingContex
   c.width = Math.max(2, Math.round(w));
   c.height = Math.max(2, Math.round(h));
   const g = c.getContext('2d');
-  if (!g) throw new Error('bindery: 2D canvas is not available');
+  if (!g) throw new Error('casebound: 2D canvas is not available');
   return [c, g];
 };
 
@@ -332,7 +332,7 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
   drawText((c) => {
     c.font = `500 ${Math.round(bw * 0.03)}px ${faces.mono}`;
     c.textAlign = 'left';
-    c.fillText((text.imprint ?? 'BINDERY').toUpperCase(), bx + bw * 0.11, H - bw * 0.12);
+    c.fillText((text.imprint ?? 'CASEBOUND').toUpperCase(), bx + bw * 0.11, H - bw * 0.12);
   }, false);
 
   // Soften the emboss so its slopes shade instead of aliasing.

@@ -90,7 +90,7 @@ async function boot(): Promise<void> {
   const available = import.meta.glob<{ default: Extension }>('../../extensions/*.ts');
   for (const name of [...library.extensions, ...(query.get('ext')?.split(',') ?? [])].filter(Boolean)) {
     const load = available[`../../extensions/${name}.ts`];
-    if (!load) console.warn(`bindery: no extension "${name}". Available: ${Object.keys(available).map((p) => p.split('/').at(-1)!.replace('.ts', '')).join(', ')}`);
+    if (!load) console.warn(`casebound: no extension "${name}". Available: ${Object.keys(available).map((p) => p.split('/').at(-1)!.replace('.ts', '')).join(', ')}`);
     else engine.use((await load()).default);
   }
 
@@ -145,7 +145,7 @@ async function boot(): Promise<void> {
     if (reading) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
     const slug = current().slug;
     const view = reading ? `/book/${slug}/page/${Math.max(1, reader.page)}` : detailOpen ? `/book/${slug}` : '/';
-    html.dataset.binderyView = view;
+    html.dataset.caseboundView = view;
     const hash = '#' + view;
     if (location.hash !== hash && !(view === '/' && location.hash === '')) history.replaceState(null, '', location.pathname + location.search + (view === '/' ? '' : hash));
   }
@@ -193,8 +193,13 @@ async function boot(): Promise<void> {
     home();
     scrollTo({ top: 0, behavior: ctx.still ? 'auto' : 'smooth' });
   });
-  // The two rows that show the page light effects: e-book and audiobook.
-  for (const [id, fn] of [['row-ebook', effects.hologram], ['row-audio', effects.radio]] as const) {
+  // The two rows that show the page light effects. Measured: the audiobook row runs the hologram too, with the
+  // radio rings on top of it.
+  const both = (on: boolean): void => {
+    effects.hologram(on);
+    effects.radio(on);
+  };
+  for (const [id, fn] of [['row-ebook', effects.hologram], ['row-audio', both]] as const) {
     const row = $(id);
     row.addEventListener('pointerenter', () => fn(true));
     row.addEventListener('pointerleave', () => fn(false));
@@ -262,9 +267,9 @@ async function boot(): Promise<void> {
   sync();
   engine.start();
   route(entry);
-  Object.assign(window, { bindery: { engine, shelf, reader, magnifier, effects, library } });
+  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, effects, library } });
   // Tell tools the page has settled: after the intro, or at once on a deep link.
-  setTimeout(() => (html.dataset.binderyReady = 'true'), entry.startsWith('#/book/') || ctx.still ? 300 : 2100);
+  setTimeout(() => (html.dataset.caseboundReady = 'true'), entry.startsWith('#/book/') || ctx.still ? 300 : 2100);
 }
 
 void boot();

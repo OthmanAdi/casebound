@@ -9,7 +9,7 @@
  *       ease: { value: 'inOutCubic', options: EASE_NAMES },
  *     },
  *   });
- *   turn.duration  // read every frame; bindery.set('book.turn', 'duration', 1.6) changes it live
+ *   turn.duration  // read every frame; casebound.set('book.turn', 'duration', 1.6) changes it live
  */
 import type { Color } from 'three';
 import type { EntityInit, ParamSpec, ParamType, ParamValue, Registry, Tag } from './registry';

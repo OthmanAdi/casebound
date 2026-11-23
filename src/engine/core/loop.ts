@@ -57,7 +57,7 @@ export class FrameLoop {
 
   onFrame(phase: FramePhase, fn: FrameFn): Unsubscribe {
     const set = this.subs.get(phase);
-    if (!set) throw new Error(`bindery: unknown frame phase "${phase}". Phases: ${FRAME_PHASES.join(', ')}`);
+    if (!set) throw new Error(`casebound: unknown frame phase "${phase}". Phases: ${FRAME_PHASES.join(', ')}`);
     set.add(fn);
     return () => set.delete(fn);
   }

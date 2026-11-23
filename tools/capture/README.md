@@ -1,4 +1,4 @@
-# bindery capture harness
+# casebound capture harness
 
 Playwright harness that measures a three.js page at runtime: live scene graph and motion samples.
 Status: partial. The hook, the launcher and an interactive session runner work and were used against the

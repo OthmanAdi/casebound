@@ -3,9 +3,9 @@
  * is registered here with a stable id, a human label and tags. A coding agent (or a person in the inspector)
  * finds things by id or tag and changes their parameters by name, live.
  *
- *   bindery.registry.get('light.key').params           -> what can be changed
- *   bindery.set('light.key', 'intensity', 2.4)          -> change it now
- *   bindery.registry.byTag('animation', 'book')         -> every book animation
+ *   casebound.registry.get('light.key').params           -> what can be changed
+ *   casebound.set('light.key', 'intensity', 2.4)          -> change it now
+ *   casebound.registry.byTag('animation', 'book')         -> every book animation
  */
 import type { Object3D } from 'three';
 
@@ -73,13 +73,13 @@ export class Registry {
   private readonly pending = new Map<string, Map<string, ParamValue>>();
 
   add(init: EntityInit): Entity {
-    if (!ID.test(init.id)) throw new Error(`bindery: entity id "${init.id}" must be dotted kebab-case, for example "light.key"`);
-    if (this.entities.has(init.id)) throw new Error(`bindery: entity id "${init.id}" is already registered`);
+    if (!ID.test(init.id)) throw new Error(`casebound: entity id "${init.id}" must be dotted kebab-case, for example "light.key"`);
+    if (this.entities.has(init.id)) throw new Error(`casebound: entity id "${init.id}" is already registered`);
     const entity: Entity = { ...init, tags: [...new Set(init.tags)], params: init.params ?? [] };
     this.entities.set(entity.id, entity);
     if (entity.object) {
       entity.object.name ||= entity.id;
-      entity.object.userData.bindery = { id: entity.id, tags: entity.tags };
+      entity.object.userData.casebound = { id: entity.id, tags: entity.tags };
     }
     const waiting = this.pending.get(entity.id);
     if (waiting) {
@@ -94,7 +94,7 @@ export class Registry {
     const e = this.entities.get(id);
     if (!e) return;
     this.entities.delete(id);
-    if (e.object?.userData.bindery?.id === id) delete e.object.userData.bindery;
+    if (e.object?.userData.casebound?.id === id) delete e.object.userData.casebound;
     this.emit({ type: 'remove', id });
   }
 
@@ -195,7 +195,7 @@ export class Registry {
   private applyParam(e: Entity, key: string, value: ParamValue): boolean {
     const p = e.params.find((q) => q.key === key);
     if (!p) {
-      console.warn(`bindery: "${e.id}" has no parameter "${key}". It has: ${e.params.map((q) => q.key).join(', ') || 'none'}`);
+      console.warn(`casebound: "${e.id}" has no parameter "${key}". It has: ${e.params.map((q) => q.key).join(', ') || 'none'}`);
       return false;
     }
     let v: ParamValue = value;
@@ -204,7 +204,7 @@ export class Registry {
       if (p.max !== undefined) v = Math.min(p.max, v);
     }
     if (p.type === 'enum' && p.options && !p.options.includes(String(v))) {
-      console.warn(`bindery: "${e.id}.${key}" must be one of ${p.options.join(', ')}`);
+      console.warn(`casebound: "${e.id}.${key}" must be one of ${p.options.join(', ')}`);
       return false;
     }
     p.set(v as never);

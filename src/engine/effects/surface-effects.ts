@@ -27,7 +27,7 @@ export function createSurfaceEffects(engine: Engine): SurfaceEffects {
     describe: 'Fades the hologram and radio looks of all book surfaces in and out.',
     source: 'src/engine/book/surface.ts',
     params: {
-      hologramDelay: { value: 0.05, min: 0, max: 2, unit: 's', help: 'Wait before the hologram starts to appear' },
+      hologramDelay: { value: 0.1, min: 0, max: 2, unit: 's', help: 'Wait before the hologram starts to appear' },
       hologramRate: { value: 6, min: 0.2, max: 60, unit: '1/s' },
       radioIn: { value: 20, min: 0.2, max: 60, unit: '1/s' },
       radioOut: { value: 10, min: 0.2, max: 60, unit: '1/s' },

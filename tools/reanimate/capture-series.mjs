@@ -7,7 +7,7 @@
 //        [--ready-attr data-press-agent-ready] [--reader-path /book/<slug>/page/<n>]
 //
 // Defaults fit the reference. For our own build:
-//   --ready-attr data-bindery-ready --reader-path "/#/book/micrographia/page/116"
+//   --ready-attr data-casebound-ready --reader-path "/#/book/micrographia/page/116"
 //
 // Targets are chosen so the same list works on both: the three.js canvas marks itself with `data-engine`,
 // and the two rows that trigger the page light effects carry "E-book" and "Audiobook" in their accessible name.

@@ -1,18 +1,18 @@
 ---
-name: bindery
-description: Build, extend and tune a Bindery library: lit 3D hardcover books in the browser with a damped shelf, real page turns, a magnifier and surface effects. Use when asked to add or restyle a book, change lights or motion, add an object, effect or layout, or check that a change still looks and moves right.
+name: casebound
+description: Build, extend and tune a Casebound library: lit 3D hardcover books in the browser with a damped shelf, real page turns, a magnifier and surface effects. Use when asked to add or restyle a book, change lights or motion, add an object, effect or layout, or check that a change still looks and moves right.
 ---
 
-# Bindery
+# Casebound
 
-Bindery draws hardcover books with three.js and puts an ordinary web page around them. Every book is generated from a few lines of data: its geometry, its cover, its pages. Every number that shapes light or motion is a named parameter you can read and change while the page runs.
+Casebound draws hardcover books with three.js and puts an ordinary web page around them. Every book is generated from a few lines of data: its geometry, its cover, its pages. Every number that shapes light or motion is a named parameter you can read and change while the page runs.
 
 Use this skill inside a checkout of the project. Read `package.json` for the scripts and `research/SPEC.md` if you need to know why a number has the value it has.
 
 ## Before you change anything
 
 1. `npm install --legacy-peer-deps`, then `npm run dev`. The site is at `http://127.0.0.1:5183/`, the bare test stage at `http://127.0.0.1:5183/dev/stage.html`.
-2. Open the browser console. `bindery.engine.ctx.registry.describe()` prints every tunable thing with its current values and the file that owns it.
+2. Open the browser console. `casebound.engine.ctx.registry.describe()` prints every tunable thing with its current values and the file that owns it.
 3. Decide which of the four kinds of change you are making. Each has its own reference file.
 
 | The request is about | Do this | Reference |
@@ -46,9 +46,9 @@ For text, add `content/books/<slug>/text.json` with `{ "paragraphs": ["...", "..
 Find the parameter, try values live, then make the change durable in source.
 
 ```js
-bindery.engine.ctx.registry.query('tag:light')            // what exists
-bindery.engine.ctx.registry.set('light.rig', 'spotSwing', 50)   // try it now
-bindery.engine.ctx.registry.snapshot('reader')           // current values, ready to copy
+casebound.engine.ctx.registry.query('tag:light')            // what exists
+casebound.engine.ctx.registry.set('light.rig', 'spotSwing', 50)   // try it now
+casebound.engine.ctx.registry.snapshot('reader')           // current values, ready to copy
 ```
 
 A live change lasts until reload. To keep it, change the default where the parameter is declared: the `source` line of `describe()` names the file. Light colours, intensities and positions live in `src/engine/stage/presets.ts`.

@@ -15,7 +15,7 @@ const opt = (name, fallback) => {
 };
 const width = Number(opt('w', 1440));
 const height = Number(opt('h', 900));
-const ready = opt('ready', 'html[data-bindery-ready="true"]');
+const ready = opt('ready', 'html[data-casebound-ready="true"]');
 
 const browser = await chromium.launch({ channel: process.env.RE_CHANNEL ?? 'msedge', headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
 try {

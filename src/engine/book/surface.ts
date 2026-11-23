@@ -47,8 +47,8 @@ const liveMaterials = new Set<MeshPhongMaterial>();
 
 /** Registers a surface effect. Existing materials are rebuilt on their next draw. */
 export function defineSurfaceEffect(effect: SurfaceEffect): () => void {
-  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(effect.name)) throw new Error(`bindery: surface effect name "${effect.name}" must be kebab-case`);
-  if (surfaceEffects.some((e) => e.name === effect.name)) throw new Error(`bindery: surface effect "${effect.name}" is already defined`);
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(effect.name)) throw new Error(`casebound: surface effect name "${effect.name}" must be kebab-case`);
+  if (surfaceEffects.some((e) => e.name === effect.name)) throw new Error(`casebound: surface effect "${effect.name}" is already defined`);
   surfaceEffects.push(effect);
   for (const m of liveMaterials) m.needsUpdate = true;
   return () => {
@@ -238,7 +238,7 @@ const ALBEDO = /* glsl */ `
 {
 	vec2 gUv = vMapUv * uGrainRepeat;
 	bLod = 1.0 - smoothstep( 1.0, 3.0, length( fwidth( gUv ) ) * 96.0 );
-	#ifdef BINDERY_FINISH
+	#ifdef CASEBOUND_FINISH
 		bFoil = texture2D( tFinish, vMapUv ).r * saturate( uFoilOpacity );
 	#endif
 	bCloth = 1.0 - bFoil;
@@ -251,7 +251,7 @@ const ALBEDO = /* glsl */ `
 		diffuseColor.rgb = mix( diffuseColor.rgb, shifted, uHolo );
 	}
 
-	#ifdef BINDERY_BLEED
+	#ifdef CASEBOUND_BLEED
 		vec3 behind = texture2D( tBack, vec2( 1.0 - vMapUv.x, vMapUv.y ) ).rgb;
 		diffuseColor.rgb *= mix( vec3( 1.0 ), behind, uBleed * sin( PI * uTurn ) );
 	#endif
@@ -262,7 +262,7 @@ const ALBEDO = /* glsl */ `
 	float streak = bNoise( vMapUv * vec2( 1100.0, 55.0 ) ) + bNoise( vMapUv * vec2( 55.0, 1100.0 ) ) - 1.0;
 	diffuseColor.rgb *= 1.0 + uFibre * bCloth * bLod * streak;
 
-	#ifdef BINDERY_FINISH
+	#ifdef CASEBOUND_FINISH
 		vec3 fN = normalize( vNormal );
 		float ft = dot( fN, vec3( 0.61, 0.33, 0.72 ) ) * uFoilDetail * 0.35 + dot( vViewPosition.xy, vec2( 0.07, 0.05 ) ) * uFoilDetail * 0.1;
 		diffuseColor.rgb = mix( diffuseColor.rgb, bFoilTone( ft ), bFoil );
@@ -283,7 +283,7 @@ const BUMP = /* glsl */ `
 	float gy = texture2D( tGrain, gUv + dFdy( gUv ) ).r;
 	float gs = uBumpGrain * bCloth * bLod;
 	vec2 dH = vec2( gx - g0, gy - g0 ) * gs;
-	#ifdef BINDERY_EMBOSS
+	#ifdef CASEBOUND_EMBOSS
 		float e0 = texture2D( tEmboss, vMapUv ).r;
 		float ex = texture2D( tEmboss, vMapUv + dFdx( vMapUv ) ).r;
 		float ey = texture2D( tEmboss, vMapUv + dFdy( vMapUv ) ).r;
@@ -375,9 +375,9 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
   };
   mat.userData.uniforms = uniforms;
   mat.defines = { ...(mat.defines ?? {}) };
-  if (o.emboss) mat.defines.BINDERY_EMBOSS = '';
-  if (o.finish) mat.defines.BINDERY_FINISH = '';
-  if (o.bleed) mat.defines.BINDERY_BLEED = '';
+  if (o.emboss) mat.defines.CASEBOUND_EMBOSS = '';
+  if (o.finish) mat.defines.CASEBOUND_FINISH = '';
+  if (o.bleed) mat.defines.CASEBOUND_BLEED = '';
   liveMaterials.add(mat);
   mat.addEventListener('dispose', () => liveMaterials.delete(mat));
   mat.onBeforeCompile = (shader) => {
@@ -394,7 +394,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
       .replace('#include <dithering_fragment>', FINAL.replace('#include <dithering_fragment>', extraFinal + '\n#include <dithering_fragment>'));
     shader.vertexShader = shader.vertexShader.replace('#include <uv_pars_vertex>', VERTEX_PARS).replace('#include <begin_vertex>', VERTEX_DISPLACE);
   };
-  mat.customProgramCacheKey = () => `bindery-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
+  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
   return mat;
 }
 

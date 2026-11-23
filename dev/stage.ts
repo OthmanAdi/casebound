@@ -3,7 +3,7 @@
  *
  * URL: ?theme=light|colour|dark  ?reader=<slug>  ?page=<n>
  * Keys: Space open or close, arrows turn pages, m magnifier, h hologram, r radio, t next theme, Escape close.
- * Everything is on `window.bindery` for inspection and for the capture tools.
+ * Everything is on `window.casebound` for inspection and for the capture tools.
  */
 import { createEngine, type BookRecord } from '../src/engine';
 import { createMagnifier } from '../src/engine/effects/magnifier';
@@ -96,5 +96,5 @@ engine.ctx.onFrame('after-render', () => {
 });
 
 engine.start();
-Object.assign(window, { bindery: { engine, shelf, reader, magnifier, effects } });
-document.documentElement.dataset.binderyReady = 'true';
+Object.assign(window, { casebound: { engine, shelf, reader, magnifier, effects } });
+document.documentElement.dataset.caseboundReady = 'true';

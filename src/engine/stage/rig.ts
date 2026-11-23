@@ -107,7 +107,7 @@ export class LightRig {
 
   private preset(name: string): LightPreset {
     const p = this.presets.get(name);
-    if (!p) throw new Error(`bindery: light preset "${name}" is not defined. Defined: ${[...this.presets.keys()].join(', ')}`);
+    if (!p) throw new Error(`casebound: light preset "${name}" is not defined. Defined: ${[...this.presets.keys()].join(', ')}`);
     return p;
   }
 

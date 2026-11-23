@@ -30,7 +30,7 @@ describe('Registry', () => {
     const o = new Object3D();
     r.add({ id: 'desk.top', label: 'Desk', tags: ['desk', 'object'], kind: 'mesh', object: o });
     expect(o.name).toBe('desk.top');
-    expect(o.userData.bindery).toEqual({ id: 'desk.top', tags: ['desk', 'object'] });
+    expect(o.userData.casebound).toEqual({ id: 'desk.top', tags: ['desk', 'object'] });
   });
 
   it('sets parameters live, clamps numbers, checks enums and emits changes', () => {

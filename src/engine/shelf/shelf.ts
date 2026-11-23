@@ -53,7 +53,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   const { ctx } = engine;
   const order = (opts.featured ?? engine.books.map((b) => b.record.slug)).map((slug) => {
     const i = engine.books.findIndex((b) => b.record.slug === slug);
-    if (i < 0) throw new Error(`bindery: shelf lists "${slug}", which is not a loaded book`);
+    if (i < 0) throw new Error(`casebound: shelf lists "${slug}", which is not a loaded book`);
     return i;
   });
 

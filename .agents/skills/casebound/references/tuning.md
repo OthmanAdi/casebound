@@ -7,7 +7,7 @@ Nothing that shapes light or motion is a bare constant in the middle of a functi
 In the browser console of the running site or stage:
 
 ```js
-const r = bindery.engine.ctx.registry;
+const r = casebound.engine.ctx.registry;
 r.describe();                      // everything
 r.describe('tag:light');           // by tag
 r.describe('reader');              // by id prefix

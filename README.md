@@ -1,4 +1,4 @@
-# Bindery
+# Casebound
 
 **Lit hardcover books in the browser, and a system for adding your own.** A shelf you scroll with weight, books that open, leaves that turn like paper, a magnifier, and two light effects that run over the pages. Every book is a few lines of data. Every light and every motion is a named number a person or a coding agent can change.
 
@@ -8,7 +8,7 @@
 
 ```sh
 git clone <this repository>
-cd bindery
+cd casebound
 npm install --legacy-peer-deps
 npm run dev
 ```
@@ -59,7 +59,7 @@ content/books/my-book/book.json
 }
 ```
 
-Add `"my-book"` to `featured` in [`content/library.json`](content/library.json). For text, put `{ "paragraphs": ["..."] }` in `text.json` beside the record. All fields are listed in the [content reference](.agents/skills/bindery/references/content.md).
+Add `"my-book"` to `featured` in [`content/library.json`](content/library.json). For text, put `{ "paragraphs": ["..."] }` in `text.json` beside the record. All fields are listed in the [content reference](.agents/skills/casebound/references/content.md).
 
 ## Extend it
 
@@ -80,27 +80,27 @@ const mine: Extension = (engine) =>
 export default mine;
 ```
 
-The [extension reference](.agents/skills/bindery/references/extending.md) covers objects, surface effects, layouts, light presets and page sources.
+The [extension reference](.agents/skills/casebound/references/extending.md) covers objects, surface effects, layouts, light presets and page sources.
 
 ## Tune it
 
 Open the console on the running page.
 
 ```js
-bindery.engine.ctx.registry.describe('tag:light')
-bindery.engine.ctx.registry.set('light.rig', 'spotSwing', 50)
-bindery.engine.ctx.registry.snapshot('reader')
+casebound.engine.ctx.registry.describe('tag:light')
+casebound.engine.ctx.registry.set('light.rig', 'spotSwing', 50)
+casebound.engine.ctx.registry.snapshot('reader')
 ```
 
-The [tuning reference](.agents/skills/bindery/references/tuning.md) lists what is registered and where each default lives.
+The [tuning reference](.agents/skills/casebound/references/tuning.md) lists what is registered and where each default lives.
 
 ## For coding agents
 
-The skill in [`.agents/skills/bindery`](.agents/skills/bindery/SKILL.md) tells an agent how to add a book, tune a value, write an extension and verify the result. Point your agent at `SKILL.md`, or copy the folder into its skills directory and give it the path of this checkout.
+The skill in [`.agents/skills/casebound`](.agents/skills/casebound/SKILL.md) tells an agent how to add a book, tune a value, write an extension and verify the result. Point your agent at `SKILL.md`, or copy the folder into its skills directory and give it the path of this checkout.
 
 Example request:
 
-> Use the Bindery skill. Add "The Sceptical Chymist" by Robert Boyle with a dark brown buckram cover and gold foil, fetch its text, and make the Night theme's key light a little warmer. Show me the shelf and one open spread.
+> Use the Casebound skill. Add "The Sceptical Chymist" by Robert Boyle with a dark brown buckram cover and gold foil, fetch its text, and make the Night theme's key light a little warmer. Show me the shelf and one open spread.
 
 ## How the values were found
 
@@ -116,7 +116,7 @@ No code, shader, model, artwork, text or typeface of the reference is in this re
 | `node tools/capture/shot.mjs <url> <out.png>` | One picture of a page in Edge, with console errors |
 | `node tools/reanimate/capture-series.mjs --base <url> --out <dir>` | Frame-by-frame capture of the standard interactions |
 
-See the [verify reference](.agents/skills/bindery/references/verify.md).
+See the [verify reference](.agents/skills/casebound/references/verify.md).
 
 ## Licence
 

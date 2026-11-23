@@ -82,7 +82,7 @@ export class ShadowWall {
       shader.uniforms.uWallBlur = this.blur;
       shader.fragmentShader = shader.fragmentShader.replace('void main() {', `${WALL_SHADOW}\nvoid main() {`).replace('getShadowMask()', 'bWallShadow()');
     };
-    material.customProgramCacheKey = () => 'bindery-wall';
+    material.customProgramCacheKey = () => 'casebound-wall';
     this.mesh = new Mesh(new PlaneGeometry(t.size, t.size), material);
     this.mesh.name = 'stage.wall';
     this.mesh.receiveShadow = true;

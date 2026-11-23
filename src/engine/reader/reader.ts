@@ -103,7 +103,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const e = new Euler();
 
   const texture = (page: number): Texture => {
-    if (!book) throw new Error('bindery: reader has no book');
+    if (!book) throw new Error('casebound: reader has no book');
     if (page < 1 || page > book.dims.leaves * 2) return blank!;
     const hit = cache.get(page);
     if (hit) {
@@ -193,7 +193,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     },
     open: (slug, page) => {
       const next = engine.book(slug);
-      if (!next) throw new Error(`bindery: cannot open "${slug}": no such book. Loaded: ${engine.books.map((b) => b.record.slug).join(', ')}`);
+      if (!next) throw new Error(`casebound: cannot open "${slug}": no such book. Loaded: ${engine.books.map((b) => b.record.slug).join(', ')}`);
       if (book && book !== next) finish();
       if (book !== next) {
         book = next;
