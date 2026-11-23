@@ -5,7 +5,7 @@
 import { Euler, Quaternion, Vector3 } from 'three';
 import type { Book } from '../book/book';
 import type { Engine } from '../index';
-import { DEG, approach, clamp, easeInOutQuad, frameFactor, lerp } from '../core/math';
+import { DEG, approach, clamp, easeInOutQuad, frameFactor, lerp, smoothDamp } from '../core/math';
 import { tunable } from '../core/tune';
 import { SCROLL_COMPACT, SCROLL_DESKTOP, createScrollState, stepScroll, type ScrollState } from './scroll';
 import { ROW_DEFAULT, choose, createRow, joinOf, placeAt, releaseRow, rowOrder, rowSettled, stepChoice, stepRow } from './row';
@@ -165,6 +165,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           span: { value: ROW_DEFAULT.span, min: 0.1, max: 1, help: 'Share of the last scroll slot after which the row is fully called for' },
           assembleAt: { value: ROW_DEFAULT.assembleAt, min: 0.01, max: 1 },
           releaseAt: { value: ROW_DEFAULT.releaseAt, min: 0, max: 1 },
+          leaveAt: { value: ROW_DEFAULT.leaveAt, min: 0.2, max: 1, help: 'A row that stood fully starts to sink below this value of the eased scroll' },
+          farDrop: { value: ROW_DEFAULT.farDrop, min: 0, max: 10, help: 'How much deeper the far books start than the near ones' },
+          anchorYawTime: { value: ROW_DEFAULT.anchorYawTime, min: 0.01, max: 3, unit: 's', help: 'Time for the last featured book to turn its cover' },
           gateTime: { value: ROW_DEFAULT.gateTime, min: 0.01, max: 3, unit: 's' },
           assembleTime: { value: ROW_DEFAULT.assembleTime, min: 0.01, max: 3, unit: 's' },
           hoverPop: { value: ROW_DEFAULT.hoverPop, min: 0, max: 20, help: 'How far a spine under the pointer steps forward' },
@@ -182,6 +185,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   const row = rowTune ? createRow(display.length, anchor) : null;
   const managed = row ? catalogue : order;
   let rowPast = 0;
+  const rowPastVel = { v: 0 };
+  let rowPastSeeded = false;
   let rowLive = false;
   let rowWidths: number[] = [];
   /** World units per CSS pixel at the depth of the row, for a hand that drags it. */
@@ -202,6 +207,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   const pose: ShelfPose = { position: new Vector3(), quaternion: new Quaternion(), scale: 1, visible: true };
   const tilt = { yaw: 0, pitch: 0 };
   const qTilt = new Quaternion();
+  const qTiltRow = new Quaternion();
+  const qTiltMix = new Quaternion();
   const qUpright = new Quaternion();
   const rowAt = new Vector3();
   const qInverse = new Quaternion();
@@ -431,7 +438,12 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     if (row && rowTune) {
       rowWidths = widths;
       rowWorldPerPx = ctx.visibleHeightAt(t.planeZ - rowTune.depth) / Math.max(1, ctx.size.y);
-      rowPast = clamp(state.progress - (order.length - 1), 0, 1);
+      // Measured: the row reads the scroll in a straight line from the last featured book to its own place, lightly
+      // damped. The dwell that holds a featured book at the centre is not part of it.
+      const rawPast = clamp(scrollY() / Math.max(1, slotPx()) - (order.length - 1), 0, 1);
+      rowPast = !rowPastSeeded || ctx.still ? rawPast : smoothDamp(rowPast, rawPast, rowPastVel, 0.063, clamp(f.dt, 1 / 240, 1 / 30));
+      rowPastSeeded = true;
+      if (Math.abs(rowPast - rawPast) > 1e-4) moving = true;
       if (stepRow(row, widths, rowPast, hoveredSpine, f.dt, rowTune, ctx.still)) moving = true;
       rowLive = rowSettled(row, rowPast, rowTune);
     }
@@ -458,6 +470,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     tilt.pitch = ctx.still ? goalPitch : approach(tilt.pitch, goalPitch, t.tiltRate, f.dt);
     if (Math.abs(tilt.yaw + tilt.pitch - beforeTilt) > 1e-6) moving = true;
     qTilt.setFromEuler(eTilt.set(tilt.pitch, tilt.yaw, 0, 'YXZ'));
+    // Measured: in the row the books follow the pointer a quarter as far.
+    qTiltRow.setFromEuler(eTilt.set(tilt.pitch * 0.25, tilt.yaw * 0.25, 0, 'YXZ'));
 
     const offset = opts.centreOffsetPx?.() ?? { x: 0, y: 0 };
     const worldPerPx = ctx.visibleHeightAt(t.planeZ) / Math.max(1, ctx.size.y);
@@ -467,9 +481,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     const follow = !seeded || ctx.still ? 1 : frameFactor(t.turnFollow, f.dt);
 
     /** Writes where a book of the row stands into `rowAt` and returns how far its cover is turned to the front. */
-    const rowPlace = (pos: number): number => {
-      const place = placeAt(row!, widths, pos, rowTune!);
-      const z = t.planeZ - rowTune!.depth * row!.assemble;
+    const rowPlace = (pos: number, blend = 1): number => {
+      const place = placeAt(row!, widths, pos, rowTune!, blend);
+      const z = t.planeZ - rowTune!.depth * blend;
       const perPx = ctx.visibleHeightAt(z) / Math.max(1, ctx.size.y);
       const seatY = ctx.camera.position.y - (offset.y + rowTune!.seat * ctx.size.y) * perPx;
       const below = seatY - ctx.visibleHeightAt(z) * 0.95;
@@ -480,7 +494,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
 
     for (const [slot, index] of order.entries()) {
       const book = engine.books[index]!;
-      const b = state.progress - slot - introDrop;
+      // Measured: the last featured book waits for the row where it is; it does not ride up with the scroll.
+      const b = row && slot === order.length - 1 ? Math.min(0, state.progress - slot - introDrop) : state.progress - slot - introDrop;
       let y = b * t.pitch + t.baseY - offset.y * worldPerPx;
       if (b > t.exitFrom) y += Math.pow((b - t.exitFrom) / 0.4, 3) * t.pitch * t.exitBoost;
       const end = b > 0 ? t.turnEndLeave : t.turnEndArrive;
@@ -494,8 +509,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
         // The last featured book is where the row grows from: it moves from its featured pose into its place.
         const join = joinOf(row, rowPast, rowTune);
         if (join > 0) {
-          const turn = rowPlace(anchor);
-          pose.position.lerp(rowAt, join);
+          const turn = rowPlace(anchor, join);
+          // The depth already carries the join; height and side follow it in a straight line.
+          pose.position.set(lerp(pose.position.x, rowAt.x, join), lerp(pose.position.y, rowAt.y, join), rowAt.z);
           pose.quaternion.slerp(qUpright, join);
           // Spine to the front is half a turn; the cover to the front a quarter.
           book.presentYaw = lerp(Math.PI / 2, Math.PI - (Math.PI / 2) * turn, join);
@@ -514,7 +530,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
         book.root.quaternion.copy(book.home.quaternion);
         book.root.scale.setScalar(pose.scale);
         // Measured: the tilt turns about the axes of the room, not of the leaning book.
-        book.tilt.quaternion.copy(qInverse.copy(book.root.quaternion).invert()).multiply(qTilt).multiply(book.root.quaternion);
+        const rowShare = row && rowTune && slot === order.length - 1 ? joinOf(row, rowPast, rowTune) : 0;
+        book.tilt.quaternion.copy(qInverse.copy(book.root.quaternion).invert()).multiply(qTiltMix.copy(qTilt).slerp(qTiltRow, rowShare)).multiply(book.root.quaternion);
       }
     }
     seeded = true;
@@ -539,7 +556,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           book.root.position.copy(rowAt);
           book.root.quaternion.copy(qUpright);
           book.root.scale.setScalar(scale);
-          book.tilt.quaternion.copy(qTilt);
+          book.tilt.quaternion.copy(qTiltRow);
         }
       }
     }

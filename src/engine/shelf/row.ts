@@ -3,7 +3,7 @@
  * side, spine to the reader. The chosen one turns its cover to the front and the others make room for it,
  * like a coverflow. Only numbers are kept here; the shelf owns the books and the pointer.
  */
-import { clamp, easeInOutQuad, expFactor, smoothDamp, type Velocity } from '../core/math';
+import { clamp, easeInOutQuad, expFactor, smoothDamp, smoothstep, type Velocity } from '../core/math';
 
 export interface RowTuning {
   /** Air between two spines, world units. */
@@ -28,6 +28,12 @@ export interface RowTuning {
   /** The row assembles above this value of the eased scroll and leaves again below `releaseAt`. */
   assembleAt: number;
   releaseAt: number;
+  /** A row that stood fully starts to sink as soon as the eased scroll falls below this, in step with the scroll. */
+  leaveAt: number;
+  /** How much deeper the far books start than the near ones, in units of the near books' way up. */
+  farDrop: number;
+  /** Seconds for the last featured book to turn its cover when the choice changes. */
+  anchorYawTime: number;
   gateTime: number;
   assembleTime: number;
   /** How far a spine under the pointer steps forward, and how fast. */
@@ -40,16 +46,19 @@ export interface RowTuning {
 export const ROW_DEFAULT: RowTuning = {
   gap: 0.9375,
   slot: 15.13,
-  spine: 0.85,
+  spine: 1,
   depth: 15.75,
   forward: 8,
   back: 2,
   yawPower: 1.6,
   yawTime: 0.2,
   offsetTime: 0.26,
-  span: 0.68,
+  span: 1,
   assembleAt: 0.28,
   releaseAt: 0.18,
+  leaveAt: 0.96,
+  farDrop: 4.38,
+  anchorYawTime: 0.14,
   gateTime: 0.22,
   assembleTime: 0.238,
   hoverPop: 3.78,
@@ -74,6 +83,18 @@ export interface RowState {
   offsetVel: Velocity;
   /** True while the row is called for. It has two thresholds, so it does not flicker at the edge. */
   called: boolean;
+  /** True from the moment the row stands until the scroll has all but left it: the choice shows its cover and takes keys. */
+  settled: boolean;
+  /** The row stood fully at least once since it was called. */
+  activated: boolean;
+  /** The row sinks in step with the scroll. */
+  leaving: boolean;
+  /** Eased scroll at which the sinking began, and the gate value it began from. */
+  leaveAt: number;
+  leaveFrom: number;
+  /** Largest eased scroll since the row was called. */
+  peak: number;
+  yawVel: Velocity[];
   gate: number;
   gateVel: Velocity;
   /** 0 = no row, 1 = the row stands. */
@@ -94,13 +115,20 @@ export function createRow(count: number, anchor: number): RowState {
   return {
     selected: anchor,
     anchor,
-    yaw: zeros().map((_, i) => (i === anchor ? 1 : 0)),
+    yaw: zeros(),
+    yawVel: zeros().map(() => ({ v: 0 })),
     arrived: zeros(),
     arrivedVel: zeros().map(() => ({ v: 0 })),
     pop: zeros(),
     offset: 0,
     offsetVel: { v: 0 },
     called: false,
+    settled: false,
+    activated: false,
+    leaving: false,
+    leaveAt: 0,
+    leaveFrom: 0,
+    peak: 0,
     gate: 0,
     gateVel: { v: 0 },
     assemble: 0,
@@ -149,7 +177,7 @@ export function pushAt(i: number, widths: number[], yaw: number[], slot: number)
 export const rowCall = (past: number, t: RowTuning = ROW_DEFAULT): number => easeInOutQuad(clamp(past / t.span, 0, 1));
 
 /** True when the row stands and takes the keys and the pointer. */
-export const rowSettled = (s: RowState, past: number, t: RowTuning = ROW_DEFAULT): boolean => s.called && s.assemble > 0.6 && rowCall(past, t) >= t.assembleAt;
+export const rowSettled = (s: RowState, _past?: number, _t: RowTuning = ROW_DEFAULT): boolean => s.settled;
 
 /** Moves the choice by a number of books. Refused when the last step was a moment ago. */
 export function stepChoice(s: RowState, delta: number, t: RowTuning = ROW_DEFAULT): boolean {
@@ -174,45 +202,83 @@ export function choose(s: RowState, index: number): boolean {
 export function stepRow(s: RowState, widths: number[], past: number, hovered: number, dtIn: number, t: RowTuning = ROW_DEFAULT, still = false): boolean {
   const dt = clamp(dtIn, 1e-4, 0.05);
   const call = rowCall(past, t);
-  if (!s.called && call >= t.assembleAt) s.called = true;
-  else if (s.called && call < t.releaseAt) s.called = false;
+  // Measured: the row is called at `assembleAt`. Once it stood fully (`leaveAt`) it starts to sink as soon as the
+  // scroll turns back, in step with the scroll, and is let go below `releaseAt`.
+  if (s.settled && call >= t.leaveAt) s.activated = true;
+  if (s.called) s.peak = Math.max(s.peak, call);
+  const edge = s.activated ? t.leaveAt : Math.min(t.leaveAt, s.peak - 0.1);
+  if (s.called && call < edge && call >= t.releaseAt) {
+    s.called = false;
+    s.activated = false;
+    s.leaving = true;
+    s.leaveAt = call;
+    s.leaveFrom = s.gate;
+  } else if (call < t.releaseAt) {
+    if (s.called) {
+      s.leaveAt = Math.max(0.001, call);
+      s.leaveFrom = s.gate;
+    }
+    s.called = false;
+    s.activated = false;
+    s.leaving = false;
+    s.peak = 0;
+  } else if (!s.called && call >= t.assembleAt && (!s.leaving || call >= Math.min(t.leaveAt + 0.02, s.leaveAt + 0.1))) {
+    s.called = true;
+    s.leaving = false;
+    s.peak = call;
+  }
   s.sinceStep += dt;
+  /** Share of the row that still stands while it sinks with the scroll. */
+  const ramp = s.called ? 1 : s.leaveAt > 0.001 ? clamp(call / s.leaveAt, 0, 1) : 0;
 
   const before = s.assemble + s.offset + s.seat;
-  const goal = s.called ? 1 : 0;
   if (still) {
-    s.gate = s.assemble = s.seat = goal;
+    s.gate = s.assemble = s.called ? 1 : 0;
+    s.settled = s.called;
+    s.seat = s.settled ? 1 : 0;
   } else {
-    s.gate = smoothDamp(s.gate, goal, s.gateVel, t.gateTime, dt);
+    if (s.called) s.gate = smoothDamp(s.gate, 1, s.gateVel, t.gateTime, dt);
+    else {
+      s.gate = Math.min(s.gate, s.leaveFrom * ramp);
+      // Below the lower threshold the row falls away by itself, so a scroll that rests there leaves no row hanging.
+      if (call < t.releaseAt) s.gate = smoothDamp(s.gate, 0, s.gateVel, t.gateTime, dt);
+      else s.gateVel.v = 0;
+    }
     s.assemble = smoothDamp(s.assemble, s.gate, s.assembleVel, t.assembleTime, dt);
-    s.seat = smoothDamp(s.seat, goal, s.seatVel, goal ? 0.175 : 0.35, dt);
+    if (!s.called) s.assemble = Math.min(s.assemble, ramp);
+    if (s.assemble > 0.6 && call >= t.assembleAt) s.settled = true;
+    else if (call < t.releaseAt) s.settled = false;
+    s.seat = smoothDamp(s.seat, s.settled ? 1 : 0, s.seatVel, s.settled ? 0.175 : 0.35, dt);
   }
 
   let moving = false;
   const x0 = restX(widths, s.anchor, t.gap);
   for (let i = 0; i < widths.length; i++) {
-    // The cover turn: the chosen book only shows its cover while the row stands.
-    const turn = i === s.selected ? 1 : 0;
-    const y = still ? turn : s.yaw[i]! + (turn - s.yaw[i]!) * expFactor(1 / t.yawTime, dt);
+    // The cover turn: the chosen book shows its cover only while the row stands. Measured: the last featured
+    // book has a damper of its own, the others follow an exponential.
+    const turn = s.settled && i === s.selected ? 1 : 0;
+    const y = still ? turn : i === s.anchor ? smoothDamp(s.yaw[i]!, turn, s.yawVel[i]!, t.anchorYawTime, dt) : s.yaw[i]! + (turn - s.yaw[i]!) * expFactor(1 / t.yawTime, dt);
     if (Math.abs(y - s.yaw[i]!) > 1e-5) moving = true;
-    s.yaw[i] = Math.abs(turn - y) < 1e-4 ? turn : y;
+    s.yaw[i] = Math.abs(turn - y) < 1e-4 ? turn : clamp(y, 0, 1);
 
     // Arrival: books near the anchor stand first, the far ones follow.
     const away = Math.min(Math.abs(i - s.anchor), 12) / 12;
     const time = Math.max(0.011, (0.025 + away * 0.425) * 0.7 * 0.4);
-    const a = still ? s.gate : smoothDamp(s.arrived[i]!, s.gate, s.arrivedVel[i]!, time + 0.06 * Math.abs(i - s.anchor), dt);
+    let a = still ? s.gate : smoothDamp(s.arrived[i]!, s.gate, s.arrivedVel[i]!, time, dt);
+    if (!s.called) a = Math.min(a, ramp);
     if (Math.abs(a - s.arrived[i]!) > 1e-5) moving = true;
     s.arrived[i] = a;
 
-    const pop = i === hovered && i !== s.selected && s.called ? t.hoverPop : 0;
+    const pop = i === hovered && i !== s.selected && s.settled ? t.hoverPop : 0;
     const p = still ? pop : s.pop[i]! + (pop - s.pop[i]!) * expFactor(t.hoverRate, dt);
     if (Math.abs(p - s.pop[i]!) > 1e-4) moving = true;
     s.pop[i] = Math.abs(pop - p) < 1e-3 ? pop : p;
   }
 
-  // The row slides so the chosen book stands in the middle.
+  // The row slides so the chosen book stands in the middle. Measured: the aim is the resting place of the chosen
+  // book alone; the push of the turning covers is not part of it, or the slide overshoots.
   // A hand that drags the row is followed closely.
-  const want = s.called ? -(x0[s.selected]! + pushAt(s.selected, widths, s.yaw, t.slot)) + s.drag : 0;
+  const want = s.settled ? -x0[s.selected]! + s.drag : 0;
   s.offset = still ? want : smoothDamp(s.offset, want, s.offsetVel, s.dragging ? 0.06 : t.offsetTime, dt);
   return moving || Math.abs(s.assemble + s.offset + s.seat - before) > 1e-5;
 }
@@ -228,17 +294,19 @@ export interface RowPlace {
 }
 
 /** Where book i stands this frame, in the row's own frame. */
-export function placeAt(s: RowState, widths: number[], i: number, t: RowTuning = ROW_DEFAULT): RowPlace {
+export function placeAt(s: RowState, widths: number[], i: number, t: RowTuning = ROW_DEFAULT, blend = 1): RowPlace {
   const x0 = restX(widths, s.anchor, t.gap);
   const yaw = s.yaw[i]!;
-  const near = 1 - Math.exp(-Math.abs(i - s.anchor) / 2.5);
+  const d = Math.abs(i - s.anchor);
+  const near = 1 - Math.exp(-d / 2.5);
   const a = s.arrived[i]!;
-  // Far books come up late and fast, near ones early: the same curve the reference uses for the fall.
-  const rise = 1 - (1 - a) * (near + (1 - near) * (1 - a) * (1 - a));
+  // Measured: every book starts one screen below its place, the far ones deeper still, and the near ones come up first.
+  const drop = 1 - a + t.farDrop * (1 - Math.exp(-d / 8)) * smoothstep(0.12 - (0.04 * Math.min(d, 12)) / 12, 1, 1 - a);
+  const rise = 1 - drop * (near + (1 - near) * (1 - a) * (1 - a));
   return {
     x: x0[i]! + pushAt(i, widths, s.yaw, t.slot) + s.offset,
     rise: i === s.anchor ? 1 : rise,
-    z: t.forward * yaw - t.back * (1 - yaw) * s.assemble + s.pop[i]!,
+    z: t.forward * yaw - t.back * (1 - yaw) * blend + s.pop[i]!,
     turn: Math.pow(yaw, t.yawPower),
   };
 }
