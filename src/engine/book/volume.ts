@@ -49,6 +49,8 @@ const COLS = SIDE * 2 + 1;
  */
 export const BLOCK_S = 56;
 const BLOCK_K = 5;
+/** Rows up the page that faces the reader, so an effect can ripple it in both directions. */
+const BLOCK_R = 24;
 
 /** Air between a board and the first leaf on it. */
 const SEAT = 0.02;
@@ -166,7 +168,7 @@ export class Volume {
   private readonly layer = new Float32Array((BLOCK_K + 1) * (BLOCK_S + 1) * PROFILE_STRIDE);
 
   constructor(readonly dims: BookDims, materials: VolumeMaterials) {
-    const blockVerts = (BLOCK_S + 1) * 4 + (BLOCK_K + 1) * 2 + (BLOCK_S + 1) * (BLOCK_K + 1) * 2;
+    const blockVerts = (BLOCK_S + 1) * (BLOCK_R + 3) + (BLOCK_K + 1) * 2 + (BLOCK_S + 1) * (BLOCK_K + 1) * 2;
     this.blockSurfaces = [new Surface(blockVerts), new Surface(blockVerts)];
     this.caseMesh = new Mesh(this.caseSurface.geometry, [materials.cover, materials.endpaper]);
     // The left stack has a third face: its underside, the first leaf of the book, seen while the stack turns over.
@@ -367,9 +369,12 @@ export class Volume {
       const nz = left ? -tx : tx;
       const along = sampleDistance(d.pageW, BLOCK_S, i) / d.pageW;
       const u = left ? 1 - along : along;
-      top.push(s.vert(x, y0, z, nx, 0, nz, u, 0), s.vert(x, y1, z, nx, 0, nz, u, 1));
+      for (let r = 0; r <= BLOCK_R; r++) top.push(s.vert(x, y0 + ((y1 - y0) * r) / BLOCK_R, z, nx, 0, nz, u, r / BLOCK_R));
     }
-    for (let i = 0; i < BLOCK_S; i++) s.quad(top[i * 2]!, top[(i + 1) * 2]!, top[(i + 1) * 2 + 1]!, top[i * 2 + 1]!, 0);
+    const rows = BLOCK_R + 1;
+    for (let i = 0; i < BLOCK_S; i++) {
+      for (let r = 0; r < BLOCK_R; r++) s.quad(top[i * rows + r]!, top[(i + 1) * rows + r]!, top[(i + 1) * rows + r + 1]!, top[i * rows + r + 1]!, 0);
+    }
 
     // Underside of the left stack: the outer face of the book's first leaf. It rests on the board once the
     // stack has come over, and is what the reader sees before that.

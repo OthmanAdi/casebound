@@ -249,6 +249,7 @@ export const SHEET_LIGHTS = ShaderChunk.lights_fragment_begin.replace(
 
 const PARS = /* glsl */ `
 varying vec3 vViewPosition;
+varying vec2 vRingUv;
 
 struct BlinnPhongMaterial {
 	vec3 diffuseColor;
@@ -493,8 +494,8 @@ const BUMP = /* glsl */ `
 		dH += vec2( dFdx( vMapUv.x ), dFdy( vMapUv.x ) ) * uJoint.w * bJointSlope( vMapUv.x ) * jOn;
 	#endif
 	if ( uRadio > 0.001 ) {
-		float r0 = bRing( vMapUv );
-		dH += vec2( bRing( vMapUv + dFdx( vMapUv ) ) - r0, bRing( vMapUv + dFdy( vMapUv ) ) - r0 ) * ${(0.09 * READER_PIXEL).toFixed(5)} * uRadio;
+		float r0 = bRing( vRingUv );
+		dH += vec2( bRing( vRingUv + dFdx( vRingUv ) ) - r0, bRing( vRingUv + dFdy( vRingUv ) ) - r0 ) * ${(0.09 * READER_PIXEL).toFixed(5)} * uRadio;
 	}
 	normal = bPerturb( - vViewPosition, normal, dH, faceDirection );
 }
@@ -554,7 +555,7 @@ if ( uHolo > 0.001 ) {
 }
 if ( uRadio > 0.001 ) {
 	// The rings (SPEC S-FX-2): a tint and a lift of the light where a ring passes.
-	float wave = bRing( vMapUv ) * uRadio;
+	float wave = bRing( vRingUv ) * uRadio;
 	gl_FragColor.rgb += vec3( 0.02, 0.06, 0.09 ) * wave * 2.0;
 	gl_FragColor.rgb *= 1.0 + wave * 0.35;
 }
@@ -572,15 +573,26 @@ if ( uFilm * uFilmShare > 0.0 ) {
 const VERTEX_PARS = /* glsl */ `
 uniform float uRadio;
 uniform float uFxTime;
+uniform float uRingSide;
+uniform float uGutter;
+varying vec2 vRingUv;
 #include <uv_pars_vertex>
 `;
 
+/** How far a ring lifts the surface at the corner it starts from, world units. Measured: about 0.7 on a page 13 wide. */
+export const RING_LIFT = 0.7;
+
 const VERTEX_DISPLACE = /* glsl */ `
 #include <begin_vertex>
+// Where this point lies for the rings: across the whole spread, 0 at the fore-edge of the left page, 0.5 at the
+// spine, 1 at the fore-edge of the right page. The rings start at the upper right corner of the spread and cross
+// the fold. A page whose picture is mirrored (uGutter 1) counts from the other edge, and a sheet in the air says
+// how far over it is (uRingSide, 1 lying right to -1 lying left), so its two sides ripple as one.
+vRingUv = vec2( 0.5 + 0.5 * ( uGutter > 0.5 ? 1.0 - uv.x : uv.x ) * uRingSide, uv.y );
 if ( uRadio > 0.001 ) {
-	float d = distance( uv, vec2( 1.0, 1.0 ) );
+	float d = distance( vRingUv, vec2( 1.0, 1.0 ) );
 	float ring = sin( d * 69.8 - uFxTime * 1.53 * 6.28318 ) * 0.5 + 0.5;
-	transformed += objectNormal * ring * ring * ( 1.0 - smoothstep( 0.0, 1.2, d ) ) * 0.09 * uRadio;
+	transformed += objectNormal * ring * ring * ( 1.0 - smoothstep( 0.0, 1.2, d ) ) * ${RING_LIFT.toFixed(3)} * uRadio;
 }
 `;
 
@@ -627,6 +639,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uTurn: { value: 0 },
     uTransmit: { value: o.transmit ?? 0 },
     uAloft: { value: 0 },
+    uRingSide: { value: o.gutter === 1 ? -1 : 1 },
     uExposure: { value: o.exposure ?? o.cloth.exposure ?? 0.9 },
     uCeiling: { value: o.cloth.ceiling ?? 0 },
     uFilmShare: { value: o.cloth.film ?? 0 },

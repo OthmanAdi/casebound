@@ -232,6 +232,8 @@ export class Leaf {
       const uniforms = mat.userData.uniforms as Record<string, { value: number }>;
       // Print shows through most at mid-turn (SPEC S-RD-9). The shader derives it from the turn progress.
       uniforms.uTurn!.value = turn;
+      // Rings lift both sides of the sheet alike, by where the sheet is across the spread.
+      uniforms.uRingSide!.value = Math.cos(Math.PI * turn);
       uniforms.uAloft!.value = aloft;
       uniforms.uWrap!.value = lerp(CLOTH.paper.wrap, WRAP_ALOFT, aloft);
       uniforms.uTransmit!.value = TRANSMIT * aloft;
