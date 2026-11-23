@@ -262,8 +262,10 @@ float bSheenV( float NoV, float NoL ) {
 }
 
 vec3 bPerturb( vec3 surfPos, vec3 surfNorm, vec2 dHdxy, float faceDir ) {
-	vec3 sx = normalize( dFdx( surfPos ) );
-	vec3 sy = normalize( dFdy( surfPos ) );
+	// The steps across one pixel keep their length, so a height is a length in world units and a relief has the
+	// same slope from any distance and at any pixel ratio.
+	vec3 sx = dFdx( surfPos );
+	vec3 sy = dFdy( surfPos );
 	vec3 r1 = cross( sy, surfNorm );
 	vec3 r2 = cross( surfNorm, sx );
 	float det = dot( sx, r1 ) * faceDir;
@@ -353,6 +355,14 @@ const ALBEDO = /* glsl */ `
 }
 `;
 
+/**
+ * World units across one pixel at pixel ratio 1 in a window 900 high: a book on the shelf (90.1 from the camera)
+ * and one in the reader (76.1 away, scaled 1.1). Relief strengths were first tuned as slopes per pixel in these
+ * two views; times these lengths they are heights in world units that give the same slopes there.
+ */
+const SHELF_PIXEL = (2 * 90.1 * Math.tan((9 * Math.PI) / 180)) / 900;
+const READER_PIXEL = (2 * 76.1 * Math.tan((9 * Math.PI) / 180)) / 900 / 1.1;
+
 const SPECULAR = /* glsl */ `
 #include <specularmap_fragment>
 specularStrength *= 1.0 + bFoil * uFoilSpecular;
@@ -364,21 +374,21 @@ const BUMP = /* glsl */ `
 	float g0 = texture2D( tGrain, gUv ).r;
 	float gx = texture2D( tGrain, gUv + dFdx( gUv ) ).r;
 	float gy = texture2D( tGrain, gUv + dFdy( gUv ) ).r;
-	float gs = uBumpGrain * bCloth * bLod;
+	float gs = uBumpGrain * bCloth * bLod * ${SHELF_PIXEL.toFixed(4)};
 	vec2 dH = vec2( gx - g0, gy - g0 ) * gs;
 	// The tooth catches the light as well.
-	dH += vec2( dFdx( bMottle ), dFdy( bMottle ) ) * uMottle * bCloth * 1.6;
+	dH += vec2( dFdx( bMottle ), dFdy( bMottle ) ) * uMottle * bCloth * ${(1.6 * SHELF_PIXEL).toFixed(4)};
 	#ifdef CASEBOUND_EMBOSS
 		float e0 = texture2D( tEmboss, vMapUv ).r;
 		float ex = texture2D( tEmboss, vMapUv + dFdx( vMapUv ) ).r;
 		float ey = texture2D( tEmboss, vMapUv + dFdy( vMapUv ) ).r;
-		// The relief map holds heights from 0 to 1 and its walls are a few pixels wide, so the measured strength
-		// (0.05 to 0.25 per title) is scaled to give a wall that the lights can shade.
-		dH += vec2( ex - e0, ey - e0 ) * uBumpEmboss * 36.0;
+		// The relief map holds heights from 0 to 1. The strength of a title (0.05 to 0.25, SPEC S-BOOK-6) scales
+		// them to a depth in world units.
+		dH += vec2( ex - e0, ey - e0 ) * uBumpEmboss * ${(36 * SHELF_PIXEL).toFixed(4)};
 	#endif
 	if ( uRadio > 0.001 ) {
 		float r0 = bRing( vMapUv );
-		dH += vec2( bRing( vMapUv + dFdx( vMapUv ) ) - r0, bRing( vMapUv + dFdy( vMapUv ) ) - r0 ) * 0.09 * uRadio;
+		dH += vec2( bRing( vMapUv + dFdx( vMapUv ) ) - r0, bRing( vMapUv + dFdy( vMapUv ) ) - r0 ) * ${(0.09 * READER_PIXEL).toFixed(5)} * uRadio;
 	}
 	normal = bPerturb( - vViewPosition, normal, dH, faceDirection );
 }
