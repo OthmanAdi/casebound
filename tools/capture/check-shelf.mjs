@@ -1,5 +1,6 @@
 // Checks the shelf in a real browser: a book turned by hand, its coasting, a press that opens the details,
-// and a turned book that forgets its turn when it leaves the centre. The engine's clock is driven by hand.
+// a turned book that forgets its turn when it leaves the centre, and the row of spines at the end of the
+// shelf. The engine's clock is driven by hand.
 //
 //   node tools/capture/check-shelf.mjs <base url> [--shots <dir>]
 //
@@ -96,6 +97,50 @@ try {
   await page.evaluate(() => scrollTo(0, document.querySelector('.panel').offsetHeight + 16));
   await run(3);
   await check('the next book is centred and the first has forgotten its turn', (s) => s.active !== 0 && Math.abs(s.firstYaw) < 0.01 && s.yaw === 0);
+  // The row: past the last featured book every book of the library stands spine to the front.
+  const row = () => page.evaluate(() => {
+    const { engine, shelf, reader } = casebound;
+    return { settled: shelf.row.settled, selected: shelf.row.selected, active: engine.books[engine.state.active].record.slug, reading: reader.isOpen ? reader.book.record.slug : null, visible: engine.books.filter((b) => b.root.visible).length, books: engine.books.length };
+  });
+  const rowCheck = async (name, test) => {
+    const got = await row();
+    const ok = Boolean(test(got));
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}: chosen ${got.selected}, ${got.visible} of ${got.books} books in sight`);
+    return got;
+  };
+  await page.mouse.move(30, 300);
+  await page.evaluate(() => scrollTo(0, (document.querySelector('.panel').offsetHeight + 16) * casebound.shelf.order.length));
+  await run(3.5);
+  const lastFeatured = await page.evaluate(() => casebound.engine.books[casebound.shelf.order.at(-1)].record.slug);
+  const stood = await rowCheck('the row stands with the last featured book chosen', (r) => r.settled && r.selected === lastFeatured && r.active === lastFeatured && r.visible === r.books);
+  await shot('row');
+  await page.keyboard.press('ArrowRight');
+  await run(1.6);
+  const stepped = await rowCheck('an arrow chooses the next book', (r) => r.selected !== stood.selected && r.active === r.selected);
+  await shot('row stepped');
+  // A press on the first spine chooses that book.
+  const first = await page.evaluate(() => {
+    const { ctx } = casebound.engine;
+    const book = casebound.engine.books[casebound.shelf.order[0]];
+    const v = book.root.position.clone();
+    book.root.getWorldPosition(v);
+    v.project(ctx.camera);
+    const r = ctx.canvas.getBoundingClientRect();
+    return { slug: book.record.slug, x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (0.5 - v.y * 0.5) * r.height };
+  });
+  await page.mouse.click(first.x, first.y);
+  await run(2);
+  await rowCheck('a press on a spine chooses that book', (r) => r.selected === first.slug && r.selected !== stepped.selected);
+  await page.keyboard.press('Space');
+  await run(3.4);
+  await rowCheck('the chosen book opens from the row', (r) => r.reading === first.slug);
+  await shot('row reading');
+  await page.keyboard.press('Escape');
+  await run(2.4);
+  await page.evaluate(() => scrollTo(0, 0));
+  await run(3);
+  await rowCheck('back at the top the row is gone', (r) => !r.settled && r.visible < r.books);
   for (const e of errors) { failed++; console.log('FAIL page error: ' + e); }
 } finally {
   await browser.close();
