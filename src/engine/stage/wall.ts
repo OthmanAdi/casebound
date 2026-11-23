@@ -69,7 +69,8 @@ export class ShadowWall {
         blurGrow: { value: 2.25, min: 0, max: 10, help: 'Extra blur at full distance, as a multiple of the base' },
         insideDim: { value: 0.5, min: 0, max: 1, help: 'Opacity multiplier while the reader is open' },
         followRate: { value: 10, min: 0.1, max: 60, unit: '1/s', help: 'How fast the fade follows the book. Measured: 10' },
-        reachScale: { value: 1.26, min: 0.5, max: 3, help: 'Stretches how far the book reaches out from its pivot toward the camera. The reference measures a box around a larger model; with 1.26 the resting book gives its measured fade' },
+        reachBase: { value: 7.6, min: 0, max: 30, help: 'How far the box that the fade is measured on reaches out from the pivot of a book whatever its pose. The reference measures a box around a larger model than our case: at rest its far corner is 10.5 in front of the pivot and comes only 0.7 nearer while a book turns away' },
+        reachScale: { value: 0.33, min: 0, max: 3, help: 'Share of the reach of our own case that is added to it. With 7.6 and 0.33 the resting book and the book that turns away both give their measured fade' },
         softness: { value: 1, min: 0.2, max: 30, help: 'Extra widening of the wall shadow on top of the measured blur. 16 samples on a rotated disk' },
       },
       onChange: (key) => {
@@ -108,7 +109,7 @@ export class ShadowWall {
     this.mesh.material.color.set(t.color);
     // Measured (SPEC S-WALL-3): the fade follows the far corner of the book, not its pivot, and is eased.
     // Measured in the open reader: the fade is complete, whatever the open book's own extent.
-    const goal = Math.max(smoothstep(t.fadeNear, t.fadeFar, pivot + (reach - pivot) * t.reachScale), inside);
+    const goal = Math.max(smoothstep(t.fadeNear, t.fadeFar, pivot + t.reachBase + (reach - pivot) * t.reachScale), inside);
     const before = this.distance;
     this.distance = still || before < 0 ? goal : approach(before, goal, t.followRate, Math.min(dt, 0.05));
     const prev = this.opacity;
