@@ -17,9 +17,9 @@ Reference and our build are captured with the same tool (reanimate), the same se
 
 Four series used `canvas` as the pointer target. On the reference the first `canvas` in the page is a strip 1 pixel wide and 8192 high, not the 3D canvas, so the pointer path was not the intended one. Affected: `b-hover-home`, `e-magnifier-move`, `f-hologram-ebook-row`, `f-radio-audiobook-row`. The final frame of the hologram series shows a normal book, which is how this was found.
 
-Fix: the runner now targets `canvas[data-engine]` (three.js marks its canvas with that attribute) and finds the two effect rows by their accessible name. Closing uses the Escape key. The four series and `c-close-book` are being re-captured on both sides into `reanimate-series-2` and `captures/ours-2`.
+Fix: the runner now targets `canvas[data-engine]` (three.js marks its canvas with that attribute) and finds the two effect rows by their accessible name. Closing uses the Escape key. The four series and `c-close-book` were captured again on both sides.
 
-Not affected: `c-open-book`, `d-turn-next`, `d-turn-previous`, `e-magnifier-on`, `g-view-details` (button clicks by accessible name), and the first-hand hologram screenshots, which used direct pointer moves.
+Not affected: `c-open-book`, `d-turn-next`, `d-turn-previous`, `e-magnifier-on`, `g-view-details` (button clicks by accessible name).
 
 ## 2026-11-23 · Open book (`c-open-book`)
 

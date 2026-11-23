@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const HOOK_PATH = path.join(here, 'hook.js');
-export const VCLOCK_PATH = path.join(here, 'vclock.js');
 
 export const PROFILES = {
   desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
@@ -27,7 +26,6 @@ export function genericUserAgent(channel, version, mobile) {
  * @param {'msedge'|'chrome'|'chromium'} [o.channel]  browser to drive (default msedge)
  * @param {boolean} [o.headless]
  * @param {string} [o.profile]  key of PROFILES
- * @param {boolean} [o.vclock]  install the virtual clock (frame-stepped mode)
  * @param {string|null} [o.videoDir]  record a Playwright video into this directory
  */
 export async function launch(o = {}) {
@@ -45,13 +43,12 @@ export async function launch(o = {}) {
     userAgent, locale: 'en-US', colorScheme: 'light', reducedMotion: 'no-preference',
     ...(o.videoDir ? { recordVideo: { dir: o.videoDir, size: profile.viewport } } : {}),
   });
-  if (o.vclock) await context.addInitScript({ path: VCLOCK_PATH });
   await context.addInitScript({ path: HOOK_PATH });
   const page = await context.newPage();
   const consoleLog = [];
   page.on('console', (m) => { if (consoleLog.length < 400) consoleLog.push({ type: m.type(), text: m.text().slice(0, 300) }); });
   page.on('pageerror', (e) => { if (consoleLog.length < 400) consoleLog.push({ type: 'pageerror', text: String(e.message).slice(0, 300) }); });
-  const session = { browser, context, page, channel, headless, version, userAgent, profileName: o.profile || 'desktop', profile, consoleLog, vclock: !!o.vclock };
+  const session = { browser, context, page, channel, headless, version, userAgent, profileName: o.profile || 'desktop', profile, consoleLog };
   session.close = async () => { try { await context.close(); } catch (_) {} try { await browser.close(); } catch (_) {} };
   return session;
 }

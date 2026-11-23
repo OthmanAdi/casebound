@@ -1,9 +1,13 @@
 {
   "name": "casebound",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "An agent-extensible 3D book system for the browser: lit hardcover books, a damped shelf, a reader with real page turns, a magnifier and material effects.",
+  "description": "Lit 3D hardcover books for the browser with three.js: a damped shelf, books that open, pages that turn like paper, a magnifier and page light effects. Every book is a few lines of data, and a coding-agent skill is included.",
+  "homepage": "https://othmanadi.github.io/casebound/",
+  "repository": { "type": "git", "url": "git+https://github.com/OthmanAdi/casebound.git" },
+  "author": "OthmanAdi (https://github.com/OthmanAdi)",
+  "keywords": ["threejs", "webgl", "3d-book", "page-turn", "page-flip", "bookshelf", "ebook-reader", "magnifier", "shader", "typescript", "agent-skills"],
   "license": "Apache-2.0",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

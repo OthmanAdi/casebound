@@ -1,10 +1,10 @@
 # SPEC: measured behaviour of the reference, as a build contract
 
-Reference: https://stripe.press/ as served on 2026-11-22 and 2026-11-23. This file is the short, numbered version of the reports next to it. Engine code cites these ids (for example `S-LIGHT-2`). When a value here and a report disagree, the report with the evidence line wins and this file gets fixed.
+Reference: https://stripe.press/ as served on 2026-11-22 and 2026-11-23. Engine code cites the ids in this file (for example `S-LIGHT-2`).
 
-Sources: `01-rendering.md` (R), `02-motion.md` (M), `03-runtime.md` (L, live Edge session), `04-harvest-tools.md` (H, reanimate runs), `findings.md` (F, first-hand screenshots).
+How the values were found. Three sources, noted per row in the last column: **R** and **M** are readings of the reference's shipped client code (rendering and motion), **L** is an inspection of the running scene in Microsoft Edge 156, **H** is a frame-stepped capture under a virtual clock with reanimate, **F** is a screenshot taken by hand. The working notes behind these letters are not part of this repository.
 
-Verification levels: **code** = read in the shipped bundle. **live** = also read from the running scene in Edge 156. **frames** = also measured frame by frame under a virtual clock. A value marked only **code** is still to be confirmed by the capture series in `tools/reanimate/capture-series.mjs`.
+Verification levels: **code** = read in the shipped bundle. **live** = also read from the running scene. **frames** = also measured frame by frame under a virtual clock. A value marked only **code** is still to be confirmed by the capture series in `tools/reanimate/capture-series.mjs`. Comparisons of our build against these values are in `PARITY.md`.
 
 Units: world units as in the reference scene. One book is 13.52 wide, 20.13 tall. Angles in degrees unless marked rad. Time in seconds unless marked ms.
 
@@ -156,7 +156,7 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 
 ## 11. The page light strobe: hologram and radio
 
-Confirmed first-hand in Edge on 2026-11-23 (F, frames `_look-04-hologram`).
+Confirmed by hand in Edge on 2026-11-23 and by frame-stepped capture.
 
 | Id | Fact | Level | Source |
 |---|---|---|---|
@@ -191,7 +191,7 @@ Confirmed first-hand in Edge on 2026-11-23 (F, frames `_look-04-hologram`).
 1. Smooth time of the scroll damping, fitted from the frame data (S-SCR-4).
 2. Close-book timing: the `c-close-book` series failed on a click timeout and has to be re-run with the Escape key. Eight series are captured: hover, open, turn next, turn previous, magnifier on, magnifier move, hologram, radio.
 3. The wall shadow in the reference frames is much softer and fainter than the code constants suggest. To be measured from the frames.
-4. The 112 lazy chunks: artifacts scene (hats, totes, socks, cloth swing), the no-WebGL fallback, the DOM background scene. Named in M §1.2, not read.
+4. Code that the reference loads on demand: its merchandise scene, its fallback without WebGL and its background scene have not been studied.
 5. Featured-section scene: a second scene with a point light was seen live and not dumped.
 6. Mobile viewport and touch: nothing measured live.
 

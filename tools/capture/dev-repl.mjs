@@ -1,6 +1,6 @@
 // Development helper: keeps ONE browser session open and evaluates snippets sent to it over 127.0.0.1,
 // so exploring a site costs one page load instead of one per question.
-//   node dev-repl.mjs --url https://example.org/ --state <dir> [--browser msedge] [--profile desktop] [--vclock] [--headed]
+//   node dev-repl.mjs --url https://example.org/ --state <dir> [--browser msedge] [--profile desktop] [--headed]
 //   node dev-send.mjs --state <dir> "<async js body, has: s, page, cdp, fs, path, lib>"
 //   node dev-send.mjs --state <dir> --quit
 import http from 'node:http';
@@ -11,7 +11,7 @@ import * as lib from './lib/browser.mjs';
 const args = lib.parseArgs(process.argv.slice(2), { browser: 'msedge', profile: 'desktop' });
 if (!args.url || !args.state) { console.error('need --url and --state'); process.exit(2); }
 fs.mkdirSync(args.state, { recursive: true });
-const s = await lib.launch({ channel: args.browser, headless: !args.headed, profile: args.profile, vclock: !!args.vclock });
+const s = await lib.launch({ channel: args.browser, headless: !args.headed, profile: args.profile });
 const cdp = await s.context.newCDPSession(s.page);
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 let busy = false;

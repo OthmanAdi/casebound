@@ -3,14 +3,11 @@ dist/
 .vite/
 *.log
 
-# Reference material from the studied site. Private study only, never commit.
-research/_reference/
-
-# Raw exploratory runtime dumps (large, single takes). Scripted series and keyframe tables are tracked.
-research/runtime/explore-*.json
-
-# Screenshots of our own build, taken while developing.
+# Captures, recordings and screenshots made while developing. They are large and can be made again.
+captures/
+out/
+research/captures/
 research/shots/
 
-# Frame-by-frame captures (large).
-research/captures/
+# Material downloaded from a studied site. For private study only, never committed.
+research/_reference/
