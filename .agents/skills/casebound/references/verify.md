@@ -61,7 +61,7 @@ node tools/capture/record.mjs http://127.0.0.1:5185 out/rec/drag drag     # scen
 node tools/capture/gif.mjs out/rec/drag out/drag.gif --w 720 --fps 15     # needs ffmpeg on the PATH, or its path in FFMPEG
 ```
 
-A scene is a list of actions at frame numbers in `tools/capture/record.mjs`: pointer paths, key presses, scrolls. Add one for a new interaction; it doubles as the source of a README GIF.
+A scene is a list of actions at frame numbers: pointer paths, key presses, scrolls. The built-in ones are in `tools/capture/record.mjs`. For a new interaction write your own in a separate file and pass it with `--scene-file`; `tools/capture/scenes.example.mjs` shows the shape. A scene doubles as the source of a README GIF.
 
 The page announces its state for tools: `data-casebound-ready="true"` when it has settled, `data-casebound-view` with the current address (`/`, `/book/<slug>`, `/book/<slug>/page/<n>`).
 

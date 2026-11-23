@@ -1,7 +1,11 @@
 // Records a scripted visit to a Casebound page as numbered frames, one per step of the engine's clock.
 // The engine's loop is stopped and advanced by hand, so every frame is exact whatever the machine's speed.
 //
-//   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999] [--film 0.087]
+//   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999] [--film 0.087] [--scene-file my-scenes.mjs]
+//
+// `--scene-file` adds scenes of your own without touching this file. The module's default export is a function
+// that gets the helpers below (`sec`, `glide`, `scroll`, `key`, `js`, `READER`) and returns scenes by name; see
+// `scenes.example.mjs`. A scene of the same name replaces a built-in one.
 //
 // `--every 3` saves every third frame and `--span 150-220` only frames 150 to 220. The clock still runs through
 // every frame, so a quick look at one moment shows the same picture as the full recording.
@@ -11,10 +15,11 @@
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const [base, outDir, scene, ...rest] = process.argv.slice(2);
 if (!base || !outDir || !scene) {
-  console.error('usage: node record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999] [--film 0.087]');
+  console.error('usage: node record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999] [--film 0.087] [--scene-file my-scenes.mjs]');
   process.exit(2);
 }
 const opt = (n, d) => { const i = rest.indexOf('--' + n); return i > -1 ? rest[i + 1] : d; };
@@ -138,6 +143,12 @@ const SCENES = {
   ] },
 };
 
+const sceneFile = opt('scene-file', null);
+if (sceneFile) {
+  const mod = await import(pathToFileURL(resolve(sceneFile)).href);
+  if (typeof mod.default !== 'function') { console.error(`${sceneFile}: the default export has to be a function that returns scenes`); process.exit(2); }
+  Object.assign(SCENES, mod.default({ sec, glide, scroll, key, js, ease, READER, fps }));
+}
 const def = SCENES[scene];
 if (!def) { console.error(`unknown scene "${scene}". Scenes: ${Object.keys(SCENES).join(', ')}`); process.exit(2); }
 const out = resolve(outDir);

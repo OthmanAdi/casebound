@@ -178,7 +178,7 @@ The [tuning reference](.agents/skills/casebound/references/tuning.md) lists ever
 
 ## Film it
 
-A scripted visit is recorded as exact frames, one per step of the engine's clock, so the same build always gives the same film. `tools/capture/record.mjs` holds the scenes behind every recording on this page, and a new animation is one more entry in its table. `tools/capture/gif.mjs` turns the frames into a GIF.
+A scripted visit is recorded as exact frames, one per step of the engine's clock, so the same build always gives the same film. `tools/capture/record.mjs` holds the scenes behind every recording on this page. A new animation is a scene in a file of your own, passed with `--scene-file` (see `tools/capture/scenes.example.mjs`). `tools/capture/gif.mjs` turns the frames into a GIF.
 
 For a finished film with titles, and for a screen that catches flashing or frozen pictures before an effect ships, the skill's [film reference](.agents/skills/casebound/references/film.md) uses [raea](https://github.com/shinyobjectz/raea), a render engine for video compositions. The books are always drawn by the browser; raea composes and checks what was recorded.
 
