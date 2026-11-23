@@ -5,7 +5,7 @@
 import { Euler, Quaternion, Vector3, type Texture } from 'three';
 import type { Book } from '../book/book';
 import type { Engine } from '../index';
-import { DEG, approach, clamp, easeOutCubic, lerp } from '../core/math';
+import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/math';
 import { tunable } from '../core/tune';
 import { Leaf } from './leaf';
 import { LEAF_DEFAULT, sendLeaf, stepLeaf } from './leaf-physics';
@@ -49,9 +49,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     describe: 'Opens a book toward the camera and turns its leaves.',
     source: 'src/engine/reader/reader.ts',
     params: {
-      coverSeconds: { value: 0.98, min: 0.05, max: 5, unit: 's', help: 'Time for the covers to open' },
-      forward: { value: 14, min: 0, max: 60, help: 'How far the open book comes toward the camera' },
-      scale: { value: 1.1, min: 0.3, max: 3 },
+      coverSeconds: { value: 0.98, min: 0.05, max: 5, unit: 's', help: 'Time for the front cover to swing open' },
+      pageDelay: { value: 0.82, min: 0, max: 5, unit: 's', help: 'When the pages start to part, counted from the start of opening' },
+      pageSeconds: { value: 0.9, min: 0.05, max: 5, unit: 's', help: 'Time for the pages to part to the reading place' },
+      forward: { value: 0, min: 0, max: 60, help: 'How far the open book comes toward the camera. Measured: a featured book stays at its depth; 14 when opened from a spine row' },
+      scale: { value: 1, min: 0.3, max: 3, help: 'Scale of the open book. Measured: 1 for a featured book; 1.1 when opened from a spine row' },
       pitch: { value: 22, min: 0, max: 80, unit: 'deg', help: 'How far the open book leans back' },
       pitchUp: { value: 10, min: 0, max: 40, unit: 'deg', help: 'Extra pitch with the pointer at the top' },
       pitchDown: { value: 12, min: 0, max: 40, unit: 'deg' },
@@ -85,9 +87,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   /** Leaves lying on the left. The spread shows pages 2 x spread and 2 x spread + 1. */
   let spread = 0;
   let cover = 0;
+  let pages = 0;
   let opening = false;
   let elapsed = 0;
   let coverFrom = 0;
+  let pagesFrom = 0;
   let release: (() => void) | null = null;
   let leaves: Leaf[] = [];
   let blank: Texture | null = null;
@@ -146,7 +150,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   };
 
   const launch = (direction: 1 | -1): boolean => {
-    if (!book || !opening || cover < 0.6) return false;
+    if (!book || !opening || pages < 0.9) return false;
     const leafIndex = direction === 1 ? spread : spread - 1;
     if (leafIndex < 0 || leafIndex >= book.dims.leaves) return false;
     // Take a free leaf, or the one that has all but landed.
@@ -202,6 +206,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       opening = true;
       elapsed = 0;
       coverFrom = cover;
+      pagesFrom = pages;
       release ??= ctx.lease('reader');
       engine.state.active = engine.books.indexOf(next);
       paintSpread();
@@ -212,6 +217,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       opening = false;
       elapsed = 0;
       coverFrom = cover;
+      pagesFrom = pages;
       emitView();
     },
     next: () => launch(1),
@@ -244,9 +250,10 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     blank = null;
     book.held = false;
     book.lean = 0;
-    book.setOpen(0, 0.5);
+    book.setOpen(0, 0.5, 1);
     book = null;
     cover = 0;
+    pages = 0;
     engine.state.inside = 0;
     release?.();
     release = null;
@@ -258,6 +265,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     elapsed += f.dt;
     const k = ctx.still ? 1 : clamp(elapsed / t.coverSeconds, 0, 1);
     cover = opening ? lerp(coverFrom, 1, k * k) : lerp(coverFrom, 0, easeOutCubic(k));
+    if (opening) {
+      const pk = ctx.still ? 1 : clamp((elapsed - t.pageDelay) / t.pageSeconds, 0, 1);
+      pages = Math.max(pagesFrom, powerSigmoid(pk));
+    } else {
+      const pk = ctx.still ? 1 : clamp(elapsed / t.pageSeconds, 0, 1);
+      pages = lerp(pagesFrom, 0, easeOutCubic(pk));
+    }
     if (!opening && k >= 1) {
       finish();
       ctx.invalidate();
@@ -282,7 +296,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     lean.v = ctx.still ? 0 : approach(lean.v, -px * t.lean, t.leanRate, f.dt);
     pitch.v = ctx.still ? 0 : approach(pitch.v, py > 0 ? py * t.pitchUp : py * t.pitchDown, t.pitchRate, f.dt);
     book.lean = lean.v;
-    book.setOpen(cover, book.dims.leaves ? spread / book.dims.leaves : 0.5);
+    book.setOpen(cover, book.dims.leaves ? spread / book.dims.leaves : 0.5, pages);
     for (const leaf of leaves) if (leaf.active) leaf.update();
 
     // From where the shelf keeps the book to the reading position.
