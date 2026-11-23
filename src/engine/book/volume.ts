@@ -36,8 +36,11 @@ const NB = 4;
 const SIDE = NS + NH + NB;
 const COLS = SIDE * 2 + 1;
 
-/** Page block resolution: samples along the page, layers through the stack. */
-const BLOCK_S = 28;
+/**
+ * Page block resolution: samples along the page, layers through the stack. A leaf of the reader uses the same
+ * samples along the page, so a sheet that lies on a stack has the very shape of the top of that stack.
+ */
+export const BLOCK_S = 56;
 const BLOCK_K = 5;
 
 /** Air between a board and the first leaf on it. */
