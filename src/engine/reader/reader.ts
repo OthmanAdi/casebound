@@ -496,6 +496,14 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     );
   };
 
+  /** Notes where on the page a hand holds it. A finger has no resting place the frame could look up, so a press and every move say it. */
+  const gripAt = (x: number, y: number): void => {
+    const at = where(x, y);
+    if (!at) return;
+    grab.u = at.u;
+    grab.v = at.v;
+  };
+
   /** True for a sheet that stays mounted on its stack: the pointer rests on it, or its corner is still coming down. */
   const lying = (leaf: Leaf): boolean => !ctx.still && (leaf === hovered || !curlFlat(leaf.curl));
 
@@ -512,6 +520,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (!leaf || leaf.dragTarget !== null) return;
     unscript(leaf);
     drag = { leaf, id: ev.pointerId, startX: ev.clientX, startAngle: leaf.motion.angle, remembered: leaf.side, half, travel: 0, dx: 0 };
+    gripAt(ev.clientX, ev.clientY);
     leaf.dragTarget = leaf.motion.angle;
     leaf.motion.resting = false;
     document.documentElement.style.cursor = 'grabbing';
@@ -530,6 +539,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       return;
     }
     if (ev.pointerId !== drag.id) return;
+    gripAt(ev.clientX, ev.clientY);
     drag.dx = ev.clientX - drag.startX;
     drag.travel = Math.max(drag.travel, Math.abs(drag.dx));
     // Pulling to the left raises the angle, which turns the leaf forward.
