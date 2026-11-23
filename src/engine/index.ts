@@ -70,6 +70,18 @@ export function createEngine(opts: EngineOptions): Engine {
   const ctx = createContext(opts);
   const faces = opts.faces ?? DEFAULT_FACES;
   const fx = createSurfaceFx();
+  const film = tunable(ctx.registry, {
+    id: 'effect.film',
+    label: 'Film grain',
+    kind: 'material-effect',
+    tags: ['effect', 'shader', 'material', 'paper'],
+    describe: 'Fine grain on paper, new on each drawn frame and stronger in the shadows. A cover material takes it too when its cloth sets `film`.',
+    source: 'src/engine/book/surface.ts',
+    params: {
+      amount: { value: 0.087, min: 0, max: 0.4, help: 'Strength. Measured: 0.116 x 0.75. 0 switches the grain off' },
+    },
+    onChange: () => ctx.invalidate(),
+  });
   const rig = new LightRig(ctx.registry);
   const wall = new ShadowWall(ctx.registry);
   ctx.scene.add(rig.group, wall.mesh);
@@ -161,6 +173,8 @@ export function createEngine(opts: EngineOptions): Engine {
     const wallMoving = wall.update(f.dt, active ? reach(active) : 18.5, state.inside, ctx.still);
     const rigMoving = rig.update(f.dt, { pointer: ctx.pointer, inside: state.inside, bookColor: active?.record.background ?? null, shadowCentre: wall.centre, compact: ctx.compact }, ctx.still);
     fx.uFxTime.value = f.time;
+    fx.uFilm.value = film.amount;
+    fx.uFilmSeed.value = (f.frame * 37) % 1024;
     // Measured: the effects follow the pointer with a short lag instead of jumping to it.
     if (ctx.pointer) fx.uFxPointer.value.lerp(ctx.pointer, ctx.still ? 1 : 1 - Math.exp(-12.8 * Math.min(f.dt, 0.05)));
     if (wallMoving || rigMoving || fx.uHolo.value > 0.001 || fx.uRadio.value > 0.001) ctx.invalidate();
@@ -173,6 +187,7 @@ export { Book, type BookRecord } from './book/book';
 export type { CoverDesign, CoverPattern, Grain, PageContent, Typefaces } from './book/painter';
 export type { SurfaceEffect } from './book/surface';
 export type { FrameInfo, FramePhase } from './core/loop';
-export { tunable } from './core/tune';
+import { tunable } from './core/tune';
+export { tunable };
 export type { EngineContext } from './core/app';
 export type { LightPreset, ThemeName } from './stage/presets';

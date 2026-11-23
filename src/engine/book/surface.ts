@@ -18,6 +18,10 @@ export interface SurfaceFx {
   uHolo: IUniform<number>;
   uRadio: IUniform<number>;
   uFxPointer: IUniform<Vector2>;
+  /** Strength of the film grain on every book surface. 0 switches it off. */
+  uFilm: IUniform<number>;
+  /** Changes with every drawn frame, so the grain never stands still while something moves. */
+  uFilmSeed: IUniform<number>;
 }
 
 export const createSurfaceFx = (): SurfaceFx => ({
@@ -25,6 +29,8 @@ export const createSurfaceFx = (): SurfaceFx => ({
   uHolo: { value: 0 },
   uRadio: { value: 0 },
   uFxPointer: { value: new Vector2() },
+  uFilm: { value: 0 },
+  uFilmSeed: { value: 0 },
 });
 
 /**
@@ -73,6 +79,8 @@ export interface ClothParams {
   fibre: number;
   /** Output gain of surfaces with this grain. Default 0.9. */
   exposure?: number;
+  /** Share of the film grain this surface takes, 0..1. Measured on paper only, so paper takes all of it and cloth none. */
+  film?: number;
 }
 
 /** Defaults by grain (S-BOOK-7). */
@@ -80,7 +88,7 @@ export const CLOTH: Readonly<Record<'buckram' | 'paper' | 'cardboard' | 'none', 
   buckram: { gloss: 0.3, sheen: 0.6, weave: 0.3, fibre: 0.05, sheenRough: 0.55, wrap: 0.3 },
   cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2 },
   // Paper measured 7 percent darker on screen than the reference before its gain was raised.
-  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05 },
+  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, film: 1 },
   none: { gloss: 1, sheen: 0, weave: 0, fibre: 0, sheenRough: 0.6, wrap: 0 },
 };
 
@@ -152,6 +160,9 @@ uniform float uFxTime;
 uniform float uHolo;
 uniform float uRadio;
 uniform vec2 uFxPointer;
+uniform float uFilm;
+uniform float uFilmSeed;
+uniform float uFilmShare;
 uniform sampler2D tBack;
 uniform float uBleed;
 uniform float uTurn;
@@ -317,6 +328,14 @@ if ( uRadio > 0.001 ) {
 	gl_FragColor.rgb *= 1.0 + 0.35 * ringFx * uRadio;
 	gl_FragColor.rgb += vec3( 0.02, 0.06, 0.09 ) * uRadio * ( 0.5 + 0.5 * ringFx );
 }
+if ( uFilm * uFilmShare > 0.0 ) {
+	// Film grain (SPEC S-RD-13): new on every drawn frame, one value per colour, stronger in the shadows.
+	float lum = dot( gl_FragColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
+	float mask = 0.3 + 0.7 * ( 1.0 - smoothstep( 0.3, 1.2, lum ) );
+	vec2 at = gl_FragCoord.xy + uFilmSeed;
+	vec3 speck = vec3( bHash( at ), bHash( at + 19.19 ), bHash( at + 47.53 ) ) - 0.5;
+	gl_FragColor.rgb += speck * uFilm * uFilmShare * mask;
+}
 #include <dithering_fragment>
 `;
 
@@ -374,6 +393,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uTurn: { value: 0 },
     uTransmit: { value: o.transmit ?? 0 },
     uExposure: { value: o.exposure ?? o.cloth.exposure ?? 0.9 },
+    uFilmShare: { value: o.cloth.film ?? 0 },
     ...o.fx,
   };
   mat.userData.uniforms = uniforms;
