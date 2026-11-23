@@ -82,7 +82,7 @@ async function boot(): Promise<void> {
   const slotPx = (): number => (panels.firstElementChild as HTMLElement).offsetHeight + 16;
 
   const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, layout: query.get('layout') === 'fan' ? fan : undefined });
-  const reader = createReader(engine, { centreOffsetPx: offset, fit: () => 1 - 0.3 * shift });
+  const reader = createReader(engine, { centreOffsetPx: offset });
   const magnifier = createMagnifier(engine);
   const effects = createSurfaceEffects(engine);
 
