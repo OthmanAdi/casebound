@@ -254,8 +254,9 @@ export function createEngine(opts: EngineOptions): Engine {
     fx.uBounceSharp.value = gutter.sharpness;
     fx.uBounceColor.value.set(gutter.color).convertLinearToSRGB();
     fx.uGutterShade.value = gutter.shade;
-    // Measured on the first leaf of an opening book: its light is held down until the pages start to part.
-    fx.uShoulder.value = 1 - smoothstep(0.03, 0.25, state.parted);
+    // Measured on the first leaf of an opening book: its light is held down until the pages start to part. A
+    // closing book parts its pages and swings its cover at once, so there the cover brings the ceiling back.
+    fx.uShoulder.value = 1 - Math.min(smoothstep(0.03, 0.25, state.parted), smoothstep(0.5, 1, state.inside));
     fx.uStamp.value = relief.depth;
     fx.uJointShape.value.set(joint.corner, joint.drop, joint.start, joint.run);
     fx.uFilmSeed.value = (f.frame * 37) % 1024;
