@@ -36,7 +36,7 @@ export interface Reader {
   dispose(): void;
 }
 
-const LIVE_LEAVES = 3;
+const LIVE_LEAVES = 6;
 const TEXTURE_BUDGET = 10;
 
 export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
@@ -149,8 +149,14 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (!book || !opening || cover < 0.6) return false;
     const leafIndex = direction === 1 ? spread : spread - 1;
     if (leafIndex < 0 || leafIndex >= book.dims.leaves) return false;
-    const leaf = leaves.find((l) => !l.active);
-    if (!leaf) return false;
+    // Take a free leaf, or the one that has all but landed.
+    let leaf = leaves.find((l) => !l.active);
+    if (!leaf) {
+      const near = (l: Leaf): number => Math.abs((l.motion.target ?? 1) * Math.PI - l.motion.angle);
+      leaf = leaves.reduce((a, b) => (near(a) <= near(b) ? a : b));
+      if (near(leaf) > 0.6) return false;
+      leaf.active = false;
+    }
     leaf.active = true;
     leaf.index = leafIndex;
     leaf.motion.angle = leaf.motion.shown = direction === 1 ? 0 : Math.PI;
