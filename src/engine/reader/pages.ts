@@ -20,6 +20,9 @@ export function paginate(record: BookRecord, pageCount: number, flow?: Flow, cha
   const paragraphs = record.text?.length ? record.text : FILLER;
   const flowed = flow?.(paragraphs, (i) => (record.text?.length ? record.headings?.[i] : undefined));
   if (flowed?.length) {
+    // The text repeats through a thick book. A last page that is mostly empty would come round as a hole, so it is left out.
+    const full = Math.max(...flowed.map((p) => p.lines.length));
+    if (flowed.length > 1 && flowed[flowed.length - 1]!.lines.length < full * 0.7) flowed.pop();
     return (page) => {
       const left = page % 2 === 0;
       if (page < 1 || page > pageCount) return { folio: null, left };
