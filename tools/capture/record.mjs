@@ -3,7 +3,7 @@
 //
 //   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900]
 //
-// Scenes: shelf, reader, drag, lens, light, pointer, night. Turn the frames into a GIF or a video with ffmpeg, for example:
+// Scenes: shelf, reader, drag, lens, light, pointer, night, nightlens. Turn the frames into a GIF or a video with ffmpeg, for example:
 //   ffmpeg -framerate 30 -i <out dir>/f%04d.png -vf "scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" out.gif
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -36,7 +36,7 @@ const scroll = (from, frames, a, b) => Array.from({ length: frames }, (_, k) => 
 const js = (at, code) => ({ at, run: (p) => p.evaluate(code) });
 const key = (at, k) => ({ at, run: (p) => p.keyboard.press(k) });
 
-const READER = '#/book/micrographia/page/36';
+const READER = '#/book/micrographia/page/116';
 const SCENES = {
   shelf: { path: '/?midday', frames: sec(9), actions: [
     ...glide(sec(0.2), 0, sec(1.6), [[400, 500], [900, 380], [760, 560]]),
@@ -49,13 +49,13 @@ const SCENES = {
     ...glide(sec(7.6), 0, sec(1.6), [[820, 430], [520, 520], [900, 380]]),
     key(sec(9.4), 'Escape'),
   ] },
-  lens: { path: '/?midday' + READER, frames: sec(7), settle: 2600, actions: [
+  lens: { path: '/?midday' + READER, frames: sec(7), settle: 3400, actions: [
     { at: 1, run: (p) => p.mouse.move(520, 360) },
     key(sec(0.5), 'm'),
     ...glide(sec(0.8), 0, sec(4.6), [[520, 360], [330, 300], [300, 560], [640, 520], [660, 330], [480, 420]]),
     key(sec(6.2), 'm'),
   ] },
-  light: { path: '/?midday' + READER, frames: sec(8), settle: 2600, actions: [
+  light: { path: '/?midday' + READER, frames: sec(8), settle: 3400, actions: [
     { at: 1, run: (p) => p.mouse.move(520, 420) },
     { at: sec(0.6), run: (p) => p.hover('#row-ebook') },
     { at: sec(3.4), run: (p) => p.mouse.move(520, 420) },
@@ -85,6 +85,13 @@ const SCENES = {
     ...glide(sec(0.2), 0, sec(2.4), [[300, 620], [1050, 320], [700, 500]]),
     ...scroll(sec(2.8), sec(1.3), 0, 1),
     ...glide(sec(4.4), 0, sec(2.2), [[700, 500], [1000, 640], [420, 380]]),
+  ] },
+  nightlens: { path: '/?theme=dark' + READER, frames: sec(7.5), settle: 3400, actions: [
+    { at: 1, run: (p) => p.mouse.move(300, 330) },
+    ...glide(sec(0.2), 0, sec(1.6), [[300, 330], [560, 420], [380, 560]]),
+    key(sec(2), 'm'),
+    ...glide(sec(2.3), 0, sec(4), [[380, 560], [300, 380], [520, 330], [600, 520], [430, 450]]),
+    key(sec(6.8), 'm'),
   ] },
 };
 
