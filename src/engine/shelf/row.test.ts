@@ -140,4 +140,67 @@ describe('row of spines', () => {
     expect(a.assemble).toBeCloseTo(b.assemble, 1);
     expect(a.arrived[5]!).toBeCloseTo(b.arrived[5]!, 1);
   });
+
+  it('keeps the last featured book a spine until the row stands, then turns its cover', () => {
+    // Captured: spine to the front by half way, the cover only once the row is settled.
+    const s = createRow(6, 3);
+    expect(s.yaw[3]).toBe(0);
+    run(s, 0.2, 1);
+    expect(s.settled).toBe(false);
+    expect(s.yaw[3]).toBe(0);
+    run(s, 1, 2);
+    expect(s.settled).toBe(true);
+    expect(s.yaw[3]).toBeCloseTo(1, 3);
+  });
+
+  it('slides to the chosen book without running past it', () => {
+    const s = createRow(6, 3);
+    run(s, 1, 3);
+    const from = s.offset;
+    choose(s, 5);
+    const goal = -restX(widths, 3, ROW_DEFAULT.gap)[5]!;
+    let furthest = from;
+    for (let i = 0; i < 240; i++) {
+      stepRow(s, widths, 1, -1, 1 / 60);
+      furthest = Math.min(furthest, s.offset);
+    }
+    expect(s.offset).toBeCloseTo(goal, 2);
+    // The covers push their neighbours while they turn; the slide itself never overshoots its aim.
+    expect(furthest).toBeGreaterThan(goal - 0.02);
+  });
+
+  it('sinks in step with the scroll once it stood fully, and is back when the scroll returns', () => {
+    const s = createRow(6, 3);
+    run(s, 1, 3);
+    expect(s.activated).toBe(true);
+    // A scroll that turns back takes the row with it at once: no waiting for a lower threshold.
+    run(s, 0.7, 0.05);
+    expect(s.called).toBe(false);
+    expect(s.leaving).toBe(true);
+    const part = s.assemble;
+    expect(part).toBeLessThan(1);
+    run(s, 0.5, 0.05);
+    expect(s.assemble).toBeLessThan(part);
+    run(s, 0, 1);
+    expect(s.assemble).toBeLessThan(0.01);
+    expect(s.settled).toBe(false);
+    run(s, 1, 3);
+    expect(s.settled).toBe(true);
+    expect(s.assemble).toBeGreaterThan(0.99);
+  });
+
+  it('comes and goes the same at 30 and 120 frames a second', () => {
+    const at = (fps: number): number[] => {
+      const s = createRow(6, 3);
+      run(s, 1, 0.5, fps);
+      const up = s.assemble;
+      run(s, 1, 2.5, fps);
+      run(s, 0.6, 0.1, fps);
+      return [up, s.assemble];
+    };
+    const slow = at(30);
+    const fast = at(120);
+    expect(slow[0]!).toBeCloseTo(fast[0]!, 1);
+    expect(slow[1]!).toBeCloseTo(fast[1]!, 1);
+  });
 });
