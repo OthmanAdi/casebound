@@ -70,7 +70,7 @@ export class LightRig {
       source: 'src/engine/stage/rig.ts',
       params: {
         darkRate: { value: 1, min: 0.05, max: 20, unit: '1/s', help: 'How fast the rig moves to and from the dark theme' },
-        insideRate: { value: 1.8, min: 0.05, max: 20, unit: '1/s', help: 'How fast the rig moves to and from the reader preset' },
+        insideRate: { value: 60, min: 0.05, max: 60, unit: '1/s', help: 'How fast the rig moves to and from the reader preset. Measured: it follows the opening cover with no lag of its own, which is what 60 means; lower values trail behind' },
         tintRate: { value: 3, min: 0.05, max: 20, unit: '1/s', help: 'How fast the colour theme tint follows the active book' },
         lightBoost: { value: 0.1, min: 0, max: 1, help: 'Extra key and sun intensity in the light theme, as a fraction' },
         parallax: { value: 0.7, min: 0, max: 5, help: 'How far key and sun shift with the pointer in the light theme, world units' },
@@ -127,7 +127,7 @@ export class LightRig {
       this.darkW = approach(this.darkW, goalDark, t.darkRate, dt);
       this.lightW = approach(this.lightW, goalLight, t.darkRate, dt);
       this.colourW = approach(this.colourW, goalColour, t.tintRate, dt);
-      this.insideW = approach(this.insideW, input.inside, t.insideRate, dt);
+      this.insideW = t.insideRate >= 60 ? input.inside : approach(this.insideW, input.inside, t.insideRate, dt);
     }
 
     const shelf = blendPresets(this.preset(this.names.shelf), this.preset(this.names.shelfDark), this.darkW);
