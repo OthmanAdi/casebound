@@ -5,6 +5,7 @@
  */
 import { Mesh, MeshDepthMaterial, type Texture } from 'three';
 import type { Book } from '../book/book';
+import { LEAF_THICKNESS } from '../book/dims';
 import { GRAIN_PER_UNIT, grainTexture } from '../book/painter';
 import { PROFILE_STRIDE, sampleDistance, sampleIndex, sampleLeaf } from '../book/profile';
 import { CLOTH, createSurfaceMaterial, type SurfaceFx } from '../book/surface';
@@ -12,6 +13,7 @@ import { BLOCK_S, Surface } from '../book/volume';
 import { clamp, lerp, smoothstep } from '../core/math';
 import { ROLL_STRIDE, createCurl, fillRoll, type CurlState } from './curl';
 import { createLeafMotion, type LeafMotion } from './leaf-physics';
+import type { RifflePart } from './riffle';
 
 /** Samples across the page, crowded toward the binding: the same as the top of a page block, so the two coincide. */
 const COLS = BLOCK_S;
@@ -25,6 +27,8 @@ const TRANSMIT = 0.9;
 const ALOFT_AT = 0.3;
 /** Air between a resting sheet and the page below it. */
 const REST_GAP = 0.012;
+/** The sheet throws a shadow once the sine of its turn passes this: about a degree off the stack. */
+const CAST_FROM = 0.02;
 /** Depth slope added to the sheet in the shadow map, in texels: a little more than the widest soft shadow reads. */
 const SHADOW_SLOPE = 12;
 
@@ -39,6 +43,12 @@ export class Leaf {
   side: 0 | 1 = 0;
   /** While a hand holds the leaf: the angle it is pulled toward. Null when it moves by itself. */
   dragTarget: number | null = null;
+  /** While the opening riffle moves the leaf: its part in it. */
+  script: RifflePart | null = null;
+  /** How limp the sheet is in the air, 0 (stiff) to 1: how far it bows and lets its free edge trail. */
+  limp = 1;
+  /** How many live sheets lie between this one and its stack when it rests on the right, and on the left. */
+  readonly below: [number, number] = [0, 0];
 
   private readonly surface = new Surface((COLS + 1) * (ROWS + 1) * 2);
   private readonly profile = new Float32Array((COLS + 1) * PROFILE_STRIDE);
@@ -86,8 +96,10 @@ export class Leaf {
 
   setPages(front: Texture, back: Texture): void {
     for (const [mat, own, other] of [[this.front, front, back], [this.back, back, front]] as const) {
+      const behind = (mat.userData.uniforms as Record<string, { value: unknown }>).tBack!;
+      if (mat.map === own && behind.value === other) continue;
       mat.map = own;
-      (mat.userData.uniforms as Record<string, { value: unknown }>).tBack!.value = other;
+      behind.value = other;
       mat.needsUpdate = true;
     }
   }
@@ -108,15 +120,15 @@ export class Leaf {
         heading: lerp(right.heading, left.heading, turn),
         turnLength: lerp(right.turnLength, left.turnLength, turn) + 0.25 * air,
         length: dims.pageW,
-        bow: -0.42 * air * dir,
-        tip: -0.3 * air * dir,
+        bow: -0.42 * air * dir * this.limp,
+        tip: -0.3 * air * dir * this.limp,
       },
       COLS,
       this.profile,
     );
     // A sheet that lies on its stack is part of it: like the top of the stack, it throws no shadow of its own.
-    // It is not a leaf in the air either, and tools that count those go by the name.
-    this.mesh.castShadow = !this.motion.resting;
+    // At rest it is not a leaf in the air either, and tools that count those go by the name.
+    this.mesh.castShadow = air > CAST_FROM;
     this.mesh.name = this.motion.resting ? 'leaf.rest' : 'leaf';
     const P = this.profile;
     const R = this.roll;
@@ -134,8 +146,10 @@ export class Leaf {
     if (curled) fillRoll(R, ROLL_STEPS, reach, c.amount, c.power, c.span * L);
 
     // Lying on a stack the sheet keeps a little air under it, measured off the page it lies on, so its print
-    // sits exactly over the print of that page. The side that faces the stack swaps half way over.
-    const gap = REST_GAP * Math.cos(Math.PI * turn);
+    // sits exactly over the print of that page. Live sheets under it raise it by their thickness. The side
+    // that faces the stack swaps half way over.
+    const facing = Math.cos(Math.PI * turn);
+    const gap = (REST_GAP + LEAF_THICKNESS * this.below[facing >= 0 ? 0 : 1]) * facing;
     const s = this.surface;
     const count = (COLS + 1) * (ROWS + 1);
     s.begin();
