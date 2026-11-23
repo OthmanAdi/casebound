@@ -64,6 +64,11 @@ export class Book {
   open = 0;
   /** Reading progress 0..1: the share of leaves on the left. */
   reading = 0.5;
+  /**
+   * Page progress 0..1. A book opens in two stages: first the front cover swings all the way round, showing
+   * the first page, then the pages part to the place where it is being read.
+   */
+  pages = 1;
   /** Yaw that presents the closed cover to the camera. */
   presentYaw = Math.PI / 2;
   /** Extra yaw of the open book, for leaning toward the pointer. */
@@ -168,10 +173,11 @@ export class Book {
     });
   }
 
-  /** Sets how far the book is open and where in the book it is open. */
-  setOpen(open: number, reading = this.reading): void {
+  /** Sets how far the book is open, where in the book it is open, and how far the pages have parted. */
+  setOpen(open: number, reading = this.reading, pages = this.pages): void {
     this.open = open;
     this.reading = reading;
+    this.pages = pages;
     this.applyPose();
   }
 
@@ -193,11 +199,14 @@ export class Book {
   }
 
   private applyPose(): void {
-    const n = this.reading;
+    // Until the pages part, every leaf lies on the back board and the front cover alone opens (SPEC S-RD-3).
+    const n = this.reading * this.pages;
     const front = this.open * OPEN_ANGLE * (2 - 2 * n);
     const back = this.open * OPEN_ANGLE * 2 * n;
     this.volume.setPose({ front, back, split: n });
     // Present the cover when closed; when open, turn so the spread faces the camera wherever the book is open.
+    // With the pages not yet parted that is almost the same direction the cover faced, so the book only
+    // turns once the pages part.
     this.spin.rotation.y = this.presentYaw * (1 - this.open) + (front - back) / 2 + this.lean * this.open;
     // Closed, the book turns about its middle. Open, it turns about its spine.
     this.volume.group.position.z = -this.volume.closedCentreZ * (1 - this.open);
