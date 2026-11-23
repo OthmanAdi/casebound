@@ -125,6 +125,8 @@ export interface RowState {
   glide: { from: number; seconds: number; age: number } | null;
   /** Half the width of the window at the depth of the row, world units. 0 while unknown: then the row is not held at its ends. */
   window: number;
+  /** How far the chosen book has left the row to be read, 0..1. Its neighbours close up behind it. */
+  away: number;
 }
 
 export function createRow(count: number, anchor: number): RowState {
@@ -157,6 +159,7 @@ export function createRow(count: number, anchor: number): RowState {
     dragging: false,
     glide: null,
     window: 0,
+    away: 0,
   };
 }
 
@@ -191,6 +194,9 @@ export function pushAt(i: number, widths: number[], yaw: number[], slot: number)
   }
   return push;
 }
+
+/** The cover turns as the neighbours feel them: a book that has left the row to be read takes up no room in it. */
+export const footprint = (s: RowState): number[] => (s.away > 0 ? s.yaw.map((y, i) => (i === s.selected ? y * (1 - s.away) : y)) : s.yaw);
 
 /** Eased share of the row slot that has been scrolled: 0 at the last featured book, 1 when the row is fully called for. */
 export const rowCall = (past: number, t: RowTuning = ROW_DEFAULT): number => easeInOutQuad(clamp(past / t.span, 0, 1));
@@ -239,8 +245,8 @@ export function rowLimits(s: RowState, widths: number[], x0: number[], t: RowTun
   const last = widths.length - 1;
   const half = (i: number): number => widths[i]! / 2 + (t.slot / 2 - widths[i]! / 2) * s.yaw[i]!;
   return {
-    left: -s.window + widths[0]! + t.endRoom - (x0[0]! + pushAt(0, widths, s.yaw, t.slot) - half(0)),
-    right: s.window - widths[last]! - t.endRoom - (x0[last]! + pushAt(last, widths, s.yaw, t.slot) + half(last)),
+    left: -s.window + widths[0]! + t.endRoom - (x0[0]! + pushAt(0, widths, footprint(s), t.slot) - half(0)),
+    right: s.window - widths[last]! - t.endRoom - (x0[last]! + pushAt(last, widths, footprint(s), t.slot) + half(last)),
   };
 }
 
@@ -383,7 +389,7 @@ export function placeAt(s: RowState, widths: number[], i: number, t: RowTuning =
   const drop = 1 - a + t.farDrop * (1 - Math.exp(-d / 8)) * smoothstep(0.12 - (0.04 * Math.min(d, 12)) / 12, 1, 1 - a);
   const rise = 1 - drop * (near + (1 - near) * (1 - a) * (1 - a));
   return {
-    x: x0[i]! + pushAt(i, widths, s.yaw, t.slot) + s.offset,
+    x: x0[i]! + pushAt(i, widths, footprint(s), t.slot) + s.offset,
     rise: i === s.anchor ? 1 : rise,
     z: t.forward * yaw - t.back * (1 - yaw) * blend + s.pop[i]!,
     turn: Math.pow(yaw, t.yawPower),

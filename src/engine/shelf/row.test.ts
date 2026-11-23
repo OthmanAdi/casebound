@@ -173,6 +173,18 @@ describe('row of spines', () => {
     expect(s.glide).toBeNull();
   });
 
+  it('closes up behind a book that has left the row to be read', () => {
+    const s = createRow(6, 3);
+    run(s, 1, 3);
+    const gap = (): number => placeAt(s, widths, 4).x - placeAt(s, widths, 2).x;
+    const open = gap();
+    s.away = 1;
+    // Measured: the neighbours of an open cover stand 9.95 units from it, behind a book that is out 3.81.
+    expect(open - gap()).toBeCloseTo(ROW_DEFAULT.slot - widths[3]!, 6);
+    s.away = 0.5;
+    expect(open - gap()).toBeCloseTo((ROW_DEFAULT.slot - widths[3]!) / 2, 6);
+  });
+
   it('centres a row that fits the window and does not slide it', () => {
     const s = createRow(6, 3);
     s.window = 27;

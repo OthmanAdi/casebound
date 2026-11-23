@@ -5,7 +5,7 @@
 import { Euler, Quaternion, Vector3 } from 'three';
 import type { Book } from '../book/book';
 import type { Engine } from '../index';
-import { DEG, approach, clamp, easeInOutQuad, frameFactor, lerp, smoothDamp } from '../core/math';
+import { DEG, approach, clamp, easeInOutQuad, frameFactor, lerp, smoothDamp, smoothstep } from '../core/math';
 import { tunable } from '../core/tune';
 import { SCROLL_COMPACT, SCROLL_DESKTOP, createBridge, createHaste, createScrollState, stepHaste, stepScroll, type ScrollState } from './scroll';
 import { ROW_DEFAULT, choose, createRow, joinOf, placeAt, releaseRow, rowOrder, rowSettled, stepChoice, stepRow } from './row';
@@ -459,6 +459,12 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       rowPast = !rowPastSeeded || ctx.still ? rawPast : smoothDamp(rowPast, rawPast, rowPastVel, 0.063, clamp(f.dt, 1 / 240, 1 / 30));
       rowPastSeeded = true;
       if (Math.abs(rowPast - rawPast) > 1e-4) moving = true;
+      // Measured: while the chosen book is out of the row to be read, its neighbours close up behind it (from
+      // 9.95 to 3.81 units between 1350 and 1700 ms after the request, the second half of the cover's swing).
+      const chosen = engine.books[display[row.selected]!];
+      const away = chosen?.held ? smoothstep(0.49, 1, engine.state.inside) : 0;
+      if (Math.abs(away - row.away) > 1e-4) moving = true;
+      row.away = away;
       // The row needs the width of the window at its depth to know where its ends may stand.
       row.window = (ctx.visibleHeightAt(t.planeZ - rowTune.depth) * ctx.size.x) / Math.max(1, ctx.size.y) / 2;
       if (stepRow(row, widths, rowPast, hoveredSpine, f.dt, rowTune, ctx.still)) moving = true;
