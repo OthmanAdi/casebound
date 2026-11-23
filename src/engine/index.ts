@@ -2,11 +2,13 @@
  * Engine entry. `createEngine` wires the context, the stage (lights and shadow wall) and the books, and
  * exposes the extension points. Views (shelf, reader) and effects are added on top of this.
  */
-import { Vector3 } from 'three';
+import { Vector3, type Object3D } from 'three';
 import { createContext, type ContextOptions, type EngineContext } from './core/app';
 import { Book, type BookRecord } from './book/book';
 import { DEFAULT_FACES, type Typefaces } from './book/painter';
-import { createSurfaceFx, type SurfaceFx } from './book/surface';
+import { createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
+import type { FrameInfo } from './core/loop';
+import type { ParamSpec, Tag } from './core/registry';
 import { LightRig } from './stage/rig';
 import { themeForHour, type ThemeName } from './stage/presets';
 import { ShadowWall } from './stage/wall';
@@ -20,6 +22,23 @@ export interface EngineOptions extends ContextOptions {
 
 /** An extension gets the engine and returns a function that removes it again. */
 export type Extension = (engine: Engine) => void | (() => void);
+
+/** Anything an extension puts into the scene: a prop, a particle cloud, a second light. */
+export interface SceneObjectInit {
+  /** Stable dotted kebab-case id, for example `prop.dust`. */
+  id: string;
+  label: string;
+  object: Object3D;
+  tags?: Tag[];
+  /** One or two sentences an agent can read to understand it. */
+  describe?: string;
+  /** Named, ranged parameters. `tunable` is the easy way to make them. */
+  params?: ParamSpec[];
+  /** Where to change it in source. */
+  source?: string;
+  /** Called every frame. Return true while something is moving, so the scene keeps drawing. */
+  update?: (f: FrameInfo, engine: Engine) => boolean | void;
+}
 
 export interface Engine {
   readonly ctx: EngineContext;
@@ -37,6 +56,10 @@ export interface Engine {
   };
   book(slug: string): Book | undefined;
   addBook(record: BookRecord): Book;
+  /** Adds an object to the scene and to the registry. Returns a function that removes it. */
+  addObject(init: SceneObjectInit): () => void;
+  /** Adds a look that every book surface can take on. Returns a function that removes it. */
+  defineSurfaceEffect(effect: SurfaceEffect): () => void;
   setTheme(theme: ThemeName): void;
   use(extension: Extension): () => void;
   start(): void;
@@ -72,6 +95,31 @@ export function createEngine(opts: EngineOptions): Engine {
       ctx.scene.add(book.root);
       ctx.invalidate();
       return book;
+    },
+    addObject: (init) => {
+      ctx.scene.add(init.object);
+      ctx.registry.add({ id: init.id, label: init.label, kind: init.object.type, tags: ['object', ...(init.tags ?? [])], object: init.object, describe: init.describe, params: init.params, source: init.source });
+      const update = init.update;
+      const stop = update
+        ? ctx.onFrame('layout', (f) => {
+            if (update(f, engine)) ctx.invalidate();
+          })
+        : (): void => undefined;
+      ctx.invalidate();
+      const remove = (): void => {
+        stop();
+        init.object.removeFromParent();
+        ctx.registry.remove(init.id);
+        ctx.invalidate();
+      };
+      removers.push(remove);
+      return remove;
+    },
+    defineSurfaceEffect: (effect) => {
+      const remove = defineSurfaceEffect(effect);
+      ctx.invalidate();
+      removers.push(remove);
+      return remove;
     },
     setTheme: (theme) => {
       rig.theme = theme;
@@ -109,5 +157,8 @@ export function createEngine(opts: EngineOptions): Engine {
 
 export { Book, type BookRecord } from './book/book';
 export type { CoverDesign, CoverPattern, Grain, PageContent, Typefaces } from './book/painter';
+export type { SurfaceEffect } from './book/surface';
+export type { FrameInfo, FramePhase } from './core/loop';
+export { tunable } from './core/tune';
 export type { EngineContext } from './core/app';
 export type { LightPreset, ThemeName } from './stage/presets';
