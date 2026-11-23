@@ -137,7 +137,11 @@ export interface ClothParams {
   exposure?: number;
   /** Share of the film grain this surface takes, 0..1. Measured on paper only, so paper takes all of it and cloth none. */
   film?: number;
-  /** Tooth of the material: a soft mottle in colour and relief that is still there when the weave is too fine to see. */
+  /**
+   * Tooth of the material: a soft mottle in colour and relief, 0.14 and 0.05 world units across, that does not fade
+   * with distance. Range 0 to 0.1. Measured cloth has next to none at this size (0.2 percent of its brightness), so
+   * the defaults are small; raise it for a felted or worn material.
+   */
   mottle?: number;
   /**
    * Brightest value the surface reaches on screen while the book is shut, 0..1. The lamps of the shelf are set
@@ -146,15 +150,21 @@ export interface ClothParams {
    * 0 or none: no limit.
    */
   ceiling?: number;
+  /**
+   * How much of the grain tile's range is real relief, 0 to 1. Times `bumpGrain` it is the depth of the grain in
+   * world units. Set so that a spine facing the camera in the row shows the measured grain: for buckram 1.9 percent
+   * of its brightness at a `bumpGrain` of 0.037 and 4.2 at 0.073, for paper 1.4 at 0.059 and 1.9 at 0.098.
+   */
+  relief?: number;
 }
 
 /** Defaults by grain (S-BOOK-7). */
 export const CLOTH: Readonly<Record<'buckram' | 'paper' | 'cardboard' | 'none', ClothParams>> = {
-  buckram: { gloss: 0.3, sheen: 0.6, weave: 0.3, fibre: 0.05, sheenRough: 0.55, wrap: 0.3, mottle: 0.07 },
-  cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2, mottle: 0.055 },
+  buckram: { gloss: 0.3, sheen: 0.6, weave: 0.3, fibre: 0.05, sheenRough: 0.55, wrap: 0.3, mottle: 0.012, relief: 0.8 },
+  cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2, mottle: 0.012, relief: 0.19 },
   // Paper measured 7 percent darker on screen than the reference before its gain was raised. The first leaf under
   // an opening cover takes 1.35 times full white from the shelf lamps; on the reference it tops out at 228 of 255.
-  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, film: 1, mottle: 0.03, ceiling: 0.91 },
+  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, film: 1, mottle: 0.006, relief: 0.19, ceiling: 0.91 },
   none: { gloss: 1, sheen: 0, weave: 0, fibre: 0, sheenRough: 0.6, wrap: 0 },
 };
 
@@ -165,6 +175,8 @@ export interface SurfaceOptions {
   grain: Texture;
   /** How many times the grain repeats across the surface in u and v. */
   grainRepeat: [number, number];
+  /** How many times the grain repeats across one world unit of the surface. */
+  grainPerUnit: number;
   /** Emboss height for this surface, or null. */
   emboss?: Texture | null;
   /** Red channel: foil mask. */
@@ -250,6 +262,8 @@ uniform float uMottle;
 uniform float uBumpGrain;
 uniform float uBumpEmboss;
 uniform vec2 uGrainRepeat;
+uniform float uGrainScale;
+uniform float uGrainRelief;
 uniform sampler2D tGrain;
 uniform sampler2D tEmboss;
 uniform sampler2D tFinish;
@@ -384,12 +398,18 @@ void RE_IndirectDiffuse_BlinnPhong( const in vec3 irradiance, const in vec3 geom
 #define RE_IndirectDiffuse		RE_IndirectDiffuse_BlinnPhong
 `;
 
+/** Width of a grain tile in texels. The painter makes its tiles this size, and the weave twice this size. */
+export const GRAIN_TILE = 256;
+
 /** Runs right after the colour map is read: hologram resampling, cloth weave and fibre, foil colour. */
 const ALBEDO = /* glsl */ `
 #include <map_fragment>
 {
 	vec2 gUv = vMapUv * uGrainRepeat;
-	bLod = 1.0 - smoothstep( 1.0, 3.0, length( fwidth( gUv ) ) * 96.0 );
+	// A grain tile holds ${GRAIN_TILE} texels of paper or a quarter as many threads of cloth. The colour of weave and
+	// fibres fades out as a pixel grows from one to three of these (SPEC S-BOOK-5). The relief needs no such fade:
+	// the smaller copies of the tile flatten it.
+	bLod = 1.0 - smoothstep( 1.0, 3.0, length( fwidth( gUv ) ) * ${GRAIN_TILE}.0 );
 	#ifdef CASEBOUND_FINISH
 		bFoil = texture2D( tFinish, vMapUv ).r * saturate( uFoilOpacity );
 	#endif
@@ -413,8 +433,8 @@ const ALBEDO = /* glsl */ `
 	diffuseColor.rgb *= 1.0 - uWeave * bCloth * bLod * gaps;
 	float streak = bNoise( vMapUv * vec2( 1100.0, 55.0 ) ) + bNoise( vMapUv * vec2( 55.0, 1100.0 ) ) - 1.0;
 	diffuseColor.rgb *= 1.0 + uFibre * bCloth * bLod * streak;
-	// Tooth: a mottle of two sizes. Unlike the weave it does not fade with distance, so cloth still reads as cloth across the room.
-	vec2 mUv = vMapUv * uGrainRepeat * 2.2;
+	// Tooth: a mottle of two sizes, 0.14 and 0.05 world units. Unlike the weave it does not fade with distance.
+	vec2 mUv = gUv / uGrainScale * 7.0;
 	bMottle = bNoise( mUv ) * 0.62 + bNoise( mUv * 2.9 + 17.0 ) * 0.38 - 0.5;
 	diffuseColor.rgb *= 1.0 + uMottle * bCloth * bMottle * 2.0;
 
@@ -445,7 +465,9 @@ const BUMP = /* glsl */ `
 	float g0 = texture2D( tGrain, gUv ).r;
 	float gx = texture2D( tGrain, gUv + dFdx( gUv ) ).r;
 	float gy = texture2D( tGrain, gUv + dFdy( gUv ) ).r;
-	float gs = uBumpGrain * bCloth * bLod * ${SHELF_PIXEL.toFixed(4)};
+	// The grain tile holds heights from 0 to 1. The strength of the material (0.01 to 0.10, SPEC S-BOOK-6) scales
+	// them to a depth in world units.
+	float gs = uBumpGrain * uGrainRelief * bCloth;
 	vec2 dH = vec2( gx - g0, gy - g0 ) * gs;
 	// The tooth catches the light as well.
 	dH += vec2( dFdx( bMottle ), dFdy( bMottle ) ) * uMottle * bCloth * ${(1.6 * SHELF_PIXEL).toFixed(4)};
@@ -565,6 +587,8 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uBumpGrain: { value: o.bumpGrain },
     uBumpEmboss: { value: o.bumpEmboss ?? 0 },
     uGrainRepeat: { value: new Vector2(...o.grainRepeat) },
+    uGrainScale: { value: o.grainPerUnit },
+    uGrainRelief: { value: o.cloth.relief ?? 1 },
     tGrain: { value: o.grain },
     tEmboss: { value: o.emboss ?? null },
     tFinish: { value: o.finish ?? null },

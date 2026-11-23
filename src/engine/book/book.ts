@@ -119,6 +119,7 @@ export class Book {
         gutter,
         grain: paper,
         grainRepeat: [dims.pageW * GRAIN_PER_UNIT.paper, dims.pageH * GRAIN_PER_UNIT.paper],
+        grainPerUnit: GRAIN_PER_UNIT.paper,
         // Printed pages are smooth: their tooth is the film grain, not the mottle of a cover material.
         cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05, mottle: 0 },
         shininess: 12.5,
@@ -132,6 +133,7 @@ export class Book {
       map: end,
       grain: paper,
       grainRepeat: [dims.coverW * GRAIN_PER_UNIT.paper, dims.coverH * GRAIN_PER_UNIT.paper],
+      grainPerUnit: GRAIN_PER_UNIT.paper,
       cloth: CLOTH.paper,
       shininess: 12,
       reflectiveness: 0.2,
@@ -150,6 +152,7 @@ export class Book {
       map: cover.map,
       grain: grainTexture(grainKind),
       grainRepeat: [stripLength * GRAIN_PER_UNIT[grainKind], dims.coverH * GRAIN_PER_UNIT[grainKind]],
+      grainPerUnit: GRAIN_PER_UNIT[grainKind],
       emboss: cover.emboss,
       finish: foil ? cover.finish : null,
       cloth,

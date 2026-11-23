@@ -73,6 +73,7 @@ export class Leaf {
         map: blank,
         grain: paper,
         grainRepeat: [d.pageW * GRAIN_PER_UNIT.paper, d.pageH * GRAIN_PER_UNIT.paper],
+        grainPerUnit: GRAIN_PER_UNIT.paper,
         cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05, mottle: 0 },
         shininess: 12.5,
         reflectiveness: 0.39 * 0.6,

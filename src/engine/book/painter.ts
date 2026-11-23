@@ -5,6 +5,7 @@
  */
 import { CanvasTexture, LinearFilter, LinearMipmapLinearFilter, NoColorSpace, RepeatWrapping, SRGBColorSpace, type Texture } from 'three';
 import { hashString, seeded } from '../core/math';
+import { GRAIN_TILE } from './surface';
 import { EDGE_TEXTURE_LEAVES } from './volume';
 
 export type Grain = 'buckram' | 'paper' | 'cardboard';
@@ -380,8 +381,33 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
 
 const grainCache = new Map<string, CanvasTexture>();
 
+/** Texels from one thread of the weave to the next. */
+export const WEAVE_PERIOD = 8;
+
+/**
+ * How much higher the crown of a warp thread stands than that of a weft thread, as a share of the height range.
+ * Range 0 to 0.4. This is what is left of a weave from across the room: where the threads themselves are too
+ * fine to see, the crossings still alternate in height, and the lights show them as a lattice with a period of
+ * two threads (measured: 0.10 to 0.14 world units on cloth spines).
+ */
+export const WEAVE_CRIMP = 0.2;
+
+/**
+ * Height of a plain weave at a texel, from 0.35 in the gaps to 0.95 on the crown of a warp thread. Each crossing
+ * is a ridge along the thread that lies on top, and the thread on top alternates from crossing to crossing.
+ */
+export function weaveHeight(x: number, y: number, crimp = WEAVE_CRIMP): number {
+  const p = WEAVE_PERIOD;
+  const u = (((x % p) + p) % p) / p;
+  const v = (((y % p) + p) % p) / p;
+  const warpOnTop = (Math.floor(x / p) + Math.floor(y / p)) % 2 === 0;
+  const across = Math.sin(Math.PI * (warpOnTop ? u : v));
+  const along = 0.6 + 0.4 * Math.sin(Math.PI * (warpOnTop ? v : u));
+  return 0.35 + (warpOnTop ? 0.6 : 0.6 - crimp) * across * along;
+}
+
 /** Tiled height map of the binding material. Bright = thread, dark = gap. */
-export function grainTexture(kind: Grain, size = 256): CanvasTexture {
+export function grainTexture(kind: Grain, size = kind === 'buckram' ? GRAIN_TILE * 2 : GRAIN_TILE): CanvasTexture {
   const hit = grainCache.get(kind + size);
   if (hit) return hit;
   const [c, g] = canvas(size, size);
@@ -394,13 +420,8 @@ export function grainTexture(kind: Grain, size = 256): CanvasTexture {
       let h: number;
       const n = jitter[y * size + x]!;
       if (kind === 'buckram') {
-        // Plain weave: threads cross every 8 texels, over and under.
-        const p = 8;
-        const u = (x % p) / p, v = (y % p) / p;
-        const over = (Math.floor(x / p) + Math.floor(y / p)) % 2 === 0;
-        const warp = Math.sin(Math.PI * u), weft = Math.sin(Math.PI * v);
-        h = over ? 0.35 + 0.6 * warp * (0.6 + 0.4 * weft) : 0.35 + 0.6 * weft * (0.6 + 0.4 * warp);
-        h = h * 0.9 + n * 0.1;
+        // Plain weave, with a little unevenness from thread to thread.
+        h = weaveHeight(x, y) * 0.9 + n * 0.1;
       } else if (kind === 'cardboard') {
         h = 0.55 + 0.25 * Math.sin((y / size) * Math.PI * 2 * 24) * 0.3 + (n - 0.5) * 0.5;
       } else {
@@ -421,8 +442,13 @@ export function grainTexture(kind: Grain, size = 256): CanvasTexture {
   return t;
 }
 
-/** How many times the grain tile repeats across one world unit of surface. */
-export const GRAIN_PER_UNIT: Readonly<Record<Grain, number>> = { buckram: 3.2, paper: 1.6, cardboard: 1.2 };
+/**
+ * How many times the grain tile repeats across one world unit of surface. Measured on cloth spines facing the
+ * camera: the weave shows as a lattice with a period of 0.10 to 0.14 world units, three to four pixels across
+ * the room. That period is two threads, and a buckram tile holds 64 threads, so it spans 3.8 units. Paper and
+ * board have no period; their tiles are as fine as the measured maps, about 77 texels to the unit.
+ */
+export const GRAIN_PER_UNIT: Readonly<Record<Grain, number>> = { buckram: 0.2625, paper: 0.3, cardboard: 0.3 };
 
 /**
  * Page edges: one stripe per leaf, with darker gaps and the odd cooler or warmer sheet (SPEC S-BOOK-9).
