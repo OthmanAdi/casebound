@@ -37,14 +37,15 @@ export class Leaf {
         map: blank,
         grain: paper,
         grainRepeat: [d.pageW * GRAIN_PER_UNIT.paper, d.pageH * GRAIN_PER_UNIT.paper],
-        cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05 },
+        // A single sheet scatters light inside itself, so it stays pale where a thick stack would fall dark.
+        cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05, wrap: 0.55 },
         shininess: 12.5,
         reflectiveness: 0.39 * 0.6,
         bumpGrain: 0.05,
         fx,
         polygonOffset: -1.5,
         bleed: true,
-        transmit: 0.62,
+        transmit: 0.9,
       });
     this.front = make();
     this.back = make();
