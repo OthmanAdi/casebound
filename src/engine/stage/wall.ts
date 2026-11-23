@@ -69,6 +69,7 @@ export class ShadowWall {
         blurGrow: { value: 2.25, min: 0, max: 10, help: 'Extra blur at full distance, as a multiple of the base' },
         insideDim: { value: 0.5, min: 0, max: 1, help: 'Opacity multiplier while the reader is open' },
         followRate: { value: 10, min: 0.1, max: 60, unit: '1/s', help: 'How fast the fade follows the book. Measured: 10' },
+        reachScale: { value: 1.26, min: 0.5, max: 3, help: 'Stretches how far the book reaches out from its pivot toward the camera. The reference measures a box around a larger model; with 1.26 the resting book gives its measured fade' },
         softness: { value: 1, min: 0.2, max: 30, help: 'Extra widening of the wall shadow on top of the measured blur. 16 samples on a rotated disk' },
       },
       onChange: (key) => {
@@ -95,17 +96,19 @@ export class ShadowWall {
   }
 
   /**
+   * @param pivot distance from the wall to the pivot of the active book
    * @param reach distance from the wall to the point of the active book that is farthest from it
    * @param inside 0..1 reader openness
    * @returns true while the wall is still settling
    */
-  update(dt: number, reach: number, inside: number, still: boolean): boolean {
+  update(dt: number, pivot: number, reach: number, inside: number, still: boolean): boolean {
     const t = this.tune;
     this.centre.set(0, t.y, t.z);
     this.mesh.position.copy(this.centre);
     this.mesh.material.color.set(t.color);
     // Measured (SPEC S-WALL-3): the fade follows the far corner of the book, not its pivot, and is eased.
-    const goal = smoothstep(t.fadeNear, t.fadeFar, reach);
+    // Measured in the open reader: the fade is complete, whatever the open book's own extent.
+    const goal = Math.max(smoothstep(t.fadeNear, t.fadeFar, pivot + (reach - pivot) * t.reachScale), inside);
     const before = this.distance;
     this.distance = still || before < 0 ? goal : approach(before, goal, t.followRate, Math.min(dt, 0.05));
     const prev = this.opacity;
