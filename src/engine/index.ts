@@ -8,6 +8,7 @@ import { Book, type BookRecord } from './book/book';
 import { DEFAULT_FACES, type Typefaces } from './book/painter';
 import { createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
 import type { FrameInfo } from './core/loop';
+import { smoothstep } from './core/math';
 import type { ParamSpec, Tag } from './core/registry';
 import { LightRig } from './stage/rig';
 import { themeForHour, type ThemeName } from './stage/presets';
@@ -53,6 +54,8 @@ export interface Engine {
     active: number;
     /** 0 = shelf, 1 = reader open. */
     inside: number;
+    /** How far the pages of the open book have parted, 0..1. */
+    parted: number;
   };
   book(slug: string): Book | undefined;
   addBook(record: BookRecord): Book;
@@ -105,7 +108,7 @@ export function createEngine(opts: EngineOptions): Engine {
 
   const books: Book[] = [];
   const removers: (() => void)[] = [];
-  const state = { active: 0, inside: 0 };
+  const state = { active: 0, inside: 0, parted: 0 };
   const world = new Vector3();
 
   const engine: Engine = {
@@ -197,6 +200,8 @@ export function createEngine(opts: EngineOptions): Engine {
     fx.uBounceSharp.value = gutter.sharpness;
     fx.uBounceColor.value.set(gutter.color).convertLinearToSRGB();
     fx.uGutterShade.value = gutter.shade;
+    // Measured on the first leaf of an opening book: its light is held down until the pages start to part.
+    fx.uShoulder.value = 1 - smoothstep(0.03, 0.25, state.parted);
     fx.uFilmSeed.value = (f.frame * 37) % 1024;
     // Measured: the effects follow the pointer with a short lag instead of jumping to it.
     if (ctx.pointer) fx.uFxPointer.value.lerp(ctx.pointer, ctx.still ? 1 : 1 - Math.exp(-12.8 * Math.min(f.dt, 0.05)));

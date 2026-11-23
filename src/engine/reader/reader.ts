@@ -681,6 +681,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     cover = 0;
     pages = 0;
     engine.state.inside = 0;
+    engine.state.parted = 0;
     release?.();
     release = null;
     emitView();
@@ -709,6 +710,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       return;
     }
     engine.state.inside = cover;
+    engine.state.parted = pages;
 
     // Leaves in the air.
     const frames = 60 * Math.min(f.dt, 0.05);

@@ -29,6 +29,8 @@ export interface SurfaceFx {
   uBounceColor: IUniform<Color>;
   /** Strength of the shade in the fold itself. */
   uGutterShade: IUniform<number>;
+  /** How far the brightness ceiling of paper applies: 1 while books are shut, 0 once the pages of the open one have parted. */
+  uShoulder: IUniform<number>;
 }
 
 export const createSurfaceFx = (): SurfaceFx => ({
@@ -43,6 +45,7 @@ export const createSurfaceFx = (): SurfaceFx => ({
   uBounceSharp: { value: 1.87 },
   uBounceColor: { value: new Color(0.6, 0.52, 0.69) },
   uGutterShade: { value: 1 },
+  uShoulder: { value: 1 },
 });
 
 /**
@@ -95,14 +98,22 @@ export interface ClothParams {
   film?: number;
   /** Tooth of the material: a soft mottle in colour and relief that is still there when the weave is too fine to see. */
   mottle?: number;
+  /**
+   * Brightest value the surface reaches on screen while the book is shut, 0..1. The lamps of the shelf are set
+   * for dark cloth; white paper under them would burn out. Light above about three quarters of the ceiling is
+   * rolled off toward it. Once the pages part, the lamps are those of the reader and paper is shown as it is.
+   * 0 or none: no limit.
+   */
+  ceiling?: number;
 }
 
 /** Defaults by grain (S-BOOK-7). */
 export const CLOTH: Readonly<Record<'buckram' | 'paper' | 'cardboard' | 'none', ClothParams>> = {
   buckram: { gloss: 0.3, sheen: 0.6, weave: 0.3, fibre: 0.05, sheenRough: 0.55, wrap: 0.3, mottle: 0.07 },
   cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2, mottle: 0.055 },
-  // Paper measured 7 percent darker on screen than the reference before its gain was raised.
-  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, film: 1, mottle: 0.03 },
+  // Paper measured 7 percent darker on screen than the reference before its gain was raised. The first leaf under
+  // an opening cover takes 1.35 times full white from the shelf lamps; on the reference it tops out at 228 of 255.
+  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, film: 1, mottle: 0.03, ceiling: 0.91 },
   none: { gloss: 1, sheen: 0, weave: 0, fibre: 0, sheenRough: 0.6, wrap: 0 },
 };
 
@@ -219,6 +230,8 @@ uniform float uTurn;
 uniform float uTransmit;
 uniform float uAloft;
 uniform float uExposure;
+uniform float uCeiling;
+uniform float uShoulder;
 
 float bCloth = 1.0;
 float bFoil = 0.0;
@@ -392,6 +405,13 @@ if ( uGutter >= 0.0 ) {
 /** Runs last: scanlines, pulse, grain and tint of the hologram; ring brightness of the radio effect. */
 const FINAL = /* glsl */ `
 gl_FragColor.rgb *= uExposure;
+if ( uCeiling * uShoulder > 0.0 ) {
+	// A shoulder, as film has one: values under the knee are left as they are, what is above approaches the ceiling.
+	float knee = uCeiling * 0.77;
+	vec3 over = max( gl_FragColor.rgb - knee, 0.0 );
+	vec3 rolled = min( gl_FragColor.rgb, vec3( knee ) ) + ( uCeiling - knee ) * ( 1.0 - exp( - over / ( uCeiling - knee ) ) );
+	gl_FragColor.rgb = mix( gl_FragColor.rgb, rolled, uShoulder );
+}
 if ( uHolo > 0.001 ) {
 	float scan = sin( vMapUv.y * 817.0 - uFxTime * 10.0 ) * 0.055 + sin( vMapUv.y * 136.17 - uFxTime * 6.1 ) * 0.0385;
 	float pulse = 0.3 * ( 0.5 * ( 0.5 * sin( 1.7 * uFxTime ) + 0.3 * sin( 2.9 * uFxTime ) + 0.2 * sin( 0.7 * uFxTime ) ) + 0.5 );
@@ -473,6 +493,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uTransmit: { value: o.transmit ?? 0 },
     uAloft: { value: 0 },
     uExposure: { value: o.exposure ?? o.cloth.exposure ?? 0.9 },
+    uCeiling: { value: o.cloth.ceiling ?? 0 },
     uFilmShare: { value: o.cloth.film ?? 0 },
     uGutter: { value: o.gutter ?? -1 },
     ...o.fx,
