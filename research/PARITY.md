@@ -20,8 +20,73 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Wall shadow | opacity on the shelf and in the reader | 0.192 and 0.0534 against 0.193 and 0.0534 | matches |
 | Detail view | sideways move of the book over time | same curve and end value (-9.1229 against -9.1239), one frame late in the capture; corrected afterwards | close |
 | Open book | when the book turns | 10, 50, 90 and 99 % at 1160, 1741, 2107 and 2224 ms against 1335, 1835, 2146 and 2252 | close: up to 175 ms early at the start, 28 ms at the end |
-| Paper | brightness and colour of the pages | brightness corrected; blue about 8 of 255 short | open |
-| Row of spines | n/a | built from constants read in the code, no capture of the reference yet | being measured |
+| Pages parting | page progress at seven times, 1700 to 2300 ms | 0.159, 0.300, 0.477, 0.665, 0.833, 0.962, 1 against 0.172, 0.292, 0.458, 0.639, 0.808, 0.943, 1 | matches to 0.03 |
+| Pages parting | path of the two stacks | both swing out by their final angle times the square of the page progress, as read in the reference's code and seen in its frames | matches by rule; no capture of ours since |
+| First leaf under the opening cover | brightness on screen | 228 and 210 of 255 at the two brightest frames against 228 and 214; it was 255, burnt out, before | matches |
+| Pointer over the open book | reading place the case answers to, pointer on three buttons | 0.560, 0.688 and 0.352 from the rule against 0.556, 0.694 and 0.360 captured | matches to 0.008 |
+| Resting spread | belly of the pages | about 1.1 units high, a third of the way out; ours built to that | built from one frame, not measured again |
+| Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
+| Row of spines | 17 differences found against a capture, the nine largest corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758 | close: three differences open |
+
+## 2026-11-23 · Fourth pass: the opening beside its frames, the pointer, the page shape, the row
+
+The third pass compared numbers. This one put frames side by side at the same frame number, and it found what the numbers had not shown.
+
+**A clock offset in every capture.** The frames of a capture start 200 ms before its value channels (the pre-roll) and the click takes about four frames more: frame f shows the moment f / 60 - 0.267 s of the channels' clock. Both sides carry the same offset, so frame against frame is fair. Reading a frame number as a time on the channels' clock is not, and I did that at first.
+
+**How the pages part.** In the reference the cover lies flat at 1.6 s and shows the first leaf on the whole block. From 1.8 s everything before the reading place lifts as one wad with that leaf on top, stands at 2.0 s and lies on the front board at 2.3 s. Single leaves fan between the wad and the back stack, which lifts off its board on the way and settles again. The last leaf is down at 2.5 s. Ours let the left stack grow where it lay and showed the reading spread at once.
+
+The rule is in the reference's page block code and its frames agree: each stack swings out from the closed book by its final angle times the square of the page progress, while the boards move with the progress itself. The back stack is therefore up to a quarter of its angle above its board, and the wad trails the front board. Ours now uses the same rule for both stacks.
+
+Page progress, the reference's derived from the yaw of its book, ours read from the engine:
+
+| ms after the request | reference | ours |
+| --- | --- | --- |
+| 1700 | 0.172 | 0.159 |
+| 1800 | 0.292 | 0.300 |
+| 1900 | 0.458 | 0.477 |
+| 2000 | 0.639 | 0.665 |
+| 2100 | 0.808 | 0.833 |
+| 2200 | 0.943 | 0.962 |
+| 2300 | 1.000 | 1.000 |
+
+**The first leaf burnt out.** While the cover passes the key light the first leaf takes 1.35 times full white on ours (measured by rendering it at a third of its gain). The reference draws its closed page block through a tone curve and never shows more than 228 of 255. Paper now has a ceiling of 0.91 with a shoulder from 0.70 while the book is shut; it fades out between page progress 0.03 and 0.25.
+
+| moment | reference | ours before | ours now |
+| --- | --- | --- | --- |
+| brightest frame | 228 | 255 | 228 |
+| 100 ms later | 214, 210, 203 | 252, 250, 246 | 210, 206, 197 |
+| resting page of the reader | n/a | 226, 225, 221 | 226, 225, 221 |
+
+**The pointer and the open book.** Ours turned the whole book up to 22 degrees toward the pointer. The reference does not turn the book. It shifts the reading place that the case answers to (cover angles and the yaw that keeps the spread facing the camera both use it), so the boards stay where they are and the spine rolls under the pages. Its rule, with x the pointer across the picture from the middle of the spread, n = min(1, abs(x)) and r the reading progress on the pointer's side:
+
+    shift = -side x 0.2 x (1 - n)^5 + side x (1 - (1 - n)^4) x max(0, 0.3 - r)
+
+The yaw of the reference's book gives the reading place it answers to in four captures: 0.304 with no pointer, 0.694 with the pointer on Next, 0.556 on Previous, 0.360 on the lens button. With no pointer the rule gives a shift of -0.2, so the book is open at 0.504. The three buttons stand at x = 418, 275 and 475 px in the frame, and the picture is shifted by 19.65 vw in the detail view, which puts the pointer at -0.026, -0.225 and 0.053 of the half width from the middle of the spread. For those positions the rule gives 0.688, 0.560 and 0.352. The button positions were read off a frame to about 5 px, which is 0.007 in the result. Its cover bones confirm that the boards follow the shifted place: 0.297 and 0.680 rad before the click on Next, 0.679 and 0.299 rad after, always 0.977 rad together. Ours now uses the rule; the old lean is gone.
+
+**The shape of a page.** At rest the reference's pages rise out of the gutter, are highest about a third of the way out and come down to the fore-edge: about 17 px in the frame, 1.1 world units on a page 13.2 wide. Ours lay as flat as the boards. A lying leaf now has that belly, scaled by how high it lies in its stack.
+
+**Paper.** The page tone that was matched earlier belongs to a title on white paper. The title in the opening capture is on cream: 188, 181, 160 where the page is lit and 170, 164, 148 where it is shaded, against 246, 244, 239 and 205, 205, 209 on ours. That is the paper, not the light. A book can now name its paper; three of the demo books are on cream. The cream is our choice and was not sampled from the reference.
+
+**The row of spines.** Captured on both sides with one script (a scripted scroll into the row, steps by key, a press on a spine, a slow pull, an opening). Seventeen differences, most visible first:
+
+| # | Difference | Reference | Ours before | Now |
+| --- | --- | --- | --- | --- |
+| 1 | The last featured book as a spine | spine by half way, cover at 21, 58, 78 degrees at 1200, 1300, 1400 ms | went straight to its cover | 20.8, 59.5, 79.5 |
+| 2 | Its way into the row | falls back from depth -36 to -52.7, then forward to -43.75 | came forward to -28.1 first, with a hump of 3.8 units | within 0.3 units at every 100 ms |
+| 3 | The other books while they rise | at the row's depth from the first frame | started at the featured depth and shrank | at the row's depth |
+| 4 | Leaving | sinks with the scroll, gone when the scroll ends | lingered 600 to 1000 ms | sinks with the scroll |
+| 5 | Delay per place | within 5 px at 723, 775, 807 ms | 704, 905, 1108 ms | within about 40 ms |
+| 6 | Air between spines | 29.5 px | 18 px | spine factor 0.96, between the two captured values |
+| 7 | Slide after a step | 32, 172, 481, 887 ms, no overshoot | ran 0.5 to 0.7 units past the middle | 31, 171, 480, 888 ms |
+| 8 | Height of the row | covers from 167 to 758 px | 270 to 858 px | 165 to 760 px |
+| 9 | Pointer tilt in the row | 1.14 degrees | 4.51 degrees | 1.18 degrees |
+| 10 | Opening from the row | 18 forward | 14 forward | 18 forward |
+| 11 | Turn of the last featured book on a step | 30, 92, 205, 341 ms | 13, 87, 288, 576 ms | its own damper, 0.14 s |
+
+Open: a press on a far spine (the reference glides in about 400 ms, ours overshoots by 16 %), choosing while the row is pulled by hand (the reference follows the hand, ours waits for the release), the clamp at the ends of the row, and that the neighbours of a book opened from the row close up. In the corrected build the turn from featured pose to spine still lags by 200 to 340 ms. Each reference number is one reading at 1440x900.
+
+Not captured again on our side after these changes: every value above that says "ours now" for the opening comes from the engine or from frames of a scripted visit, not from a second reanimate run.
 
 ## 2026-11-23 · Third pass: the corrections, measured
 
