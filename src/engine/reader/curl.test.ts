@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CURL_DEFAULT, ROLL_STRIDE, createCurl, curlFlat, fillRoll, resetCurl, rollAngle, rollAt, stepCurl, type CurlInput, type CurlState } from './curl';
+import { CURL_DEFAULT, ROLL_STRIDE, createCurl, createFlop, curlFlat, fillRoll, resetCurl, resetFlop, rollAngle, rollAt, stepCurl, stepFlop, type CurlInput, type CurlState } from './curl';
 
 const T = CURL_DEFAULT;
 const DRAG = T.amount * T.drag;
@@ -245,5 +245,70 @@ describe('stepCurl', () => {
     expect(curlFlat(c)).toBe(true);
     expect(c.shape.amount).toBe(0);
     expect(c.flying).toBe(false);
+  });
+});
+
+describe('stepFlop', () => {
+  const hold = (turn: number, pulled: number, seconds = 1): number => {
+    const f = createFlop();
+    for (let i = 0; i < seconds * 60; i++) stepFlop(f, turn, pulled, 1 / 60);
+    return f.bend;
+  };
+
+  it('lets the outer half of an upright leaf fall to the side the hand has pulled it to', () => {
+    expect(hold(0.5, Math.PI * 0.75)).toBeCloseTo(T.flop, 2);
+    expect(hold(0.5, Math.PI * 0.25)).toBeCloseTo(-T.flop, 2);
+    expect(hold(0.5, Math.PI / 2)).toBeCloseTo(0, 6);
+  });
+
+  it('acts only around upright, and not at all on a leaf that lies near a stack', () => {
+    expect(Math.abs(hold(0.4, 2.2))).toBeGreaterThan(0.5);
+    expect(Math.abs(hold(0.4, 2.2))).toBeLessThan(Math.abs(hold(0.5, 2.2)));
+    expect(hold(0.5 + T.flopZone, 2.8)).toBeCloseTo(0, 6);
+    expect(hold(0.05, 0.2)).toBe(0);
+    expect(hold(0.97, 3)).toBe(0);
+  });
+
+  it('flops over within a few frames as the hand crosses the middle, without a jump', () => {
+    const f = createFlop();
+    for (let i = 0; i < 60; i++) stepFlop(f, 0.5, 1.2, 1 / 60);
+    expect(f.bend).toBeLessThan(-1);
+    let last = f.bend;
+    let frames = 0;
+    while (f.bend < 1 && frames < 120) {
+      stepFlop(f, 0.5, 1.95, 1 / 60);
+      expect(f.bend - last).toBeLessThan(0.6);
+      last = f.bend;
+      frames++;
+    }
+    expect(frames).toBeGreaterThan(3);
+    expect(frames).toBeLessThan(25);
+  });
+
+  it('is gone 140 ms after the leaf is let go', () => {
+    const f = createFlop();
+    for (let i = 0; i < 60; i++) stepFlop(f, 0.5, 2.4, 1 / 60);
+    const held = f.bend;
+    stepFlop(f, 0.5, null, 1 / 60);
+    expect(f.bend).toBeLessThan(held);
+    expect(f.bend).toBeGreaterThan(held * 0.8);
+    for (let i = 0; i < 8; i++) stepFlop(f, 0.5, null, 1 / 60);
+    expect(f.bend).toBe(0);
+    stepFlop(f, 0.5, null, 1 / 60);
+    expect(f.bend).toBe(0);
+  });
+
+  it('is nothing after a reset, and runs the same at 30 and 120 Hz', () => {
+    const f = createFlop();
+    for (let i = 0; i < 30; i++) stepFlop(f, 0.5, 2.4, 1 / 60);
+    resetFlop(f);
+    expect(f.bend).toBe(0);
+    expect(f.value).toBe(0);
+    const at = (hz: number): number => {
+      const g = createFlop();
+      for (let i = 0; i < hz / 10; i++) stepFlop(g, 0.5, 2.4, 1 / hz);
+      return g.bend;
+    };
+    expect(Math.abs(at(30) - at(120))).toBeLessThan(0.05);
   });
 });

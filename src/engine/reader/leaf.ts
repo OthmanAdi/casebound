@@ -11,7 +11,7 @@ import { PROFILE_STRIDE, sampleDistance, sampleIndex, sampleLeaf } from '../book
 import { CLOTH, createSurfaceMaterial, type SurfaceFx } from '../book/surface';
 import { BLOCK_S, Surface } from '../book/volume';
 import { clamp, lerp, smoothstep } from '../core/math';
-import { ROLL_STRIDE, createCurl, fillRoll, type CurlState } from './curl';
+import { ROLL_STRIDE, createCurl, createFlop, fillRoll, type CurlState, type FlopState } from './curl';
 import { createLeafMotion, type LeafMotion } from './leaf-physics';
 import type { RifflePart } from './riffle';
 
@@ -39,6 +39,7 @@ export class Leaf {
   readonly mesh: Mesh;
   readonly motion: LeafMotion = createLeafMotion(0);
   readonly curl: CurlState = createCurl();
+  readonly flop: FlopState = createFlop();
   /** Index of this leaf in the book: its front is page 2j + 1, its back page 2j + 2. */
   index = -1;
   active = false;
@@ -125,6 +126,7 @@ export class Leaf {
         length: dims.pageW,
         bow: -0.42 * air * dir * this.limp,
         tip: -0.3 * air * dir * this.limp,
+        flop: this.flop.bend,
       },
       COLS,
       this.profile,

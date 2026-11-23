@@ -53,6 +53,14 @@ export interface CurlTuning {
   boostTo: number;
   /** Near edge-on the curl fades: it is whole once |cos| of the leaf angle passes this. */
   edge: number;
+  /** How far the outer half of a held leaf falls over when it stands near upright, radians at the free edge. 0 turns it off. */
+  flop: number;
+  /** Approach per 60 Hz frame of that fall. */
+  flopRate: number;
+  /** The fall acts within this share of the turn around upright. */
+  flopZone: number;
+  /** Seconds for it to go once the leaf is let go. */
+  flopFade: number;
 }
 
 /** Measured on the reference (S-RD-11). The span was 32.4 on a page 15.6 wide. */
@@ -83,6 +91,10 @@ export const CURL_DEFAULT: CurlTuning = {
   boostFrom: 0.35,
   boostTo: 0.5,
   edge: 0.17,
+  flop: 1.6,
+  flopRate: 0.18,
+  flopZone: 0.28,
+  flopFade: 0.14,
 };
 
 /** A leaf counts as in the air once it has been this far from both sides, in radians, at this speed per 60 Hz frame. */
@@ -230,6 +242,44 @@ export function stepCurl(c: CurlState, i: CurlInput, dt: number, t: CurlTuning =
 
 /** True when the leaf shows no curl and is heading for none. */
 export const curlFlat = (c: CurlState): boolean => c.raw === 0 && c.shown === 0;
+
+// ---------------------------------------------------------------- the flop of a held leaf (SPEC S-RD-10)
+
+export interface FlopState {
+  /** Which way the outer half has fallen: -1 = back toward the right, 1 = over to the left. */
+  value: number;
+  /** The value when the leaf was let go, and the seconds since. */
+  from: number;
+  age: number;
+  /** What the sheet shows: radians at the free edge, positive toward the left. */
+  bend: number;
+}
+
+export const createFlop = (): FlopState => ({ value: 0, from: 0, age: 0, bend: 0 });
+
+export function resetFlop(f: FlopState): void {
+  f.value = f.from = f.age = f.bend = 0;
+}
+
+/**
+ * A leaf held near upright is limp: its outer half falls to the side the hand has pulled it to, and flops over
+ * as the hand crosses the middle. `turn` is the drawn turn of the leaf, 0..1, and `pulled` the angle the hand
+ * asks for in radians, or null once the leaf is let go. Then the fall goes within a few frames.
+ */
+export function stepFlop(f: FlopState, turn: number, pulled: number | null, dt: number, t: CurlTuning = CURL_DEFAULT): void {
+  if (pulled !== null) {
+    const goal = (1 - smoothstep(0, 1, Math.abs(turn - 0.5) / Math.max(1e-3, t.flopZone))) * Math.tanh(6 * (pulled - Math.PI / 2));
+    f.value += (goal - f.value) * (1 - Math.pow(1 - clamp(t.flopRate, 0, 1), 60 * Math.min(dt, 0.05)));
+    f.from = f.value;
+    f.age = 0;
+  } else if (f.from !== 0) {
+    f.age += dt;
+    f.value = t.flopFade > 0 ? f.from * (1 - smoothstep(0, t.flopFade, f.age)) : 0;
+    if (f.age >= t.flopFade) f.value = f.from = 0;
+  }
+  // Lying near a stack the sheet has nowhere to fall.
+  f.bend = f.value * t.flop * smoothstep(0.08, 0.3, Math.min(turn, 1 - turn));
+}
 
 // ---------------------------------------------------------------- the roll
 

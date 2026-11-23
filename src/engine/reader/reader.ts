@@ -7,7 +7,7 @@ import type { Book } from '../book/book';
 import type { Engine } from '../index';
 import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/math';
 import { tunable } from '../core/tune';
-import { CURL_DEFAULT, curlFlat, resetCurl, stepCurl } from './curl';
+import { CURL_DEFAULT, curlFlat, resetCurl, resetFlop, stepCurl, stepFlop } from './curl';
 import { Leaf } from './leaf';
 import { LEAF_DEFAULT, sendLeaf, stepLeaf } from './leaf-physics';
 import { flowPages } from '../book/painter';
@@ -128,6 +128,10 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       boostFrom: { value: CURL_DEFAULT.boostFrom, min: 0, max: 1, help: 'Share of the turn at which the early extra starts to go' },
       boostTo: { value: CURL_DEFAULT.boostTo, min: 0, max: 1, help: 'Share of the turn at which the early extra is gone' },
       edge: { value: CURL_DEFAULT.edge, min: 0.01, max: 1, help: 'The curl fades as the leaf turns edge-on: it is whole once the cosine of the leaf angle passes this' },
+      flop: { value: CURL_DEFAULT.flop, min: 0, max: 3, unit: 'rad', help: 'How far the outer half of a held leaf falls over near upright, toward the side the hand has pulled it to. 0 turns it off' },
+      flopRate: { value: CURL_DEFAULT.flopRate, min: 0.005, max: 1, help: 'How fast it falls: share per 60 Hz frame' },
+      flopZone: { value: CURL_DEFAULT.flopZone, min: 0.05, max: 0.5, help: 'It acts within this share of the turn around upright' },
+      flopFade: { value: CURL_DEFAULT.flopFade, min: 0, max: 1, unit: 's', help: 'Time for it to go once the leaf is let go' },
     },
     onChange: () => ctx.invalidate(),
   });
@@ -243,6 +247,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     leaf.limp = 1;
     leaf.mesh.visible = false;
     resetCurl(leaf.curl);
+    resetFlop(leaf.flop);
   };
 
   /** The leaf in the air that is outermost on a stack (0 = right, 1 = left): the one a hand or a key reaches first. */
@@ -464,11 +469,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const bend = (leaf: Leaf, dt: number): void => {
     // A leaf taken out of the opening riffle before it was limp goes limp by itself.
     if (leaf.limp < 1) leaf.limp = Math.min(1, leaf.limp + dt / Math.max(0.05, riffleTune.dropSeconds));
+    const m = leaf.motion;
+    if (ctx.still) resetFlop(leaf.flop);
+    else stepFlop(leaf.flop, m.shown / Math.PI, leaf.dragTarget, dt, curlTune);
     if (ctx.still || curlTune.amount <= 0) {
       resetCurl(leaf.curl);
       return;
     }
-    const m = leaf.motion;
     stepCurl(
       leaf.curl,
       {
