@@ -12,7 +12,7 @@ import { DEG } from '../core/math';
 import type { Registry } from '../core/registry';
 import { makeDims, type BookDims } from './dims';
 import { COVER_RELIEF, DEFAULT_FACES, GRAIN_PER_UNIT, edgeTexture, endpaperTexture, grainTexture, paintCover, paintPage, type CoverDesign, type CoverRelief, type CoverTextures, type PageContent, type Typefaces } from './painter';
-import { CLOTH, createEdgeMaterial, createSurfaceMaterial, type ClothParams, type SurfaceFx } from './surface';
+import { CLOTH, PAGE_PAPER, createEdgeMaterial, createSurfaceMaterial, type ClothParams, type SurfaceFx } from './surface';
 import { Volume } from './volume';
 import { hashString } from '../core/math';
 
@@ -121,7 +121,7 @@ export class Book {
         grainRepeat: [dims.pageW * GRAIN_PER_UNIT.paper, dims.pageH * GRAIN_PER_UNIT.paper],
         grainPerUnit: GRAIN_PER_UNIT.paper,
         // Printed pages are smooth: their tooth is the film grain, not the mottle of a cover material.
-        cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05, mottle: 0, film: 1 },
+        cloth: { ...CLOTH.paper, ...PAGE_PAPER, weave: 0.03, fibre: 0.012, sheen: 0.05, mottle: 0 },
         shininess: 12.5,
         reflectiveness: 0.39 * 0.6,
         bumpGrain: 0.05,
@@ -134,7 +134,7 @@ export class Book {
       grain: paper,
       grainRepeat: [dims.coverW * GRAIN_PER_UNIT.paper, dims.coverH * GRAIN_PER_UNIT.paper],
       grainPerUnit: GRAIN_PER_UNIT.paper,
-      cloth: { ...CLOTH.paper, film: 1 },
+      cloth: { ...CLOTH.paper, ...PAGE_PAPER },
       shininess: 12,
       reflectiveness: 0.2,
       bumpGrain: 0.04,

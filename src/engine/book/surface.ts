@@ -158,13 +158,19 @@ export interface ClothParams {
   relief?: number;
 }
 
+/**
+ * What pages, leaves and endpapers add to paper: all of the film grain, and a ceiling on their brightness while
+ * the book is shut. The first leaf under an opening cover takes 1.35 times full white from the shelf lamps; on
+ * the reference it tops out at 228 of 255. A cover made of paper takes neither.
+ */
+export const PAGE_PAPER: Readonly<Pick<ClothParams, 'film' | 'ceiling'>> = { film: 1, ceiling: 0.91 };
+
 /** Defaults by grain (S-BOOK-7). */
 export const CLOTH: Readonly<Record<'buckram' | 'paper' | 'cardboard' | 'none', ClothParams>> = {
   buckram: { gloss: 0.3, sheen: 0.6, weave: 0.3, fibre: 0.05, sheenRough: 0.55, wrap: 0.3, mottle: 0.012, relief: 0.8 },
   cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2, mottle: 0.012, relief: 0.19 },
-  // Paper measured 7 percent darker on screen than the reference before its gain was raised. The first leaf under
-  // an opening cover takes 1.35 times full white from the shelf lamps; on the reference it tops out at 228 of 255.
-  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, mottle: 0.006, relief: 0.19, ceiling: 0.91 },
+  // Paper measured 7 percent darker on screen than the reference before its gain was raised.
+  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, mottle: 0.006, relief: 0.19 },
   none: { gloss: 1, sheen: 0, weave: 0, fibre: 0, sheenRough: 0.6, wrap: 0 },
 };
 

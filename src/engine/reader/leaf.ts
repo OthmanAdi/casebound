@@ -8,7 +8,7 @@ import type { Book } from '../book/book';
 import { LEAF_THICKNESS } from '../book/dims';
 import { GRAIN_PER_UNIT, grainTexture } from '../book/painter';
 import { PROFILE_STRIDE, sampleDistance, sampleIndex, sampleLeaf } from '../book/profile';
-import { CLOTH, createSurfaceMaterial, type SurfaceFx } from '../book/surface';
+import { CLOTH, PAGE_PAPER, createSurfaceMaterial, type SurfaceFx } from '../book/surface';
 import { BLOCK_S, Surface } from '../book/volume';
 import { clamp, lerp, smoothstep } from '../core/math';
 import { ROLL_STRIDE, createCurl, createFlop, fillRoll, type CurlState, type FlopState } from './curl';
@@ -74,7 +74,7 @@ export class Leaf {
         grain: paper,
         grainRepeat: [d.pageW * GRAIN_PER_UNIT.paper, d.pageH * GRAIN_PER_UNIT.paper],
         grainPerUnit: GRAIN_PER_UNIT.paper,
-        cloth: { ...CLOTH.paper, weave: 0.03, fibre: 0.012, sheen: 0.05, mottle: 0, film: 1 },
+        cloth: { ...CLOTH.paper, ...PAGE_PAPER, weave: 0.03, fibre: 0.012, sheen: 0.05, mottle: 0 },
         shininess: 12.5,
         reflectiveness: 0.39 * 0.6,
         bumpGrain: 0.05,
