@@ -13,6 +13,8 @@ Books:
 - Covers painted in code from a record: cloth colour, one of seven ornaments (plain, marble, rules, grid, rays, strata, dots), title, subtitle and author on board and spine, an emboss map and a foil mask.
 - Three binding materials (buckram, paper, cardboard) with a tiled grain, shaded as cloth: wrapped diffuse, a fabric sheen, softened highlights, darker gaps between threads and fine fibre streaks that fade with distance.
 - Foil that takes its colour from the angle of view, from plain metal to fully iridescent.
+- Cloth with a tooth that does not fade with distance, titles and ornaments pressed into it, and a groove where each board meets the spine.
+- Film grain on paper, light that bounces between facing pages near the gutter, shade in the fold, and sixteen shadow samples on every book surface.
 - Page edges with one stripe per leaf, endpapers in the book's colour, and typeset pages with running heads, justified text and folios.
 - Text flowed line by line in the book's typeface: a paragraph runs on over the page break and every page is full.
 - Page stacks that stay on their board however far it is folded back, so a book can lie open at its first or last page.
@@ -32,6 +34,8 @@ Motion:
 - A row of spines after the last featured book: every loaded book stands side by side, the chosen one turns its cover forward, its neighbours make room and the row slides to keep it in the middle. Keys, presses and a pull on the row choose, and the chosen book opens from the row.
 - A closed book that turns in the hand: a spring between the pointer and the book, coasting after release, a trailing cover that lifts while it turns, and pitch that levels when the book was left upside down.
 - A reader that opens in two stages after the measured pause, leans toward the pointer and turns leaves with a small physical rule. A leaf in the air lets the print on its other side show through.
+- A corner curl: the page under a resting pointer lifts its corner, a page in the hand rolls over where it is held, a leaf in the air carries a curl that relaxes as it lands.
+- An opening riffle: the top leaves of both stacks settle one after another as a book opens.
 - Pages turned by hand: a held leaf follows the pointer with the measured mapping, a pull that ends on the turning side turns the page, a pull brought back lets it fall, a tap turns one page, and a leaf in the air can be caught.
 - Reduced motion is honoured in the scene: with it on, every animation jumps to its end.
 
@@ -57,8 +61,7 @@ Measurement:
 
 ### Known gaps
 
-- A page corner does not curl under the pointer, and the top leaves do not riffle when a book opens.
 - The row of spines was built from the measured constants without a capture of its own to compare with.
-- The twelve corrections of the second parity pass have not been captured again.
+- The opening is still up to 175 ms early at its start against the reference, and the closing sequence, the toolbar timing and the lens rim were not measured again after their correction.
 - Page paper is still about 8 of 255 short in blue against the reference.
 - Touch works but was not measured.
