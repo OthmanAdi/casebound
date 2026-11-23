@@ -27,8 +27,13 @@ try {
   const run = (seconds) => page.evaluate((n) => { for (let i = 0; i < n; i++) { window.__clock += 1000 / 60; casebound.engine.ctx.loop.tick(window.__clock); } }, Math.round(seconds * 60));
   const state = () => page.evaluate(() => {
     let inAir = 0;
-    casebound.engine.ctx.scene.traverse((o) => { if (o.name === 'leaf' && o.visible) inAir++; });
-    return { open: casebound.reader.isOpen, page: casebound.reader.page, inAir };
+    let lying = 0;
+    casebound.engine.ctx.scene.traverse((o) => {
+      if (o.name === 'leaf' && o.visible) inAir++;
+      // A sheet mounted on its stack for the corner curl. It is not in the air.
+      if (o.name === 'leaf.rest' && o.visible) lying++;
+    });
+    return { open: casebound.reader.isOpen, page: casebound.reader.page, inAir, lying };
   });
   const spine = () => page.evaluate(() => {
     const { ctx } = casebound.engine;
@@ -42,7 +47,7 @@ try {
     const got = await state();
     const ok = Object.entries(want).every(([k, v]) => (typeof v === 'function' ? v(got[k]) : got[k] === v));
     if (!ok) failed++;
-    console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}: page ${got.page}, leaves in the air ${got.inAir}`);
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}: page ${got.page}, leaves in the air ${got.inAir}${'lying' in want ? `, sheets lying ${got.lying}` : ''}`);
   };
   /** Presses at a point, moves through the given offsets with the clock running, and lets go. */
   const pullFrom = async (x, y, offsets) => {
@@ -109,6 +114,35 @@ try {
 
   await run(8);
   await expect('everything landed', { page: first, inAir: (n) => n <= 1 });
+
+  // The corner curl needs a live sheet under the pointer. It lies on the stack and is counted there.
+  await page.mouse.move(...left);
+  await run(1.5);
+  await expect('a resting pointer mounts a sheet on the stack, the page count stays', { page: first, lying: 1 });
+  await page.mouse.down();
+  await run(0.1);
+  await expect('a press takes that sheet, not a second one', { page: first, lying: 0, inAir: (n) => n <= 2 });
+  await page.mouse.move(left[0] + 140, left[1]);
+  await run(0.3);
+  await page.mouse.move(left[0] - 10, left[1]);
+  await run(0.3);
+  await page.mouse.up();
+  await run(1);
+  await expect('brought back and let go: it lies on its stack again, the page count stays', { page: first, lying: 1, inAir: (n) => n <= 1 });
+  await page.mouse.move(c.x, 30);
+  await run(12);
+  await expect('the pointer has left the book: no sheet stays mounted', { page: first, lying: 0, inAir: (n) => n <= 1 });
+  await page.mouse.move(...right);
+  await run(1.5);
+  await expect('a sheet on the right stack', { page: first, lying: (n) => n >= 1 });
+  await page.keyboard.press('ArrowRight');
+  await run(0.2);
+  await expect('a key turns the mounted sheet itself', { page: first + 2, lying: 0 });
+  await page.keyboard.press('ArrowLeft');
+  await page.mouse.move(c.x, 30);
+  await run(12);
+  await expect('and back, with the pointer away', { page: first, lying: 0, inAir: (n) => n <= 1 });
+
   await page.keyboard.press('Escape');
   await run(3);
   await expect('closes', { open: false });

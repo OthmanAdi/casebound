@@ -1,9 +1,12 @@
 // Records a scripted visit to a Casebound page as numbered frames, one per step of the engine's clock.
 // The engine's loop is stopped and advanced by hand, so every frame is exact whatever the machine's speed.
 //
-//   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900]
+//   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999]
 //
-// Scenes: shelf, spin, row, reader, drag, lens, light, pointer, night, nightlens. Turn the frames into a GIF or a video with ffmpeg, for example:
+// `--every 3` saves every third frame and `--span 150-220` only frames 150 to 220. The clock still runs through
+// every frame, so a quick look at one moment shows the same picture as the full recording.
+//
+// Scenes: shelf, spin, row, reader, drag, curl, lens, light, pointer, night, nightlens. Turn the frames into a GIF or a video with ffmpeg, for example:
 //   ffmpeg -framerate 30 -i <out dir>/f%04d.png -vf "scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" out.gif
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -11,13 +14,15 @@ import { resolve } from 'node:path';
 
 const [base, outDir, scene, ...rest] = process.argv.slice(2);
 if (!base || !outDir || !scene) {
-  console.error('usage: node record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900]');
+  console.error('usage: node record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900] [--every 1] [--span 0-9999]');
   process.exit(2);
 }
 const opt = (n, d) => { const i = rest.indexOf('--' + n); return i > -1 ? rest[i + 1] : d; };
 const fps = Number(opt('fps', 30));
 const width = Number(opt('w', 1440));
 const height = Number(opt('h', 900));
+const every = Math.max(1, Number(opt('every', 1)));
+const [spanFrom, spanTo] = opt('span', '0-999999').split('-').map(Number);
 const sec = (s) => Math.round(s * fps);
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
@@ -102,6 +107,21 @@ const SCENES = {
     ...glide(sec(6.6), 0, sec(1.6), [[1100, 330], [560, 520], [330, 500]]),
     { at: sec(8.4), run: (p) => p.mouse.click(330, 500) },
   ] },
+  curl: { path: '/?midday', frames: sec(12.4), actions: [
+    { at: 1, run: (p) => p.mouse.move(1260, 300) },
+    key(sec(0.3), 'Space'),
+    // Rest the pointer near the head of the right page, then near its foot: the corner under it lifts.
+    ...glide(sec(2.6), 0, sec(0.5), [[1260, 300], [1070, 300]]),
+    ...glide(sec(4), 0, sec(0.8), [[1070, 300], [1080, 740]]),
+    // Take the page by that corner, pull it over and let go.
+    { at: sec(5.4), run: (p) => p.mouse.down() },
+    ...glide(sec(5.5), 0, sec(1.6), [[1080, 740], [760, 640], [420, 700]]),
+    { at: sec(7.2), run: (p) => p.mouse.up() },
+    // Rest on the left page, turn a page with the key while the pointer stays there, then leave the book.
+    ...glide(sec(8.6), 0, sec(0.5), [[420, 700], [380, 300]]),
+    key(sec(9.8), 'ArrowRight'),
+    ...glide(sec(11.4), 0, sec(0.4), [[380, 300], [700, 130]]),
+  ] },
   pointer: { path: '/?midday', frames: sec(6), actions: glide(sec(0.2), 0, sec(5.4), [[300, 300], [1100, 300], [1150, 700], [330, 720], [720, 450], [300, 300]]) },
   night: { path: '/?theme=dark', frames: sec(7), actions: [
     ...glide(sec(0.2), 0, sec(2.4), [[300, 620], [1050, 320], [700, 500]]),
@@ -135,7 +155,7 @@ try {
   for (let f = 0; f < def.frames; f++) {
     for (const a of def.actions) if (a.at === f) await a.run(page);
     await page.evaluate((dt) => { window.__clock += dt; casebound.engine.ctx.loop.tick(window.__clock); }, step);
-    await page.screenshot({ path: resolve(out, `f${String(f).padStart(4, '0')}.png`) });
+    if (f % every === 0 && f >= spanFrom && f <= spanTo) await page.screenshot({ path: resolve(out, `f${String(f).padStart(4, '0')}.png`) });
   }
   console.log(`${scene}: ${def.frames} frames at ${fps} fps in ${out}`);
 } finally {
