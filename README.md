@@ -28,7 +28,7 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 
 | Do this | To see |
 | --- | --- |
-| Scroll | Books ride up with the page, hold at the centre, and turn away as they leave |
+| Scroll, `↓` and `↑`, or a click on a title | Books ride up with the page, hold at the centre, and turn away as they leave. Left alone, the shelf shows its books one after another |
 | Move the pointer | The book tilts and a spot of light follows |
 | Drag the book | It turns in your hand, coasts on, and its trailing cover lifts |
 | `Space`, or **Open book** | The cover swings open, then the pages part |
