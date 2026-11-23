@@ -179,7 +179,7 @@ async function boot(): Promise<void> {
     if (on) {
       // Measured: a book opened from the row comes forward and grows a little; a featured book stays where it is.
       const fromRow = shelf.row?.settled ?? false;
-      ctx.registry.set('reader', 'forward', fromRow ? 14 : 0);
+      ctx.registry.set('reader', 'forward', fromRow ? 18 : 0);
       ctx.registry.set('reader', 'scale', fromRow ? 1.1 : 1);
       reader.open(current().slug, page);
     } else reader.close();
