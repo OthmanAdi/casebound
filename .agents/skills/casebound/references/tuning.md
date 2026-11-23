@@ -30,7 +30,11 @@ A value set this way lasts until reload. To keep it, change the default in the f
 | `shelf.featured` | Slot pitch, shelf depth, rest pose, leave and arrive poses, pointer tilt, intro time | `src/engine/shelf/shelf.ts` |
 | `shelf.spin` | Turning the centred book by hand: turn per pixel, spring, coasting, cover lift, levelling | `src/engine/shelf/spin.ts` |
 | `shelf.row` | The row of spines: gap, width of an open cover, depth, how far the chosen book steps out, turn and slide times, when the row assembles, hover pop | `src/engine/shelf/row.ts` |
-| `effect.film`, `book.gutter` | Film grain on paper; the light and shade where two pages meet | `src/engine/book/surface.ts` |
+| `effect.film`, `book.gutter` | Film grain on pages; the light and shade where two pages meet | `src/engine/book/surface.ts` |
+| `book.relief` | Stamped type and ornament: depth (live), and how far and with how wide a wall they are pressed into the relief map (these two paint the covers again) | `src/engine/book/painter.ts` |
+| `book.joint` | Where a board meets the spine: how square the back reads, and depth, start and width of the groove beside it | `src/engine/book/surface.ts` |
+| `book.foil` | How much colour an iridescent foil takes, and how much of the grain shows through foil | `src/engine/book/surface.ts` |
+| `book.edges` | Brightness and tint of head and tail of a page block against its fore-edge | `src/engine/book/surface.ts` |
 | `book.arch` | The belly of the pages: `height` of the top page of a thick stack and the stack height `fall` at which a page has two thirds of it, both as shares of the page width. `height` 0 lays every page flat | `src/engine/book/volume.ts` |
 | `reader` | Pause before opening, cover and page times, height of the open book, scale, pitch, how the weight of the book follows the pointer (`push`, `pushEdge`, `pushRate`, `pushSwap`; `push` 0 keeps the book still), how fast the case follows a turning leaf (`readingFollow`), and the page drag (`dragWidth`, `dragFollow`, `tapPx`) | `src/engine/reader/reader.ts` |
 | `reader.leaf` | Page turn physics: push, damping, landing brake, launch speed | `src/engine/reader/leaf-physics.ts` |
@@ -38,9 +42,15 @@ A value set this way lasts until reload. To keep it, change the default in the f
 | `reader.riffle` | Opening riffle: live leaves per side, when and how fast they settle and go limp, how far they fan out. `leaves` 0 turns it off | `src/engine/reader/riffle.ts` |
 | `effect.magnifier` | Magnification, radius, edge, barrel bend, rim, follow speed | `src/engine/effects/magnifier.ts` |
 | `effect.surface` | Waits and fade rates of hologram and radio | `src/engine/effects/surface-effects.ts` |
-| `book.<slug>` | Open amount and reading progress of one book | `src/engine/book/book.ts` |
+| `book.<slug>` | Open amount and reading progress of one book, and its cover material: highlight, depth of grain and stamp, foil, and the cloth values. Try a value here, then keep it in the book's `book.json` under the field its help text names | `src/engine/book/book.ts` |
 
 Extensions add their own ids; `describe()` lists them too.
+
+## What a cover is made of
+
+Relief is measured in world units: `bumpGrain` times `cloth.relief` is the depth of the grain, `bumpEmboss` the depth of a stamp that uses the whole relief map. It looks the same at any distance and pixel ratio. The size of the weave is `GRAIN_PER_UNIT` in `src/engine/book/painter.ts` (a buckram tile holds 64 threads); `WEAVE_CRIMP` is what keeps a weave visible from across the room.
+
+Most of the speckle on a cover seen from across the room is not the cover: it is the grain layer over the whole page, `.grain` in `src/site/site.css`, with its strength in `--grain`. A page that uses the engine without that layer shows smoother covers.
 
 ## Light presets
 

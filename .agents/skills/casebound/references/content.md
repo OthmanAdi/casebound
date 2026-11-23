@@ -59,10 +59,13 @@ The folder name must equal the record's `slug`. The loader (`src/site/library.ts
 | --- | --- | --- |
 | `shininess` | 3 to 21, default 9.9 | Tightness of the highlight |
 | `reflectiveness` | 0.17 to 1, default 0.5 | Strength of the highlight |
-| `bumpGrain` | 0.01 to 0.1, default 0.055 | Depth of the weave |
-| `bumpEmboss` | 0.05 to 0.25, default 0.119 | Depth of the stamped title |
-| `foilSpecular`, `foilDetail` | 0 to 2.2, 0.4 to 6.3 | How bright the foil is and how fast its colour shifts |
-| `cloth` | object | `gloss`, `sheen`, `sheenRough`, `weave`, `fibre`, `wrap`. Defaults come from `grain` |
+| `bumpGrain` | 0.01 to 0.1, default 0.055 | Depth of the grain of the binding material, world units |
+| `bumpEmboss` | 0.05 to 0.25, default 0.119 | Depth of the stamped title, world units |
+| `foilSpecular` | -0.5 to 2.2, default 0 | Added to the strength of the highlight where there is foil |
+| `foilDetail` | 0.4 to 6.3, default 2.6 | How fast the tone of the foil changes across the cover and as the book turns |
+| `cloth` | object | `gloss`, `sheen`, `sheenRough`, `weave`, `fibre`, `wrap`, `mottle`, `relief`. Defaults come from `grain` |
+
+Every one of these can be tried on the running page first: `casebound.engine.ctx.registry.set('book.<slug>', 'bumpGrain', 0.08)`.
 
 ## Text
 
