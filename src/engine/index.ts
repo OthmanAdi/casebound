@@ -2,7 +2,7 @@
  * Engine entry. `createEngine` wires the context, the stage (lights and shadow wall) and the books, and
  * exposes the extension points. Views (shelf, reader) and effects are added on top of this.
  */
-import { Vector3, type Object3D } from 'three';
+import type { Object3D } from 'three';
 import { createContext, type ContextOptions, type EngineContext } from './core/app';
 import { Book, type BookRecord } from './book/book';
 import { DEFAULT_FACES, type Typefaces } from './book/painter';
@@ -78,7 +78,6 @@ export function createEngine(opts: EngineOptions): Engine {
   const books: Book[] = [];
   const removers: (() => void)[] = [];
   const state = { active: 0, inside: 0 };
-  const world = new Vector3();
 
   const engine: Engine = {
     ctx,
@@ -141,12 +140,26 @@ export function createEngine(opts: EngineOptions): Engine {
 
   for (const record of opts.books) engine.addBook(record);
 
+  /** Distance from the wall plane to the point of a book's case that is farthest from it. */
+  const reach = (book: Book): number => {
+    const mesh = book.volume.caseMesh;
+    mesh.updateWorldMatrix(true, false);
+    const e = mesh.matrixWorld.elements;
+    const p = mesh.geometry.getAttribute('position');
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let i = 0; i < p.count; i++) {
+      const z = e[2]! * p.getX(i) + e[6]! * p.getY(i) + e[10]! * p.getZ(i) + e[14]!;
+      if (z < lo) lo = z;
+      if (z > hi) hi = z;
+    }
+    return Math.max(Math.abs(lo - wall.centre.z), Math.abs(hi - wall.centre.z));
+  };
+
   ctx.onFrame('lights', (f) => {
     const active = books[state.active];
-    const bookZ = active ? active.root.getWorldPosition(world).z : -36;
-    const wallMoving = wall.update(f.dt, bookZ, state.inside, ctx.still);
+    const wallMoving = wall.update(f.dt, active ? reach(active) : 18.5, state.inside, ctx.still);
     const rigMoving = rig.update(f.dt, { pointer: ctx.pointer, inside: state.inside, bookColor: active?.record.background ?? null, shadowCentre: wall.centre, compact: ctx.compact }, ctx.still);
-    rig.key.shadow.radius *= wall.radiusScale;
     fx.uFxTime.value = f.time;
     if (ctx.pointer) fx.uFxPointer.value.set(ctx.pointer.x, ctx.pointer.y);
     if (wallMoving || rigMoving || fx.uHolo.value > 0.001 || fx.uRadio.value > 0.001) ctx.invalidate();

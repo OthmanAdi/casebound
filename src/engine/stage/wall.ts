@@ -39,12 +39,14 @@ float bWallShadow() {
 export class ShadowWall {
   readonly mesh: Mesh<PlaneGeometry, ShadowMaterial>;
   readonly centre = new Vector3(0, -1.482, -54.5);
-  /** Multiplier for the key light's shadow radius this frame. */
+  /** How much wider than the key light's radius the wall draws its shadow this frame. */
   radiusScale = 1;
 
   private readonly tune;
   private opacity = 0.855;
-  private readonly blur = { value: 6 };
+  /** How far the book is from the wall, 0..1 between `fadeNear` and `fadeFar`, eased. */
+  private distance = -1;
+  private readonly blur = { value: 1 };
 
   constructor(registry: Registry) {
     this.tune = tunable(registry, {
@@ -66,8 +68,8 @@ export class ShadowWall {
         blurBase: { value: 0.1014, min: 0, max: 2, help: 'Base widening of the shadow blur (0.06 x 1.69)' },
         blurGrow: { value: 2.25, min: 0, max: 10, help: 'Extra blur at full distance, as a multiple of the base' },
         insideDim: { value: 0.5, min: 0, max: 1, help: 'Opacity multiplier while the reader is open' },
-        followRate: { value: 8, min: 0.1, max: 60, unit: '1/s' },
-        softness: { value: 6, min: 0.2, max: 30, help: 'Widens the wall shadow beyond the light radius. 16 samples on a rotated disk' },
+        followRate: { value: 10, min: 0.1, max: 60, unit: '1/s', help: 'How fast the fade follows the book. Measured: 10' },
+        softness: { value: 1, min: 0.2, max: 30, help: 'Extra widening of the wall shadow on top of the measured blur. 16 samples on a rotated disk' },
       },
       onChange: (key) => {
         if (key === 'size') {
@@ -80,7 +82,8 @@ export class ShadowWall {
     const material = new ShadowMaterial({ color: t.color, opacity: t.opacity, transparent: true });
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uWallBlur = this.blur;
-      shader.fragmentShader = shader.fragmentShader.replace('void main() {', `${WALL_SHADOW}\nvoid main() {`).replace('getShadowMask()', 'bWallShadow()');
+      // The call in main() first, then the function: the other way round, the call inside the function is the first match.
+      shader.fragmentShader = shader.fragmentShader.replace('getShadowMask()', 'bWallShadow()').replace('void main() {', `${WALL_SHADOW}\nvoid main() {`);
     };
     material.customProgramCacheKey = () => 'casebound-wall';
     this.mesh = new Mesh(new PlaneGeometry(t.size, t.size), material);
@@ -92,22 +95,25 @@ export class ShadowWall {
   }
 
   /**
-   * @param bookZ depth of the active book
+   * @param reach distance from the wall to the point of the active book that is farthest from it
    * @param inside 0..1 reader openness
    * @returns true while the wall is still settling
    */
-  update(dt: number, bookZ: number, inside: number, still: boolean): boolean {
+  update(dt: number, reach: number, inside: number, still: boolean): boolean {
     const t = this.tune;
     this.centre.set(0, t.y, t.z);
     this.mesh.position.copy(this.centre);
     this.mesh.material.color.set(t.color);
-    const distT = smoothstep(t.fadeNear, t.fadeFar, bookZ - t.z);
-    const goal = t.opacity * (1 - t.fadeAmount * distT) * (1 - (1 - t.insideDim) * inside);
+    // Measured (SPEC S-WALL-3): the fade follows the far corner of the book, not its pivot, and is eased.
+    const goal = smoothstep(t.fadeNear, t.fadeFar, reach);
+    const before = this.distance;
+    this.distance = still || before < 0 ? goal : approach(before, goal, t.followRate, Math.min(dt, 0.05));
     const prev = this.opacity;
-    this.opacity = still ? goal : approach(this.opacity, goal, t.followRate, dt);
+    this.opacity = t.opacity * (1 - t.fadeAmount * this.distance) * (1 - (1 - t.insideDim) * inside);
     this.mesh.material.opacity = this.opacity;
-    this.radiusScale = 1 + t.blurBase * (1 + t.blurGrow * distT);
-    this.blur.value = t.softness;
-    return Math.abs(this.opacity - prev) > 1e-4;
+    // The wall alone widens its blur with distance. Shadows on the books keep the light's own radius.
+    this.radiusScale = 1 + t.blurBase * (1 + t.blurGrow * this.distance);
+    this.blur.value = this.radiusScale * t.softness;
+    return Math.abs(this.opacity - prev) > 1e-4 || Math.abs(this.distance - before) > 1e-4;
   }
 }
