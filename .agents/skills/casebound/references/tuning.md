@@ -29,7 +29,7 @@ A value set this way lasts until reload. To keep it, change the default in the f
 | `stage.wall` | Shadow wall: depth, colour, opacity, fade with distance, extra softness | `src/engine/stage/wall.ts` |
 | `shelf.featured` | Slot pitch, shelf depth, rest pose, leave and arrive poses, pointer tilt, intro time | `src/engine/shelf/shelf.ts` |
 | `shelf.spin` | Turning the centred book by hand: turn per pixel, spring, coasting, cover lift, levelling | `src/engine/shelf/spin.ts` |
-| `shelf.row` | The row of spines: gap, width of an open cover, depth, how far the chosen book steps out, turn and slide times, when the row assembles, hover pop | `src/engine/shelf/row.ts` |
+| `shelf.row` | The row of spines: gap, width of an open cover, depth, how far the chosen book steps out, turn and slide times, the glide to a far choice (`glideBase`, `glidePerPlace`, `glideMax`), how fast covers follow a pull (`followYawTime`), the room each end keeps inside the window (`endRoom`), when the row assembles, hover pop | `src/engine/shelf/row.ts` |
 | `effect.film`, `book.gutter` | Film grain on pages; the light and shade where two pages meet | `src/engine/book/surface.ts` |
 | `book.relief` | Stamped type and ornament: depth (live), and how far and with how wide a wall they are pressed into the relief map (these two paint the covers again) | `src/engine/book/painter.ts` |
 | `book.joint` | Where a board meets the spine: how square the back reads, and depth, start and width of the groove beside it | `src/engine/book/surface.ts` |

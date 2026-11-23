@@ -66,9 +66,9 @@ Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with
 
    *Recorded from the demo: one drag, the coasting after it, and a second drag back.*
 
-3. The whole library stands in a row. Past the last featured book every loaded book comes up from below, spine to the front. The chosen one turns its cover forward and steps out, its neighbours make room, and the row slides to keep it in the middle. From there it opens like any other book.
+3. The whole library stands in a row. Past the last featured book every loaded book comes up from below, spine to the front. The chosen one turns its cover forward and steps out, and its neighbours make room. A row that fits the window stands centred; a longer one slides to the chosen book and keeps its ends inside the window. From there it opens like any other book.
 
-   ![Six hardcovers stand side by side with their spines to the front. One turns its cover forward, then the next, and the row slides along](docs/media/row-demo.gif)
+   ![Six hardcovers stand side by side with their spines to the front. One turns its cover forward, then the next, and the others make room](docs/media/row-demo.gif)
 
    *Recorded from the demo: the row comes up, two steps to the right, a press on a spine.*
 
@@ -246,7 +246,7 @@ The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 fram
 
 ## What is missing
 
-Touch works but was not measured against the reference. In the row of spines three measured differences are open: a press on a far spine overshoots, a pull by hand chooses only on release, and the row does not stop at its ends. The demo texts are excerpts, so a thick book repeats its pages.
+Touch works but was not measured against the reference. In the row of spines the neighbours of a book that is opened from the row do not close up behind it yet. The demo texts are excerpts, so a thick book repeats its pages.
 
 ## Licence
 

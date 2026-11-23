@@ -38,7 +38,7 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Pointer over the open book | reading place the case answers to, pointer on three buttons | 0.560, 0.688 and 0.352 from the rule against 0.556, 0.694 and 0.360 captured | matches to 0.008 |
 | Resting spread | belly of the pages | about 1.1 units high, a third of the way out; ours built to that | built from one frame, not measured again |
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
-| Row of spines | 17 differences found against a capture, the nine largest corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758 | close: three differences open |
+| Row of spines | 17 differences found against a capture, 14 corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758; a far press glides in 0.4 s | close: the three later corrections were built to the measured numbers and not captured again |
 
 ## 2026-11-23 · Sixth pass: the shelf under scrolling
 
@@ -161,7 +161,7 @@ The yaw of the reference's book gives the reading place it answers to in four ca
 | 10 | Opening from the row | 18 forward | 14 forward | 18 forward |
 | 11 | Turn of the last featured book on a step | 30, 92, 205, 341 ms | 13, 87, 288, 576 ms | its own damper, 0.14 s |
 
-Open: a press on a far spine (the reference glides in about 400 ms, ours overshoots by 16 %), choosing while the row is pulled by hand (the reference follows the hand, ours waits for the release), the clamp at the ends of the row, and that the neighbours of a book opened from the row close up. In the corrected build the turn from featured pose to spine still lags by 200 to 340 ms. Each reference number is one reading at 1440x900.
+Corrected afterwards, built to the measured numbers and checked by unit tests, not by a second capture: a press on a far spine is a timed glide (0.4 s for three places) with the cover turn travelling through the books in between; the covers turn as they pass the middle while the row is pulled and the release takes the book the hand brought there; each end of the row keeps a spine and 2 units inside the window, and a row that fits the window is centred and does not slide. Still open: the neighbours of a book opened from the row close up on the reference. In the corrected build the turn from featured pose to spine still lags by 200 to 340 ms. Each reference number is one reading at 1440x900.
 
 Not captured again on our side after these changes: every value above that says "ours now" for the opening comes from the engine or from frames of a scripted visit, not from a second reanimate run.
 
