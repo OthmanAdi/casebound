@@ -232,6 +232,27 @@ async function boot(): Promise<void> {
     row.addEventListener('blur', () => fn(false));
   }
 
+  // ---------------------------------------------------------------- leafing with a key held down
+  // Measured: the first repeat comes after 300 ms, and over a hold of 3 s the pause shrinks to 50 ms.
+  const held = { key: '', since: 0, timer: 0 };
+  const stopLeafing = (): void => {
+    clearTimeout(held.timer);
+    held.key = '';
+  };
+  const leaf = (direction: 1 | -1, key: string): void => {
+    stopLeafing();
+    held.key = key;
+    held.since = performance.now();
+    const turn = (): void => {
+      if (!reader.isOpen) return stopLeafing();
+      if (direction === 1) reader.next();
+      else reader.previous();
+      const k = Math.min(1, (performance.now() - held.since) / 3000);
+      held.timer = window.setTimeout(turn, 300 - 250 * k);
+    };
+    turn();
+  };
+
   // ---------------------------------------------------------------- along the shelf without the wheel
   /** A scroll the page makes by itself. A wheel, a touch, a press or a scroll of the reader's own takes it back. */
   let glide: { from: number; to: number; start: number; ms: number; wrote: number } | null = null;
@@ -305,10 +326,15 @@ async function boot(): Promise<void> {
         setReading(false);
       } else home();
     }
-    else if (e.key === 'ArrowRight' && reader.isOpen) reader.next();
-    else if (e.key === 'ArrowLeft' && reader.isOpen) reader.previous();
-    else if (e.key === 'm') setLens(!magnifier.on);
+    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && reader.isOpen) {
+      e.preventDefault();
+      if (!e.repeat) leaf(e.key === 'ArrowRight' ? 1 : -1, e.key);
+    } else if (e.key === 'm' && !e.repeat) setLens(!magnifier.on);
   });
+  addEventListener('keyup', (e) => {
+    if (e.key === held.key) stopLeafing();
+  });
+  addEventListener('blur', () => stopLeafing());
 
   ctx.events.on('view', () => sync());
   // A press on the centred book that did not turn it opens its details.
