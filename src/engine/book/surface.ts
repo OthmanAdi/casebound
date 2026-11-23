@@ -470,14 +470,6 @@ const ALBEDO = /* glsl */ `
 	#endif
 	bCloth = 1.0 - bFoil;
 
-	if ( uHolo > 0.001 ) {
-		float wave = sin( vMapUv.y * 90.0 + uFxTime * 6.1 ) * 0.003 + sin( vMapUv.y * 23.0 - uFxTime * 2.3 ) * 0.006;
-		float split = 0.0147 * ( 0.6 + 0.4 * sin( uFxTime * 1.3 + uFxPointer.x * 3.0 ) );
-		vec2 base = vMapUv + vec2( wave, 0.0 ) * uHolo;
-		vec3 shifted = vec3( texture2D( map, base + vec2( split, 0.0 ) ).r, texture2D( map, base ).g, texture2D( map, base - vec2( split, 0.0 ) ).b );
-		diffuseColor.rgb = mix( diffuseColor.rgb, shifted, uHolo );
-	}
-
 	#ifdef CASEBOUND_TURNIN
 		// The cloth of the case is turned in over the edges of the boards. The endpaper starts inside that margin.
 		vec2 inner = vMapUv / uTurnIn.zw;
@@ -594,15 +586,17 @@ if ( uHolo > 0.001 ) {
 	float shear = ( sin( vMapUv.y * 408.5 + hT * 10.0 ) * 0.003 + sin( vMapUv.y * 68.06 + hT * 3.7 ) * 0.006 ) * hI * amp;
 	vec2 hUv = vMapUv + vec2( shear, 0.0 );
 	vec3 holo = gl_FragColor.rgb;
+	// Where cloth is turned in over a board there is no print to read: the effect leaves the picture alone there.
+	float printed = 1.0 - bTurnedIn;
 	#ifdef USE_MAP
-		holo = mix( holo, texture2D( map, hUv ).rgb, 0.5 * hI );
+		holo = mix( holo, texture2D( map, hUv ).rgb, 0.5 * hI * printed );
 	#endif
 	holo += ( sin( vMapUv.y * 817.0 + hT * 10.0 ) + 0.7 * sin( vMapUv.y * 136.17 + hT * 6.1 ) ) * 0.055 * hI;
 	#ifdef USE_MAP
 		float drift = sin( hT * 1.3 + 2.1 ) * 0.6 + sin( hT * 2.7 ) * 0.4;
 		vec2 split = ( uFxPointer + vec2( 0.3, 0.2 ) * drift * ( 0.5 * sin( 1.3 * hT + 2.1 ) + 0.5 ) ) * 0.0147 * hI;
-		holo.r = mix( holo.r, texture2D( map, hUv + split ).r, 0.3 * hI );
-		holo.b = mix( holo.b, texture2D( map, hUv - split ).b, 0.3 * hI );
+		holo.r = mix( holo.r, texture2D( map, hUv + split ).r, 0.3 * hI * printed );
+		holo.b = mix( holo.b, texture2D( map, hUv - split ).b, 0.3 * hI * printed );
 	#endif
 	holo += ( bHash( floor( gl_FragCoord.xy / 4.0 ) + floor( hT * 12.0 ) * 7.13 ) - 0.5 ) * 0.08 * hI;
 	holo *= 1.0 + 0.3 * hI * ( 0.5 * ( 0.5 * sin( 1.7 * hT ) + 0.3 * sin( 2.9 * hT ) + 0.2 * sin( 0.7 * hT ) ) + 0.5 );
