@@ -50,14 +50,13 @@ void main() {
 	// Rim, as measured: a dark ring across the edge of the glass with a bright band in its outer part.
 	float lo = uRadius - uRingThickness * 0.5;
 	float hi = uRadius + uRingThickness * 0.5;
-	float softDark = uRadius * 0.01;
-	float softBright = uRadius * 0.005;
-	float ring = smoothstep( lo - softDark, lo + softDark, dist ) * ( 1.0 - smoothstep( hi - softDark, hi + softDark, dist ) );
+	// The dark ring fades outward on both sides; the bright band fades inside it.
+	float soft = uRadius * 0.02;
+	float ring = smoothstep( lo - soft, lo, dist ) * ( 1.0 - smoothstep( hi, hi + soft, dist ) );
 	float from = lo + uRingThickness * 0.7;
-	float band = smoothstep( from - softBright, from + softBright, dist ) * ( 1.0 - smoothstep( hi - softBright, hi + softBright, dist ) );
-	vec4 result = mix( colour, vec4( 0.0, 0.0, 0.0, 1.0 ), ring * uRingOpacity * uAmount );
-	result = mix( result, vec4( 1.0 ), band * 0.8 * uRingOpacity * uAmount );
-	gl_FragColor = result;
+	float band = smoothstep( from - soft * 0.5, from, dist ) * ( 1.0 - smoothstep( hi - soft * 0.5, hi, dist ) );
+	vec3 rim = vec3( band * 0.8 );
+	gl_FragColor = vec4( mix( colour.rgb, rim, ring * uRingOpacity * uAmount ), colour.a );
 }
 `;
 

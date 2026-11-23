@@ -117,6 +117,8 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
   background: color-mix(in srgb, var(--bg) 14%, transparent);
   transition: background-color 0.6s ease;
 }
+/* At night the picture falls back into dusk, so the lit book and the spot of light that follows the pointer carry the scene. */
+html[data-theme='dark'] .panel::after { background: color-mix(in srgb, var(--bg) 64%, transparent); }
 .panel-lens { position: absolute; right: 12px; top: 10px; z-index: 2; width: 36px; height: 36px; border-radius: 50%; border: 0; background: none; cursor: pointer; color: #fff; mix-blend-mode: difference; font: 400 20px/1 var(--display); }
 html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
 
