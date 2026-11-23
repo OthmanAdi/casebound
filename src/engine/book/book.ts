@@ -222,7 +222,13 @@ export class Book {
     // A closed book keeps all its leaves on the back board too, so a lifted cover lifts alone.
     const n = this.open > 0 ? this.reading * this.pages : 0;
     const closed = 1 - this.open;
-    this.volume.setPose({ front: this.open * OPEN_ANGLE * (2 - 2 * n) + this.flap.front * closed, back: this.open * OPEN_ANGLE * 2 * n + this.flap.back * closed, split: n });
+    // The pages part by turning everything before the reading place over in one wad, first leaf up until it lands.
+    this.volume.setPose({
+      front: this.open * OPEN_ANGLE * (2 - 2 * n) + this.flap.front * closed,
+      back: this.open * OPEN_ANGLE * 2 * n + this.flap.back * closed,
+      split: this.open > 0 ? this.reading : 0,
+      turn: this.pages,
+    });
     this.applyTurn();
   }
 

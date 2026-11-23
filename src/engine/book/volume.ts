@@ -18,6 +18,12 @@ export interface VolumePose {
   back: number;
   /** Share of the leaves resting on the front board, 0..1. Reading progress through the book. */
   split: number;
+  /**
+   * How far the leaves of the front board have come over from the back board, 0..1. A book opens at a page by
+   * turning everything before that page over in one wad: at 0 the wad still lies on the other leaves, first
+   * page up, at 1 it lies on the front board. Default 1.
+   */
+  turn?: number;
 }
 
 export interface VolumeMaterials {
@@ -142,10 +148,11 @@ export class Volume {
   private readonly layer = new Float32Array((BLOCK_K + 1) * (BLOCK_S + 1) * PROFILE_STRIDE);
 
   constructor(readonly dims: BookDims, materials: VolumeMaterials) {
-    const blockVerts = (BLOCK_S + 1) * 2 + (BLOCK_K + 1) * 2 + (BLOCK_S + 1) * (BLOCK_K + 1) * 2;
+    const blockVerts = (BLOCK_S + 1) * 4 + (BLOCK_K + 1) * 2 + (BLOCK_S + 1) * (BLOCK_K + 1) * 2;
     this.blockSurfaces = [new Surface(blockVerts), new Surface(blockVerts)];
     this.caseMesh = new Mesh(this.caseSurface.geometry, [materials.cover, materials.endpaper]);
-    this.leftBlock = new Mesh(this.blockSurfaces[0].geometry, [materials.pageLeft, materials.edge]);
+    // The left stack has a third face: its underside, the first leaf of the book, seen while the stack turns over.
+    this.leftBlock = new Mesh(this.blockSurfaces[0].geometry, [materials.pageLeft, materials.edge, materials.endpaper]);
     this.rightBlock = new Mesh(this.blockSurfaces[1].geometry, [materials.pageRight, materials.edge]);
     this.caseMesh.name = 'case';
     this.leftBlock.name = 'pages.left';
@@ -297,7 +304,19 @@ export class Volume {
     // lying flat, standing, or folded right back while the book is open near its first or last page.
     const face = this.boardFace(left, open);
     const offset = (face.x - x) * face.nx + (face.z - z) * face.nz + k * t + SEAT;
-    return { x, z, heading, turnLength: turnLengthForOffset(offset, heading - Math.PI / 2), length: d.pageW };
+    const shape: LeafShape = { x, z, heading, turnLength: turnLengthForOffset(offset, heading - Math.PI / 2), length: d.pageW };
+    const turn = pose.turn ?? 1;
+    if (!left || turn >= 1) return shape;
+    // The wad on its way over. Before it turns, its leaves are simply the upper leaves of one undivided stack on
+    // the back board, bound at the same places, the other way up. In between, each leaf sweeps over the spine.
+    const all = d.blockT;
+    const upper = 1 - pose.split * k;
+    const there = Math.PI / 2 - pose.back;
+    const back = this.boardFace(false, pose.back);
+    const lift = (back.x - x) * back.nx + (back.z - z) * back.nz + upper * all + SEAT;
+    const lying = turnLengthForOffset(lift, there - Math.PI / 2);
+    const s = Math.min(Math.max(turn, 0), 1);
+    return { x, z, heading: there + (heading - there) * s, turnLength: lying + (shape.turnLength - lying) * s, length: d.pageW };
   }
 
   private buildBlock(which: 0 | 1, pose: VolumePose): void {
@@ -330,6 +349,19 @@ export class Volume {
       top.push(s.vert(x, y0, z, nx, 0, nz, u, 0), s.vert(x, y1, z, nx, 0, nz, u, 1));
     }
     for (let i = 0; i < BLOCK_S; i++) s.quad(top[i * 2]!, top[(i + 1) * 2]!, top[(i + 1) * 2 + 1]!, top[i * 2 + 1]!, 0);
+
+    // Underside of the left stack: the outer face of the book's first leaf. It rests on the board once the
+    // stack has come over, and is what the reader sees before that.
+    if (left) {
+      const under: number[] = [];
+      for (let i = 0; i <= BLOCK_S; i++) {
+        const o = at(0, i);
+        const x = L[o]!, z = L[o + 1]!, tx = L[o + 2]!, tz = L[o + 3]!;
+        const along = sampleDistance(d.pageW, BLOCK_S, i) / d.pageW;
+        under.push(s.vert(x, y0, z, -tz, 0, tx, along, 0), s.vert(x, y1, z, -tz, 0, tx, along, 1));
+      }
+      for (let i = 0; i < BLOCK_S; i++) s.quad(under[i * 2]!, under[(i + 1) * 2]!, under[(i + 1) * 2 + 1]!, under[i * 2 + 1]!, 2);
+    }
 
     // Fore-edge: the free ends of every layer.
     const fore: number[] = [];
