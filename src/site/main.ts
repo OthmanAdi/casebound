@@ -12,7 +12,7 @@ import { fan } from '../../extensions/fan';
 import { approach } from '../engine/core/math';
 import { createMagnifier } from '../engine/effects/magnifier';
 import { createSurfaceEffects } from '../engine/effects/surface-effects';
-import { createReader } from '../engine/reader/reader';
+import { createReader, type Reader } from '../engine/reader/reader';
 import { createShelf } from '../engine/shelf/shelf';
 import { themeForHour, type ThemeName } from '../engine/stage/presets';
 import { paintBackdrop } from './backdrop';
@@ -82,7 +82,16 @@ async function boot(): Promise<void> {
   const slotPx = (): number => (panels.firstElementChild as HTMLElement).offsetHeight + 16;
 
   const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, layout: query.get('layout') === 'fan' ? fan : undefined });
-  const reader = createReader(engine, { centreOffsetPx: offset });
+  /** Scales the open book down where the spread is wider than the room it has: beside the detail column, or on a narrow screen. */
+  const fit = (): number => {
+    const book = reader.book;
+    if (!book) return 1;
+    const perWorld = ctx.size.y / ctx.visibleHeightAt(book.home.position.z);
+    const spread = 2 * book.dims.pageW * book.home.scale * perWorld * 1.1;
+    const room = innerWidth * (1 - 0.4 * shift) - 48;
+    return Math.min(1, room / spread);
+  };
+  const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
   const magnifier = createMagnifier(engine);
   const effects = createSurfaceEffects(engine);
 
