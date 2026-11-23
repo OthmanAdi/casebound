@@ -31,6 +31,8 @@ export interface SurfaceFx {
   uGutterShade: IUniform<number>;
   /** How far the brightness ceiling of paper applies: 1 while books are shut, 0 once the pages of the open one have parted. */
   uShoulder: IUniform<number>;
+  /** Depth of stamped relief, as a multiple of each cover's own strength. */
+  uStamp: IUniform<number>;
 }
 
 export const createSurfaceFx = (): SurfaceFx => ({
@@ -46,6 +48,7 @@ export const createSurfaceFx = (): SurfaceFx => ({
   uBounceColor: { value: new Color(0.6, 0.52, 0.69) },
   uGutterShade: { value: 1 },
   uShoulder: { value: 1 },
+  uStamp: { value: 1 },
 });
 
 /**
@@ -224,6 +227,7 @@ uniform float uBounceReach;
 uniform float uBounceSharp;
 uniform vec3 uBounceColor;
 uniform float uGutterShade;
+uniform float uStamp;
 uniform sampler2D tBack;
 uniform float uBleed;
 uniform float uTurn;
@@ -384,7 +388,7 @@ const BUMP = /* glsl */ `
 		float ey = texture2D( tEmboss, vMapUv + dFdy( vMapUv ) ).r;
 		// The relief map holds heights from 0 to 1. The strength of a title (0.05 to 0.25, SPEC S-BOOK-6) scales
 		// them to a depth in world units.
-		dH += vec2( ex - e0, ey - e0 ) * uBumpEmboss * ${(36 * SHELF_PIXEL).toFixed(4)};
+		dH += vec2( ex - e0, ey - e0 ) * uBumpEmboss * uStamp;
 	#endif
 	if ( uRadio > 0.001 ) {
 		float r0 = bRing( vMapUv );

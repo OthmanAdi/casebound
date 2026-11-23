@@ -6,7 +6,7 @@ import { Vector3, type Object3D } from 'three';
 import { createContext, type ContextOptions, type EngineContext } from './core/app';
 import { Book, type BookRecord } from './book/book';
 import { PAGE_ARCH } from './book/volume';
-import { DEFAULT_FACES, type Typefaces } from './book/painter';
+import { COVER_RELIEF, DEFAULT_FACES, type Typefaces } from './book/painter';
 import { createSurfaceFx, defineSurfaceEffect, type SurfaceEffect, type SurfaceFx } from './book/surface';
 import type { FrameInfo } from './core/loop';
 import { smoothstep } from './core/math';
@@ -102,6 +102,7 @@ export function createEngine(opts: EngineOptions): Engine {
     },
     onChange: () => ctx.invalidate(),
   });
+  const books: Book[] = [];
   const arch = tunable(ctx.registry, {
     id: 'book.arch',
     label: 'Belly of the pages',
@@ -121,12 +122,28 @@ export function createEngine(opts: EngineOptions): Engine {
       ctx.invalidate();
     },
   });
+  const relief = tunable(ctx.registry, {
+    id: 'book.relief',
+    label: 'Stamped relief',
+    kind: 'material-effect',
+    tags: ['material', 'shader', 'cover', 'light'],
+    describe: 'How type and ornaments are pressed into a cover. The depth scales what the lights see; the wall is painted into the relief map, so changing it paints every cover again.',
+    source: 'src/engine/book/painter.ts',
+    params: {
+      depth: { value: 1, min: 0, max: 4, help: 'Depth of every stamp, as a multiple of the cover\'s own strength (`material.bumpEmboss`, in world units). 0 makes covers flat' },
+      press: { value: COVER_RELIEF.press, min: 0, max: 0.5, help: 'How far type is pressed into the relief map, as a share of its range. Ornaments go 0.65 as deep. Repaints the covers' },
+      wall: { value: COVER_RELIEF.wall, min: 0.6, max: 6, unit: 'texel', help: 'Half width of the wall of a stamped letter in the relief map. Measured: walls about two pixels wide at shelf distance. Larger is softer. Repaints the covers' },
+    },
+    onChange: (key) => {
+      if (key !== 'depth') for (const b of books) b.repaintCover(relief);
+      ctx.invalidate();
+    },
+  });
   const rig = new LightRig(ctx.registry);
   const wall = new ShadowWall(ctx.registry);
   ctx.scene.add(rig.group, wall.mesh);
   rig.theme = opts.theme ?? themeForHour(new Date().getHours());
 
-  const books: Book[] = [];
   const removers: (() => void)[] = [];
   const state = { active: 0, inside: 0, parted: 0 };
   const world = new Vector3();
@@ -141,7 +158,7 @@ export function createEngine(opts: EngineOptions): Engine {
     state,
     book: (slug) => books.find((b) => b.record.slug === slug),
     addBook: (record) => {
-      const book = new Book(record, ctx.registry, fx, faces);
+      const book = new Book(record, ctx.registry, fx, faces, relief);
       book.volume.arch = { height: arch.height, fall: arch.fall };
       book.refresh();
       books.push(book);
@@ -224,6 +241,7 @@ export function createEngine(opts: EngineOptions): Engine {
     fx.uGutterShade.value = gutter.shade;
     // Measured on the first leaf of an opening book: its light is held down until the pages start to part.
     fx.uShoulder.value = 1 - smoothstep(0.03, 0.25, state.parted);
+    fx.uStamp.value = relief.depth;
     fx.uFilmSeed.value = (f.frame * 37) % 1024;
     // Measured: the effects follow the pointer with a short lag instead of jumping to it.
     if (ctx.pointer) fx.uFxPointer.value.lerp(ctx.pointer, ctx.still ? 1 : 1 - Math.exp(-12.8 * Math.min(f.dt, 0.05)));

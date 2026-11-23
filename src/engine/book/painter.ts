@@ -49,6 +49,30 @@ export interface CoverTextures {
   finish: Texture;
 }
 
+/**
+ * Shape of the relief that is painted into a cover: the walls of stamped type. The engine registers these as
+ * `book.relief`; changing one repaints the covers.
+ */
+export interface CoverRelief {
+  /** How far type is pressed in, as a share of the relief map's range below the level of the cloth. Range 0 to 0.5. Ornaments go 0.65 as deep. */
+  press: number;
+  /** Half width of the wall of a stamped letter, in texels of a relief map 2048 wide (one texel is about 0.014 world units). Range 0.6 to 6. */
+  wall: number;
+}
+
+/**
+ * Defaults. Measured on stamped type at shelf distance: on a spine the lit wall is 21 to 27 percent brighter than
+ * the cloth and the shaded wall 11 to 17 percent darker, on a front cover 5 to 8 and 7 to 13, each about two
+ * pixels wide.
+ */
+export const COVER_RELIEF: Readonly<CoverRelief> = { press: 0.36, wall: 1.5 };
+
+/** A grey for the relief map: 0.5 is the level of the cloth, lower is pressed in. */
+export const reliefLevel = (height: number): string => {
+  const v = Math.round(Math.max(0, Math.min(1, height)) * 255);
+  return `rgb(${v},${v},${v})`;
+};
+
 export interface Typefaces {
   display: string;
   text: string;
@@ -230,7 +254,7 @@ function drawPattern(g: CanvasRenderingContext2D, pattern: CoverPattern, x: numb
  * Paints the full case as one strip: back cover, spine, front cover, left to right, as a printer lays it out.
  * Returns colour, emboss height and foil mask, all on the same layout.
  */
-export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLayout, faces: Typefaces = DEFAULT_FACES, width = 2048): CoverTextures {
+export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLayout, faces: Typefaces = DEFAULT_FACES, width = 2048, relief: CoverRelief = COVER_RELIEF): CoverTextures {
   const W = width;
   const H = Math.round(W / layout.aspect);
   const [cc, g] = canvas(W, H);
@@ -256,13 +280,14 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
   // A printed ornament is stamped too, a little shallower than the title. Marbled paper stays flat.
   // The same seed draws the same lines into the relief.
   if (design.pattern && design.pattern !== 'plain' && design.pattern !== 'marble') {
-    drawPattern(e, design.pattern, fx, 0, fw, H, '#3a3a3a', '#3a3a3a', seeded(design.seed ?? hashString(text.title)));
+    const shallow = reliefLevel(0.5 - relief.press * 0.65);
+    drawPattern(e, design.pattern, fx, 0, fw, H, shallow, shallow, seeded(design.seed ?? hashString(text.title)));
   }
   drawPattern(g, design.pattern === 'marble' ? 'marble' : 'plain', bx, 0, bw, H, design.ink, accent, rnd);
 
   // Text is drawn three times: ink on the colour map, pressed into the emboss map, solid on the foil mask.
   // A stamped title sits below the cloth around it, so the light catches the far wall of every letter.
-  const layers: [CanvasRenderingContext2D, string][] = [[g, foil ? design.cloth : design.ink], [e, '#161616'], [f, '#ffffff']];
+  const layers: [CanvasRenderingContext2D, string][] = [[g, foil ? design.cloth : design.ink], [e, reliefLevel(0.5 - relief.press)], [f, '#ffffff']];
   const drawText = (fn: (c: CanvasRenderingContext2D) => void, withFoil = true): void => {
     for (const [c, style] of layers) {
       if (c === f && !(foil && withFoil)) continue;
@@ -355,9 +380,10 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
     }
   }
 
-  // Soften the relief so its walls are wide enough to shade from across the room instead of aliasing.
+  // A stamp has a wall, not a step: the blur gives it its width. The texture's own smaller copies keep it from
+  // flickering when the book is far away.
   const [bc, b] = canvas(W, H);
-  b.filter = `blur(${Math.max(1.5, W / 520)}px)`;
+  b.filter = `blur(${(Math.max(0.3, relief.wall) * W) / 2048}px)`;
   b.drawImage(ec, 0, 0);
 
   return { map: texture(cc, { anisotropy: 16 }), emboss: texture(bc, { anisotropy: 4 }), finish: texture(fc, { anisotropy: 4 }) };

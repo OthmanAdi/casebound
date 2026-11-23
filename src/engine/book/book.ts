@@ -11,7 +11,7 @@ import { Group, Quaternion, Vector3, type Material, type Texture } from 'three';
 import { DEG } from '../core/math';
 import type { Registry } from '../core/registry';
 import { makeDims, type BookDims } from './dims';
-import { DEFAULT_FACES, GRAIN_PER_UNIT, edgeTexture, endpaperTexture, grainTexture, paintCover, paintPage, type CoverDesign, type PageContent, type Typefaces } from './painter';
+import { COVER_RELIEF, DEFAULT_FACES, GRAIN_PER_UNIT, edgeTexture, endpaperTexture, grainTexture, paintCover, paintPage, type CoverDesign, type CoverRelief, type CoverTextures, type PageContent, type Typefaces } from './painter';
 import { CLOTH, createEdgeMaterial, createSurfaceMaterial, type ClothParams, type SurfaceFx } from './surface';
 import { Volume } from './volume';
 import { hashString } from '../core/math';
@@ -90,12 +90,15 @@ export class Book {
   private readonly textures: Texture[] = [];
   private readonly materials: Material[] = [];
   private readonly pageMaterials: { left: ReturnType<typeof createSurfaceMaterial>; right: ReturnType<typeof createSurfaceMaterial> };
+  private readonly coverMaterial: ReturnType<typeof createSurfaceMaterial>;
+  private cover: CoverTextures;
 
   constructor(
     readonly record: BookRecord,
     private readonly registry: Registry,
     fx: SurfaceFx,
     readonly faces: Typefaces = DEFAULT_FACES,
+    relief: CoverRelief = COVER_RELIEF,
   ) {
     const dims = (this.dims = makeDims({ pages: record.pages, thickness: record.thickness }));
     const seed = record.cover.seed ?? hashString(record.slug);
@@ -141,9 +144,9 @@ export class Book {
     // Temporary cover material so the volume can be built; replaced right below once the atlas is known.
     const volume = (this.volume = new Volume(dims, { cover: endpaper, endpaper, pageLeft: this.pageMaterials.left, pageRight: this.pageMaterials.right, edge: edgeMat }));
     const atlas = volume.atlas;
-    const cover = paintCover(record.cover, { title: record.title, subtitle: record.subtitle, author: record.author, imprint: record.imprint }, atlas, faces);
+    const cover = (this.cover = this.paintCover(relief));
     const stripLength = atlas.aspect * dims.coverH;
-    const coverMat = createSurfaceMaterial({
+    const coverMat = (this.coverMaterial = createSurfaceMaterial({
       map: cover.map,
       grain: grainTexture(grainKind),
       grainRepeat: [stripLength * GRAIN_PER_UNIT[grainKind], dims.coverH * GRAIN_PER_UNIT[grainKind]],
@@ -159,9 +162,8 @@ export class Book {
       foilSpecular: record.material?.foilSpecular ?? 1.2,
       foilDetail: record.material?.foilDetail ?? 2.6,
       fx,
-    });
+    }));
     volume.caseMesh.material = [coverMat, endpaper];
-    this.textures.push(cover.map, cover.emboss, cover.finish);
     this.materials.push(coverMat, endpaper, edgeMat, this.pageMaterials.left, this.pageMaterials.right);
 
     this.root.name = `book.${record.slug}`;
@@ -218,6 +220,22 @@ export class Book {
     } else this.applyTurn();
   }
 
+  private paintCover(relief: CoverRelief): CoverTextures {
+    const r = this.record;
+    return paintCover(r.cover, { title: r.title, subtitle: r.subtitle, author: r.author, imprint: r.imprint }, this.volume.atlas, this.faces, 2048, relief);
+  }
+
+  /** Paints the cover again, for instance after the shape of its relief was changed. */
+  repaintCover(relief: CoverRelief): void {
+    const old = this.cover;
+    const cover = (this.cover = this.paintCover(relief));
+    const uniforms = this.coverMaterial.userData.uniforms as Record<string, { value: unknown }>;
+    this.coverMaterial.map = cover.map;
+    uniforms.tEmboss!.value = cover.emboss;
+    if (uniforms.tFinish!.value) uniforms.tFinish!.value = cover.finish;
+    for (const t of [old.map, old.emboss, old.finish]) t.dispose();
+  }
+
   paintPage(content: PageContent, height = 1536): Texture {
     return paintPage(content, this.dims.pageW / this.dims.pageH, this.faces, height, this.record.paper);
   }
@@ -254,7 +272,7 @@ export class Book {
   dispose(): void {
     this.registry.remove(`book.${this.record.slug}`);
     this.root.removeFromParent();
-    for (const t of this.textures) t.dispose();
+    for (const t of [...this.textures, this.cover.map, this.cover.emboss, this.cover.finish]) t.dispose();
     for (const m of this.materials) m.dispose();
     this.volume.caseMesh.geometry.dispose();
     this.volume.leftBlock.geometry.dispose();
