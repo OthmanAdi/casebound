@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROFILE_STRIDE, sampleLeaf, sineIntegral, turnLengthForHeight, turnLengthForOffset } from './profile';
+import { PROFILE_STRIDE, sampleDistance, sampleIndex, sampleLeaf, sineIntegral, turnLengthForHeight, turnLengthForOffset } from './profile';
 
 const sample = (shape: Parameters<typeof sampleLeaf>[0], n = 32): Float32Array => {
   const out = new Float32Array((n + 1) * PROFILE_STRIDE);
@@ -44,6 +44,15 @@ describe('sampleLeaf', () => {
     expect(sineIntegral(Math.PI / 2)).toBeCloseTo(1.370762, 5);
     expect(sineIntegral(Math.PI)).toBeCloseTo(1.851937, 5);
     expect(sineIntegral(-1)).toBeCloseTo(-0.946083, 5);
+  });
+
+  it('finds the sample at a distance along the leaf, and stays on the leaf beyond its ends', () => {
+    for (const i of [0, 1, 7, 31, 56]) expect(sampleIndex(12.8, 56, sampleDistance(12.8, 56, i))).toBeCloseTo(i, 6);
+    const between = sampleIndex(12.8, 56, (sampleDistance(12.8, 56, 20) + sampleDistance(12.8, 56, 21)) / 2);
+    expect(between).toBeGreaterThan(20);
+    expect(between).toBeLessThan(21);
+    expect(sampleIndex(12.8, 56, -1)).toBe(0);
+    expect(sampleIndex(12.8, 56, 99)).toBe(56);
   });
 
   it('mirrors left and right', () => {

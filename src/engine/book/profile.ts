@@ -71,6 +71,9 @@ export function sampleLeaf(shape: LeafShape, count: number, out: Float32Array): 
 /** Arc-length position of sample i, matching `sampleLeaf`. */
 export const sampleDistance = (length: number, count: number, i: number): number => length * Math.pow(i / count, CROWD);
 
+/** The inverse of `sampleDistance`: the sample index, with its fraction, at an arc-length position. */
+export const sampleIndex = (length: number, count: number, s: number): number => count * Math.pow(Math.min(Math.max(s / length, 0), 1), 1 / CROWD);
+
 /**
  * For a leaf lying flat on a stack, the height it gains while turning is turnLength x Si(pi/2).
  * This is the inverse: the turn length that puts a layer at the given height.
