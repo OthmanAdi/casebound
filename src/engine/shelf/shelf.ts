@@ -23,6 +23,8 @@ export interface ShelfOptions {
   layout?: ShelfLayout;
   /** A press that starts inside an element matching this selector never takes hold of a book. */
   ignore?: string;
+  /** Extra scale for the books, for layouts where they share the screen. Default 1. */
+  fit?: () => number;
 }
 
 /** What the shelf decided for one book this frame. A custom layout may change any of it. */
@@ -285,7 +287,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
 
     const offset = opts.centreOffsetPx?.() ?? { x: 0, y: 0 };
     const worldPerPx = ctx.visibleHeightAt(t.planeZ) / Math.max(1, ctx.size.y);
-    const scale = ctx.compact ? t.compactScale : 1;
+    // A book never grows wider than the screen: on a narrow one it shrinks to fit, with a little air.
+    const wide = (engine.books[order[0]!]?.dims.coverW ?? 15) * 1.16 / worldPerPx;
+    const scale = Math.min(ctx.compact ? t.compactScale : 1, (ctx.size.x * 0.9) / wide) * (opts.fit?.() ?? 1);
     const follow = !seeded || ctx.still ? 1 : frameFactor(t.turnFollow, f.dt);
 
     for (const [slot, index] of order.entries()) {

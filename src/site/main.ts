@@ -75,22 +75,26 @@ async function boot(): Promise<void> {
   let shift = 0;
   let shiftFrom = 0;
   let shiftClock = 1;
+  /** On a narrow screen the details take the lower half: how far the book has moved up into the rest, 0..1. */
+  let lift = 0;
   let detailOpen = false;
   const offset = (): { x: number; y: number } => {
     const nav = parseFloat(getComputedStyle(html).getPropertyValue('--nav')) || 162;
     const panelH = innerHeight - nav - 24;
-    return { x: -0.2 * innerWidth * shift, y: nav + panelH / 2 - innerHeight / 2 };
+    const whole = nav + panelH / 2;
+    const upper = nav + (innerHeight * 0.46 - nav) / 2;
+    return { x: -0.2 * innerWidth * shift, y: whole + (upper - whole) * lift - innerHeight / 2 };
   };
   const slotPx = (): number => (panels.firstElementChild as HTMLElement).offsetHeight + 16;
 
-  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, layout: query.get('layout') === 'fan' ? fan : undefined });
+  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, fit: () => 1 - 0.5 * lift, layout: query.get('layout') === 'fan' ? fan : undefined });
   /** Scales the open book down where the spread is wider than the room it has: beside the detail column, or on a narrow screen. */
   const fit = (): number => {
     const book = reader.book;
     if (!book) return 1;
     const perWorld = ctx.size.y / ctx.visibleHeightAt(book.home.position.z);
     const spread = 2 * book.dims.pageW * book.home.scale * perWorld * 1.1;
-    const room = innerWidth * (1 - 0.4 * shift) - 48;
+    const room = innerWidth * (1 - 0.4 * shift) - (ctx.compact ? 16 : 48);
     return Math.min(1, room / spread);
   };
   const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
@@ -157,6 +161,7 @@ async function boot(): Promise<void> {
     $('details').setAttribute('aria-label', detailOpen ? 'Close details' : `View details: ${current().title}`);
     $('home-link').hidden = !(reading || detailOpen);
     html.toggleAttribute('data-lock', reading || detailOpen);
+    html.toggleAttribute('data-reading', reading);
     $('bar-title').textContent = `[▸] ${current().title}`;
     if (reading) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
     const slug = current().slug;
@@ -258,6 +263,11 @@ async function boot(): Promise<void> {
     const aside = detailOpen && !ctx.compact ? 1 : 0;
     shiftClock = ctx.still ? 1 : Math.min(1, shiftClock + f.dt / 0.64);
     shift = shiftFrom + (aside - shiftFrom) * easeInOutQuad(shiftClock);
+    const up = detailOpen && ctx.compact && !reader.isOpen ? 1 : 0;
+    const liftBefore = lift;
+    lift = ctx.still ? up : lift + (up - lift) * (1 - Math.exp(-7 * Math.min(f.dt, 0.05)));
+    if (Math.abs(lift - up) < 1e-3) lift = up;
+    if (lift !== liftBefore) ctx.invalidate();
     if (Math.abs(shift - before) > 1e-4 || shiftClock < 1) ctx.invalidate();
     html.style.setProperty('--shift', `${offset().x}px`);
 

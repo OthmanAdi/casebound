@@ -209,6 +209,10 @@ html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
   .grain { display: none; }
   html[data-detail] .panel { width: calc(100vw - var(--gutter) * 2); }
   .detail { left: var(--gutter); width: auto; top: 46vh; background: var(--bg); }
+  /* While a book is read on a narrow screen it has the whole picture; the details wait underneath. */
+  html[data-reading] .detail { display: none; }
+  .toolbar { gap: 10px; padding: 8px 10px; white-space: nowrap; }
+  #folio { min-width: 64px; }
   .detail h2 { font-size: 32px; }
   .byline { margin-bottom: 20px; }
 }
