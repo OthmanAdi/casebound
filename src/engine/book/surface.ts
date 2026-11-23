@@ -93,14 +93,16 @@ export interface ClothParams {
   exposure?: number;
   /** Share of the film grain this surface takes, 0..1. Measured on paper only, so paper takes all of it and cloth none. */
   film?: number;
+  /** Tooth of the material: a soft mottle in colour and relief that is still there when the weave is too fine to see. */
+  mottle?: number;
 }
 
 /** Defaults by grain (S-BOOK-7). */
 export const CLOTH: Readonly<Record<'buckram' | 'paper' | 'cardboard' | 'none', ClothParams>> = {
-  buckram: { gloss: 0.3, sheen: 0.6, weave: 0.3, fibre: 0.05, sheenRough: 0.55, wrap: 0.3 },
-  cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2 },
+  buckram: { gloss: 0.3, sheen: 0.6, weave: 0.3, fibre: 0.05, sheenRough: 0.55, wrap: 0.3, mottle: 0.07 },
+  cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2, mottle: 0.055 },
   // Paper measured 7 percent darker on screen than the reference before its gain was raised.
-  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, film: 1 },
+  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, film: 1, mottle: 0.03 },
   none: { gloss: 1, sheen: 0, weave: 0, fibre: 0, sheenRough: 0.6, wrap: 0 },
 };
 
@@ -159,6 +161,7 @@ uniform float uSheenRough;
 uniform float uSpecSpread;
 uniform float uWeave;
 uniform float uFibre;
+uniform float uMottle;
 uniform float uBumpGrain;
 uniform float uBumpEmboss;
 uniform vec2 uGrainRepeat;
@@ -192,6 +195,7 @@ uniform float uExposure;
 float bCloth = 1.0;
 float bFoil = 0.0;
 float bLod = 1.0;
+float bMottle = 0.0;
 
 float bHash( vec2 p ) {
 	p = fract( p * vec2( 123.34, 456.21 ) );
@@ -295,6 +299,10 @@ const ALBEDO = /* glsl */ `
 	diffuseColor.rgb *= 1.0 - uWeave * bCloth * bLod * gaps;
 	float streak = bNoise( vMapUv * vec2( 1100.0, 55.0 ) ) + bNoise( vMapUv * vec2( 55.0, 1100.0 ) ) - 1.0;
 	diffuseColor.rgb *= 1.0 + uFibre * bCloth * bLod * streak;
+	// Tooth: a mottle of two sizes. Unlike the weave it does not fade with distance, so cloth still reads as cloth across the room.
+	vec2 mUv = vMapUv * uGrainRepeat * 2.2;
+	bMottle = bNoise( mUv ) * 0.62 + bNoise( mUv * 2.9 + 17.0 ) * 0.38 - 0.5;
+	diffuseColor.rgb *= 1.0 + uMottle * bCloth * bMottle * 2.0;
 
 	#ifdef CASEBOUND_FINISH
 		vec3 fN = normalize( vNormal );
@@ -317,11 +325,15 @@ const BUMP = /* glsl */ `
 	float gy = texture2D( tGrain, gUv + dFdy( gUv ) ).r;
 	float gs = uBumpGrain * bCloth * bLod;
 	vec2 dH = vec2( gx - g0, gy - g0 ) * gs;
+	// The tooth catches the light as well.
+	dH += vec2( dFdx( bMottle ), dFdy( bMottle ) ) * uMottle * bCloth * 1.6;
 	#ifdef CASEBOUND_EMBOSS
 		float e0 = texture2D( tEmboss, vMapUv ).r;
 		float ex = texture2D( tEmboss, vMapUv + dFdx( vMapUv ) ).r;
 		float ey = texture2D( tEmboss, vMapUv + dFdy( vMapUv ) ).r;
-		dH += vec2( ex - e0, ey - e0 ) * uBumpEmboss;
+		// The relief map holds heights from 0 to 1 and its walls are a few pixels wide, so the measured strength
+		// (0.05 to 0.25 per title) is scaled to give a wall that the lights can shade.
+		dH += vec2( ex - e0, ey - e0 ) * uBumpEmboss * 36.0;
 	#endif
 	if ( uRadio > 0.001 ) {
 		float r0 = bRing( vMapUv );
@@ -415,6 +427,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uSpecSpread: { value: 3.25 },
     uWeave: { value: o.cloth.weave },
     uFibre: { value: o.cloth.fibre },
+    uMottle: { value: o.cloth.mottle ?? 0 },
     uBumpGrain: { value: o.bumpGrain },
     uBumpEmboss: { value: o.bumpEmboss ?? 0 },
     uGrainRepeat: { value: new Vector2(...o.grainRepeat) },
