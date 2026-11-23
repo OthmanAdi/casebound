@@ -56,20 +56,23 @@ export const FOIL = {
 /**
  * The joint: where a board meets the spine. Measured across the joint of a closed book on the shelf: the spine is
  * evenly lit up to its edge, the cloth reaches the brightness of the board within 5 pixels (0.16 world units), is
- * 14 percent darker 0.25 units further on, and is back at the brightness of the board after 0.45.
+ * 14 percent darker 0.25 units further on, and is back at the brightness of the board after 0.45. On a cover
+ * that faces the camera in the row the dark band lies further out, 0.5 units from the edge, and is 20 percent
+ * darker. Those are the two walls of one groove: the lights shade the near wall in one pose and the far wall in
+ * the other.
  * The case is built with a round hinge, so the relief does two things. It turns the normals of the hinge toward
- * the spine before its middle and toward the board after it, which reads as a square back. And it lets the cloth
- * come down from that edge onto the board, which is the groove.
+ * the spine before its middle and toward the board after it, which reads as a square back. And it presses a
+ * groove into the board beside that edge.
  */
 export const JOINT = {
   /** How square the back reads: 0 leaves the hinge round as built, 1 turns the normals by the bend of its centre line, and the outer face of a board needs about 1.25. */
   corner: 1.25,
-  /** How far the cloth comes down from the edge of the spine onto the board, world units. */
-  drop: 0.14,
-  /** Where the descent starts, measured from the middle of the hinge toward the board, world units. */
+  /** Depth of the groove beside the spine, world units. */
+  drop: 0.11,
+  /** Where the groove starts, measured from the middle of the hinge toward the board, world units. */
   start: 0.05,
-  /** Length of the descent, world units. */
-  run: 0.4,
+  /** Width of the groove, world units. */
+  run: 0.6,
 } as const;
 
 /**
@@ -83,9 +86,10 @@ export function jointSlope(s: number, half: number, bend: number, shape: { corne
   const soft = edge * edge * (3 - 2 * edge);
   const turn = Math.min(1.2, Math.max(0, bend) * 0.5 * (1 - Math.abs(p)));
   const corner = Math.abs(s) < half ? shape.corner * Math.tan(turn) * soft * (p < 0 ? 1 : -1) : 0;
-  const q = (s - shape.start) / Math.max(1e-4, shape.run);
-  const descent = q > 0 && q < 1 ? (-shape.drop / Math.max(1e-4, shape.run)) * 6 * q * (1 - q) : 0;
-  return corner + descent;
+  const run = Math.max(1e-4, shape.run);
+  const q = (s - shape.start) / run;
+  const groove = q > 0 && q < 1 ? ((-shape.drop * Math.PI) / run) * Math.sin(2 * Math.PI * q) : 0;
+  return corner + groove;
 }
 
 export const createSurfaceFx = (): SurfaceFx => ({
@@ -408,8 +412,8 @@ vec3 bFoilTone( float t ) {
 		float corner = uJointShape.x * tan( turn ) * smoothstep( 0.0, 0.35, abs( p ) ) * ( p < 0.0 ? 1.0 : - 1.0 ) * step( abs( s ), hl );
 		float run = max( uJointShape.w, 1e-4 );
 		float q = ( s - uJointShape.z ) / run;
-		float descent = - uJointShape.y / run * 6.0 * q * ( 1.0 - q ) * step( 0.0, q ) * step( q, 1.0 );
-		return corner + descent;
+		float groove = - uJointShape.y * PI / run * sin( 2.0 * PI * q ) * step( 0.0, q ) * step( q, 1.0 );
+		return corner + groove;
 	}
 #endif
 

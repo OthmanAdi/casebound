@@ -144,13 +144,13 @@ export function createEngine(opts: EngineOptions): Engine {
     label: 'Joint of the case',
     kind: 'material-effect',
     tags: ['material', 'shader', 'cover', 'light'],
-    describe: 'Where a board meets the spine: a relief that makes the round hinge read as a square back with a groove beside it. Measured across the joint of a closed book: board brightness 0.16 world units from the edge of the spine, 14 percent darker 0.25 further on, level again after 0.45.',
+    describe: 'Where a board meets the spine: a relief that makes the round hinge read as a square back with a groove beside it. Measured: on the closed book on the shelf the near wall of the groove is 14 percent darker than the board, on a cover that faces the camera in the row the far wall is 20 percent darker.',
     source: 'src/engine/book/surface.ts',
     params: {
       corner: { value: JOINT.corner, min: 0, max: 1.5, help: 'How square the back reads. 0 leaves the hinge round as it is built' },
-      drop: { value: JOINT.drop, min: 0, max: 0.5, unit: 'world', help: 'How far the cloth comes down from the edge of the spine onto the board. This is the depth of the groove. 0 leaves none' },
-      start: { value: JOINT.start, min: -0.3, max: 0.6, unit: 'world', help: 'Where the descent starts, measured from the middle of the hinge toward the board' },
-      run: { value: JOINT.run, min: 0.05, max: 1.5, unit: 'world', help: 'Length of the descent. Shorter is a sharper groove' },
+      drop: { value: JOINT.drop, min: 0, max: 0.5, unit: 'world', help: 'Depth of the groove beside the spine. 0 leaves none' },
+      start: { value: JOINT.start, min: -0.3, max: 0.6, unit: 'world', help: 'Where the groove starts, measured from the middle of the hinge toward the board' },
+      run: { value: JOINT.run, min: 0.05, max: 1.5, unit: 'world', help: 'Width of the groove. Narrower is sharper' },
     },
     onChange: () => ctx.invalidate(),
   });

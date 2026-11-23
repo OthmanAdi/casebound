@@ -20,13 +20,21 @@ describe('the joint relief', () => {
     expect(jointSlope(0.1, half, -0.4, cornerOnly)).toBeCloseTo(0, 12);
   });
 
-  it('comes down onto the board by the drop, and is level beyond', () => {
-    const descent = { ...JOINT, corner: 0 };
+  it('presses a groove of the given depth into the board and is level on both sides of it', () => {
+    const groove = { ...JOINT, corner: 0 };
     let height = 0;
+    let lowest = 0;
     const step = 1e-4;
-    for (let s = -1; s < 2; s += step) height += jointSlope(s + step / 2, half, closed, descent) * step;
-    expect(height).toBeCloseTo(-JOINT.drop, 4);
-    expect(jointSlope(JOINT.start + JOINT.run + 0.01, half, closed, descent)).toBeCloseTo(0, 12);
+    for (let s = -1; s < 2; s += step) {
+      height += jointSlope(s + step / 2, half, closed, groove) * step;
+      lowest = Math.min(lowest, height);
+    }
+    expect(lowest).toBeCloseTo(-JOINT.drop, 4);
+    expect(height).toBeCloseTo(0, 4);
+    // The near wall comes down toward the board, the far wall comes up again.
+    expect(jointSlope(JOINT.start + JOINT.run * 0.25, half, closed, groove)).toBeLessThan(0);
+    expect(jointSlope(JOINT.start + JOINT.run * 0.75, half, closed, groove)).toBeGreaterThan(0);
+    expect(jointSlope(JOINT.start + JOINT.run + 0.01, half, closed, groove)).toBeCloseTo(0, 12);
     expect(jointSlope(-0.5, half, closed)).toBeCloseTo(0, 12);
   });
 });
