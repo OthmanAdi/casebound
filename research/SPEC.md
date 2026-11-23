@@ -90,7 +90,7 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 | Id | Fact | Level | Source |
 |---|---|---|---|
 | S-SCR-1 | scrollY to slot progress: one slot per featured book (canvas height each), one long slot for the spine row (canvas height x 1.67 desktop) | code | M §3.1 |
-| S-SCR-2 | Dwell: each featured book holds for a 150 px plateau, with a slow approach before and a ramp after. No CSS scroll snap anywhere | code | M §3.1 |
+| S-SCR-2 | Dwell: each featured book lingers for about 150 px of scroll (75 after its rest position, 71 before the next; the first book 110). It never stands dead still: it creeps 2.08e-4 slots per pixel throughout, and a cycloid between two dwells carries the rest, with no kink. Pictures are 856 px high in a window 900 high, so one book is 872 px of scroll from the next (943 from the first). No CSS scroll snap anywhere | code and capture | M §3.1 |
 | S-SCR-3 | Wheel-notch bridge: a jump of 24 px or more is ramped linearly over clamp(1.15 x notch interval, 60, 160) ms | code | M §3.1 |
 | S-SCR-4 | Progress is then smoothed with a SmoothDamp, smooth time 0.0945 s, on desktop times 0.7 (0.066 s), dt clamped to 1/240..1/30 | frames (decay ratios fall from 0.61 to 0.21 per 50 ms, which fits a smooth-damp and not a plain lerp; smooth time not fitted yet) | M §4.2, H §a |
 | S-SCR-5 | Measured response to a 600 px stepped wheel: the book starts about 117 ms after the first step and is within 1 % about 200 ms after the last | frames | H §a |

@@ -19,6 +19,11 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Key shadow radius | shelf and reader | 6.000 and 9.739 against 6 and 9.74 | matches |
 | Wall shadow | opacity on the shelf and in the reader | 0.192 and 0.0534 against 0.193 and 0.0534 | matches |
 | Detail view | sideways move of the book over time | same curve and end value (-9.1229 against -9.1239), one frame late in the capture; corrected afterwards | close |
+| Shelf, a wheel notch | 10, 50, 90, 99 % of the book's move | 29, 93, 173, 265 ms against 29, 93, 173, 265 (it was 1, 39, 112, 203) | matches |
+| Shelf, the dwell | how far a book has moved after 75 px of scroll | within 0.5 px of the reference's 11.8 px (it was 0) | matches |
+| Shelf, turn after a jump of the scroll bar | 10, 50, 90, 99 % of the arriving book's turn | 37, 81, 178, 328 ms against 54, 98, 195, 344 (it was 43, 104, 253, 466) | close: one frame early |
+| Shelf, damping, poses and intro | height curve after a jump; rest, arrive and leave poses; intro | the damper is the reference's, one frame earlier; poses equal; intro within 0.01 units and 0.1 degrees | matches |
+| Shelf, scroll per book | pixels of scrolling from one book to the next | 872 against 872, 943 from the first book on the reference (it was 730) | matches but for the first book |
 | Open book | when the book turns | 10, 50, 90 and 99 % at 1222, 1803, 2120 and 2226 ms against 1335, 1835, 2146 and 2252 | close: 113 ms early at the start, 26 to 32 ms from half way on |
 | Pages parting | page progress at seven times, 1700 to 2300 ms | 0.159, 0.300, 0.477, 0.665, 0.833, 0.962, 1 against 0.172, 0.292, 0.458, 0.639, 0.808, 0.943, 1 | matches to 0.03 |
 | Pages parting | path of the two stacks | both swing out by their final angle times the square of the page progress, as read in the reference's code and seen in its frames | matches by rule; frames of a new capture agree within two to three frames |
@@ -34,6 +39,28 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Resting spread | belly of the pages | about 1.1 units high, a third of the way out; ours built to that | built from one frame, not measured again |
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, the nine largest corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758 | close: three differences open |
+
+## 2026-11-23 · Sixth pass: the shelf under scrolling
+
+The shelf was built from constants read in the reference's code and had never been set beside a capture. A second session captured both sides with one script: a glide from one book to the next in 1.4 s, a jump in one frame, a glide over two books, 100 px into the dwell and back, the way back up, the intro after load, one real wheel event and a run of them. Per frame it read every book's position and rotation.
+
+What already agreed: the damper (SmoothDamp 0.0945 s x 0.7; after a jump our height curve is the reference's, one frame earlier), the rest, arrive and leave poses, pitch, depth, sideways position and scale, the intro (0.01 units and 0.1 degrees), and the wall shadow at rest (0.193 against 0.192).
+
+| # | Difference | Reference | Ours before | Now |
+| --- | --- | --- | --- | --- |
+| 1 | A wheel notch | spread over a ramp of 115 ms before the damper: 29, 93, 173, 265 ms; speed changes by at most 2.0 px between frames in a run of notches | 1, 39, 112, 203 ms; 13.6 px | 29, 93, 173, 265 ms; 3.1 px |
+| 2 | The dwell | the book creeps through it: 11.8 px after 75 px of scroll | 0 px, then a kink | within 0.5 px, no kink |
+| 3 | Scroll from one book to the next | 872 px (943 from the first) | 730 px | 872 px |
+| 4 | Turn of the arriving book after a fast scroll | 54, 98, 195, 344 ms | 43, 104, 253, 466 ms | 37, 81, 178, 328 ms |
+| 5 | Wall shadow while the book changes | dips by 7 % | dips by 25 % | open |
+| 6 | A scripted scroll jump | shows one frame later | shows at once | open; not seen with real wheel events |
+| 7 | Rise of a book per frame | capped at 4 units | 4.24, 4.31, 3.65 | open (17 px for three frames) |
+| 8 | The first book | dwells 110 px, not 75 | like the others | open |
+| 9 | The push of a leaving book upward | capped: 74.9 units | grew without bound, 1333 | capped |
+
+The reference's pictures are taller than the room between its header and the bar at the foot, 856 px in a window 900 high, and run on under the bar. That is where its longer way from book to book comes from; ours ended above the bar. With the same picture height the settled curve stays within 7 px of the reference's and a glide between two middle books within 24 px. The height during a long glide from the first book is still 30 to 60 px off at the worst frame, because the reference's first slot is longer than its others.
+
+Every reference number here is one reading at 1440x900. The wheel was one notch size and rhythm with the browser's own smooth scrolling off; trackpad and touch were not captured.
 
 ## 2026-11-23 · Fifth pass: a new capture, the page lights, the covers
 
