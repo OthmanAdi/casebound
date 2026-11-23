@@ -119,6 +119,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       levelSeconds: { value: SPIN_DEFAULT.levelSeconds, min: 0.1, max: 20, unit: 's' },
       dragPx: { value: 5, min: 0, max: 40, unit: 'px', help: 'Pointer travel before a press counts as a drag' },
       unwind: { value: 5, min: 0.1, max: 40, unit: '1/s', help: 'How fast a book that leaves the centre forgets its turn' },
+      peek: { value: 5, min: 0, max: 40, unit: 'deg', help: 'How far the front cover lifts while the pointer rests on the book. Measured: 5' },
+      peekFollow: { value: 0.075, min: 0.005, max: 1, help: 'Share of the way the cover moves per 60 Hz frame' },
     },
     onChange: () => ctx.invalidate(),
   });
@@ -170,6 +172,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   let spin = createSpin();
   let spun = -1;
   let press: { id: number; x: number; y: number; at: number; touch: boolean; grab: SpinGrab | null; trail: { t: number; x: number; y: number }[] } | null = null;
+  /** The pointer rests on the centred book. */
+  let hovering = false;
+  let peek = 0;
   const centre = new Vector3();
   /** The engine's own time in milliseconds. The speed of the hand is taken on this clock, so a recording that steps the clock coasts like a live session. */
   let clock = 0;
@@ -204,6 +209,10 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     if (!press) {
       if (ev.pointerType === 'mouse' && shelf.enabled) {
         const over = !(ev.target instanceof Element && ev.target.closest(ignore)) && onBook(ev.clientX, ev.clientY);
+        if (over !== hovering) {
+          hovering = over;
+          ctx.invalidate();
+        }
         if (over || document.documentElement.style.cursor === 'grab') document.documentElement.style.cursor = over ? 'grab' : '';
       }
       return;
@@ -337,7 +346,13 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           spin.shownYaw = spin.yaw;
           spin.coastPitch = spin.coastYaw = spin.front = spin.back = 0;
         } else if (stepSpin(spin, f.dt, spinTune)) moving = true;
-        book.setTurn(spin.shownPitch, spin.shownYaw, book.held ? 0 : spin.front, book.held ? 0 : spin.back);
+        // The cover lifts a little under a resting pointer, as if a thumb were on its edge.
+        const resting = hovering && ctx.pointer !== null && !press && !book.held && !ctx.still && Math.abs(state.progress - Math.round(state.progress)) < 0.03;
+        const goal = resting ? spinTune.peek * DEG : 0;
+        peek += (goal - peek) * frameFactor(spinTune.peekFollow, f.dt);
+        if (Math.abs(goal - peek) < 1e-4) peek = goal;
+        else moving = true;
+        book.setTurn(spin.shownPitch, spin.shownYaw, book.held ? 0 : Math.max(spin.front, peek), book.held ? 0 : spin.back);
       } else if (Math.abs(book.turned.pitch) + Math.abs(book.turned.yaw) + book.flap.front + book.flap.back > 1e-4) {
         const keep = ctx.still ? 0 : Math.exp(-spinTune.unwind * Math.min(f.dt, 0.05));
         book.setTurn(book.turned.pitch * keep, book.turned.yaw * keep, 0, 0);

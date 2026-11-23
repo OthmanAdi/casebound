@@ -73,9 +73,16 @@ try {
   await page.mouse.up();
   await run(0.2);
   await shot('let go');
+  await page.mouse.move(30, 300);
   await run(4);
   await check('keeps its turn and comes to rest with the covers shut', (s) => s.yaw >= held.yaw - 0.05 && s.front === 0 && s.back === 0);
   await shot('at rest turned');
+
+  // A pointer that rests on the book lifts its front cover a little.
+  await page.mouse.move(c.x, c.y);
+  await run(1.5);
+  await check('the cover lifts under a resting pointer', (s) => Math.abs(s.front - 5 * Math.PI / 180) < 0.01);
+  await shot('peek');
 
   // A press that does not move opens the details.
   await page.mouse.click(c.x, c.y);
