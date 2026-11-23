@@ -19,9 +19,10 @@ export interface VolumePose {
   /** Share of the leaves resting on the front board, 0..1. Reading progress through the book. */
   split: number;
   /**
-   * How far the leaves of the front board have come over from the back board, 0..1. A book opens at a page by
-   * turning everything before that page over in one wad: at 0 the wad still lies on the other leaves, first
-   * page up, at 1 it lies on the front board. Default 1.
+   * How far the pages have parted, 0..1. A book opens at a page by turning everything before that page over in
+   * one wad. At 0 both stacks stand together along the closed book, the wad on top with its first leaf up. They
+   * swing out to their boards by the square of this value, so both trail the boards, which move in step with
+   * it: the back stack lifts off its board on the way and the wad comes over late. Default 1.
    */
   turn?: number;
 }
@@ -291,32 +292,32 @@ export class Volume {
     return { x: x + (nx * d.board) / 2, z: z + (nz * d.board) / 2, nx, nz };
   }
 
+  /**
+   * The angle from the closed book at which a stack lies: on its board once the pages have parted, and on the
+   * way there measured on the reference as its final angle times the square of the page progress.
+   */
+  private lie(left: boolean, pose: VolumePose): number {
+    const turn = Math.min(Math.max(pose.turn ?? 1, 0), 1);
+    if (turn >= 1) return left ? pose.front : pose.back;
+    // The two boards always span the same angle, so the share of it that belongs to the front stack is known.
+    return left ? (pose.front + pose.back) * (1 - pose.split) * turn * turn : pose.back * turn;
+  }
+
   /** Shape of layer k (0 = on the board, 1 = top of the stack) of one page block. */
   layerShape(which: 0 | 1, k: number, pose: VolumePose = this.pose): LeafShape {
     const d = this.dims;
     const left = which === 0;
     const t = d.blockT * (left ? pose.split : 1 - pose.split);
-    const open = left ? pose.front : pose.back;
+    const open = this.lie(left, pose);
     const heading = left ? Math.PI / 2 + open : Math.PI / 2 - open;
     const x = left ? -d.blockT / 2 + k * t : d.blockT / 2 - k * t;
     const z = d.board / 2 + SEAT;
     // Away from the spine the layer runs k x t above the inner face of its board, wherever that board points:
-    // lying flat, standing, or folded right back while the book is open near its first or last page.
+    // lying flat, standing, or folded right back while the book is open near its first or last page. A stack on
+    // its way out is shaped as if a board stood where the stack is now.
     const face = this.boardFace(left, open);
     const offset = (face.x - x) * face.nx + (face.z - z) * face.nz + k * t + SEAT;
-    const shape: LeafShape = { x, z, heading, turnLength: turnLengthForOffset(offset, heading - Math.PI / 2), length: d.pageW };
-    const turn = pose.turn ?? 1;
-    if (!left || turn >= 1) return shape;
-    // The wad on its way over. Before it turns, its leaves are simply the upper leaves of one undivided stack on
-    // the back board, bound at the same places, the other way up. In between, each leaf sweeps over the spine.
-    const all = d.blockT;
-    const upper = 1 - pose.split * k;
-    const there = Math.PI / 2 - pose.back;
-    const back = this.boardFace(false, pose.back);
-    const lift = (back.x - x) * back.nx + (back.z - z) * back.nz + upper * all + SEAT;
-    const lying = turnLengthForOffset(lift, there - Math.PI / 2);
-    const s = Math.min(Math.max(turn, 0), 1);
-    return { x, z, heading: there + (heading - there) * s, turnLength: lying + (shape.turnLength - lying) * s, length: d.pageW };
+    return { x, z, heading, turnLength: turnLengthForOffset(offset, heading - Math.PI / 2), length: d.pageW };
   }
 
   private buildBlock(which: 0 | 1, pose: VolumePose): void {

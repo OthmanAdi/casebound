@@ -223,6 +223,7 @@ export class Book {
     const n = this.open > 0 ? this.reading * this.pages : 0;
     const closed = 1 - this.open;
     // The pages part by turning everything before the reading place over in one wad, first leaf up until it lands.
+    // The volume lets both stacks trail their boards on the way (see `VolumePose.turn`).
     this.volume.setPose({
       front: this.open * OPEN_ANGLE * (2 - 2 * n) + this.flap.front * closed,
       back: this.open * OPEN_ANGLE * 2 * n + this.flap.back * closed,
