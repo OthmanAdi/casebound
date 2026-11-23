@@ -241,6 +241,10 @@ async function boot(): Promise<void> {
   });
 
   ctx.events.on('view', () => sync());
+  // A press on the centred book that did not turn it opens its details.
+  ctx.events.on('book-click', () => {
+    if (!detailOpen && !reader.isOpen) setDetail(true);
+  });
   ctx.events.on('book-focus', () => {
     applyTheme();
     sync();
