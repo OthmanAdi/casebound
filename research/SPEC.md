@@ -64,7 +64,7 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 |---|---|---|---|
 | S-WALL-1 | Books float in front of a wall, there is no floor. Plane 172.74 square at (0, -1.482, -54.5), facing the camera, shadow-only material colour #0a0a12, opacity 0.855 | code | R §8 |
 | S-WALL-2 | Soft shadow: 16 taps on a Vogel disk, rotated per pixel by interleaved gradient noise. Radius = light radius x (1 + 0.06 x 1.69 x (1 + 2.25 distT)) | code | R §8 |
-| S-WALL-3 | distT = smoothstep of the active book's distance from the wall over 2 to 36. Opacity x (1 - 0.875 distT), and x 0.5 more while the reader opens | code | R §8 |
+| S-WALL-3 | distT = smoothstep of the distance from the wall to the farthest corner of the active book's bounding box, over 2 to 36, eased at 10 per second. Opacity x (1 - 0.875 distT), and x 0.5 more while the reader opens | code | R §8 |
 | S-WALL-4 | Tinted grain on the wall, amplitude 0.03, re-seeded each drawn frame | code | R §8 |
 | S-WALL-5 | The key light's shadow camera is recentred on the wall centre every frame | code | R §8 |
 | S-WALL-6 | In the reader the wall group moves from z -70.25 to -54.5 | live | L §B |
@@ -92,12 +92,12 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 | S-SCR-1 | scrollY to slot progress: one slot per featured book (canvas height each), one long slot for the spine row (canvas height x 1.67 desktop) | code | M §3.1 |
 | S-SCR-2 | Dwell: each featured book holds for a 150 px plateau, with a slow approach before and a ramp after. No CSS scroll snap anywhere | code | M §3.1 |
 | S-SCR-3 | Wheel-notch bridge: a jump of 24 px or more is ramped linearly over clamp(1.15 x notch interval, 60, 160) ms | code | M §3.1 |
-| S-SCR-4 | Progress is then smoothed with a SmoothDamp, smooth time 0.066 s desktop, 0.0945 s mobile, dt clamped to 1/240..1/30 | frames (decay ratios fall from 0.61 to 0.21 per 50 ms, which fits a smooth-damp and not a plain lerp; smooth time not fitted yet) | M §4.2, H §a |
+| S-SCR-4 | Progress is then smoothed with a SmoothDamp, smooth time 0.0945 s, on desktop times 0.7 (0.066 s), dt clamped to 1/240..1/30 | frames (decay ratios fall from 0.61 to 0.21 per 50 ms, which fits a smooth-damp and not a plain lerp; smooth time not fitted yet) | M §4.2, H §a |
 | S-SCR-5 | Measured response to a 600 px stepped wheel: the book starts about 117 ms after the first step and is within 1 % about 200 ms after the last | frames | H §a |
 | S-SCR-6 | Active index changes only when progress leaves +-0.65 around the current integer; the scene sees it 200 ms late | code | M §3.1 |
 | S-SCR-7 | Spine row seat: a wheel that would cross the seat locks native scroll and glides there in 180 to 650 ms (ease-out cubic with velocity, else ease-in-out quad) | code | M §3.2 |
 | S-LAY-1 | Featured book: x 0, y = b x 24 + base, z -36, where b = progress - slot. Visible for -1.8 < b < 1.8 | frames (y -3.06 to 17.14 over the measured scroll) | M §5.2, H §a |
-| S-LAY-2 | Rest pose of a featured book: root Euler XYZ (-28, 32, 12) degrees, inner group yaw -90 (front cover to the camera, spine on the left). Confirmed in frames: root rotation settles at (-0.4887, 0.5585, 0.2094) rad, root y at -2.3068. Intro: the book arrives from (-155, 0, 90) degrees and y -25.3 over about 2.8 s. Leaving upward: yaw 75 then roll 90. Arriving from below: yaw 155 then roll 90. Blend amount = ease-in-out quad of (abs(b) - 0.1) / (0.8 - 0.1), end 1.2 when leaving upward | frames | M §5.2, H series `b-hover-home` |
+| S-LAY-2 | Rest pose of a featured book: root Euler XYZ (-28, 32, 12) degrees, inner group yaw -90 (front cover to the camera, spine on the left). Confirmed in frames: root rotation settles at (-0.4887, 0.5585, 0.2094) rad, root y at -3.0553 (four captures agree; an earlier reading of -2.3068 was taken after the book had started to move again). Intro: the book arrives from (-155, 0, 90) degrees and y -25.3 over about 2.8 s. Leaving upward: yaw 75 then roll 90. Arriving from below: yaw 155 then roll 90. Blend amount = ease-in-out quad of (abs(b) - 0.1) / (0.8 - 0.1), end 1.2 when leaving upward | frames | M §5.2, H series `b-hover-home` |
 | S-LAY-3 | Exit boost above b = 0.6: y += ((b - 0.6) / 0.4)^3 x 24 x 2.25 | code | M §5.2 |
 | S-LAY-4 | Spine row: books stand at z about -53.75, pitch = rendered thickness + 0.9375 gap. Selected book yaws 90 with exponent 1.6, comes 8 forward, neighbours go 2 back. Hovered spine comes 3.78 forward | live (z -53.75, hover to -49.97, selected at -43.75 rotated -90) | M §5.4, L §B |
 | S-LAY-5 | Row offset follows the selection with SmoothDamp 0.26 s (0.06 s while dragging) | code | M §4.2 |
@@ -149,7 +149,7 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 |---|---|---|---|
 | S-MAG-1 | A second full-screen pass on the same canvas: draw the scene, copy the framebuffer to a texture, draw a quad with a lens shader. No DOM lens | live | M §9, L §B |
 | S-MAG-2 | Live uniforms: magnification 0.308, radius 0.31 of viewport height, edge falloff 0.022, barrel -0.57, ring radius 0.31, ring thickness 0.006, ring opacity 1. About 1.45x at the centre, 1.52x at the inner rim | live | L §B, M §9 |
-| S-MAG-3 | Ring: black with a white inner band, antialiased over 2 % of the radius. At 1440x900 the lens is about 558 px across | live (seen about 550 px) | M §9, F |
+| S-MAG-3 | Ring: black with a white inner band, antialiased over 2 % of the radius. At 1440x900 the ring's outer diameter is 571 px | live (seen about 550 px) | M §9, F |
 | S-MAG-4 | Follow: exponential, rate 22 per second, dt capped 0.05 | code | M §9 |
 | S-MAG-5 | Available in the detail view and on featured books; button and `m`; off by Escape. Turning it on changes the view of the book (flatter) and draws every frame | live | F, M §9 |
 | S-MAG-6 | Mobile: centre pinned, magnification x 1.3, radius x 0.858, double tap inside turns it off | code | M §9 |
@@ -160,12 +160,12 @@ Confirmed by hand in Edge on 2026-11-23 and by frame-stepped capture.
 
 | Id | Fact | Level | Source |
 |---|---|---|---|
-| S-HOLO-1 | Trigger: hovering the e-book row of the detail panel. The whole book, pages included, takes the effect. Fades in after 50 ms, rate 6 per second | live | M §8.7 A, F |
+| S-HOLO-1 | Trigger: hovering the e-book row of the detail panel. The whole book, pages included, takes the effect. Fades in after 100 ms by a tenth of the way per frame (6.32 per second) | live | M §8.7 A, F |
 | S-HOLO-2 | Scanlines: two frequencies, 817 and 817/6 per page height, moving at 10 and 6.1 rad/s, strength 0.055 and 0.0385 | code | M §8.7 A |
 | S-HOLO-3 | Wave: lines shear sideways by 0.003 and 0.006 UV. Colour split 0.0147 driven by pointer and time. Grain +-0.04 in 4 px blocks stepped at 12 Hz. Tint (0.004, 0.015, 0.087) | live (shear, split and lilac glow seen) | M §8.7 A, F |
 | S-HOLO-4 | Pulse: brightness boost = 0.3 x intensity x (0.5 (0.5 sin 1.7t + 0.3 sin 2.9t + 0.2 sin 0.7t) + 0.5) | code | M §8.7 A |
 | S-HOLO-5 | Canvas opacity drops to 0.9 while the effect runs | code | R §2 |
-| S-RADIO-1 | Trigger: hovering the audiobook row. Rings travel outward from UV (1, 0): frequency 69.8, 1.53 cycles per second, strength 0.32, vertex displacement 0.92, brightness x (1 + 0.35 wave), speech-like envelope 0.55 sin 3.1t + 0.45 sin(1.7t + 1.4). Fade in 20, out 10 per second | live (rippling page surface and waving edge seen) | M §8.7 B, F |
+| S-RADIO-1 | Trigger: hovering the audiobook row. Rings travel outward from UV (1, 0): frequency 69.8, 1.53 cycles per second, strength 0.32, vertex displacement 0.92, brightness x (1 + 0.35 wave), speech-like envelope 0.55 sin 3.1t + 0.45 sin(1.7t + 1.4). Fades in after 100 ms by a third of the way per frame (24.3 per second), out at 10 per second | live (rippling page surface and waving edge seen) | M §8.7 B, F |
 
 ## 12. DOM shell
 
