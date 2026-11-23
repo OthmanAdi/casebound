@@ -50,7 +50,7 @@ Four lights in one rig, rewritten every frame from a preset. Presets blend field
 
 | Id | Fact | Level | Source |
 |---|---|---|---|
-| S-LIGHT-6 | Light theme multiplies key and sun intensity by 1.1. Confirmed live: key 3.971 = 3.61 x 1.1, sun 2.893 = 2.63 x 1.1 | live | R §4.1, L §A |
+| S-LIGHT-6 | The light theme and the colour theme multiply key and sun intensity by 1.1. Confirmed live in both: key 3.971 = 3.61 x 1.1, sun 2.893 = 2.63 x 1.1 | live | R §4.1, L §A |
 | S-LIGHT-7 | Spot: penumbra 0.94, decay 0, infinite distance, base position (24, 5.4, 10). It eases 6 % per frame toward (base.x + 36 sin(0.7 pi px), base.y + 36 sin(0.6 pi py), 10), px and py being the pointer in -1..1. Its target eases toward 30 % of that offset on the plane z = -50. Casts shadows only in the dark theme. No pointer coupling on touch | live (follow seen: x 24 to 57.2, y 5.4 to -30.4) | R §4.1, L §B |
 | S-LIGHT-8 | Key and sun shift with the pointer by up to 0.7 in x and y (and +4 in z) in the light theme, unsmoothed | live | R §4.1, L §B |
 | S-LIGHT-9 | Ambient colour is pulled 25 % toward a pale version of the active book's background colour in the colour theme. Key colour is pulled 20 % toward the half-desaturated book colour | code | R §4.1 |

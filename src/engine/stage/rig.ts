@@ -137,7 +137,8 @@ export class LightRig {
 
     const px = input.pointer && !input.compact ? input.pointer.x : 0;
     const py = input.pointer && !input.compact ? input.pointer.y : 0;
-    const boost = 1 + t.lightBoost * this.lightW;
+    // Measured in the running scene: Noon carries the same lift of key and sun as Morning.
+    const boost = 1 + t.lightBoost * Math.min(1, this.lightW + this.colourW);
     const shift = t.parallax * this.lightW;
 
     // Ambient: preset colour, pulled toward a pale version of the book colour in the colour theme.
