@@ -219,12 +219,14 @@ The rebuild is then captured with the same tool, the same settings and the same 
 | Pages parting, page progress at seven times | within 0.03 |
 | Brightest paper while the cover swings open | 228 of 255 against 228 |
 | Reading place the open book answers to, pointer on three buttons | 0.688, 0.560, 0.352 from our rule against 0.694, 0.556, 0.360 |
+| Shelf, a wheel notch: 10, 50, 90, 99 % of the book's move | 29, 93, 173, 265 ms against 29, 93, 173, 265 |
+| Shelf, how far a book creeps in its dwell after 75 px of scroll | within 0.5 px of 11.8 px |
 | Row of spines: cover turn of the arriving book | 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9 |
 | Row of spines: slide after a step | 31, 171, 480, 888 ms against 32, 172, 481, 887 |
 | Grain of a cloth spine, percent of brightness | 2.9 to 3.0 against 3.0 |
 | Iridescent foil, saturation | 0.09 to 0.25 against 0.10 to 0.25 |
 
-A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections. A fourth put frames side by side and found what the numbers had hidden: how the pages part, a first leaf that burnt out to white, a book that swung toward the pointer where the reference only shifts its weight, pages that lay flat, and seventeen differences in the row of spines. A fifth rebuilt the two page lights from the reference's own arithmetic and measured the covers: cloth grain, foil, the cloth turned in over the boards. The table shows where things stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
+A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections. A fourth put frames side by side and found what the numbers had hidden: how the pages part, a first leaf that burnt out to white, a book that swung toward the pointer where the reference only shifts its weight, pages that lay flat, and seventeen differences in the row of spines. A sixth captured the shelf under scrolling: wheel, dwell and the turn after a fast scroll. A fifth rebuilt the two page lights from the reference's own arithmetic and measured the covers: cloth grain, foil, the cloth turned in over the boards. The table shows where things stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
 
 No code, shader, model, artwork, text or typeface of the reference is in this repository, and the project is not affiliated with Stripe. [`PROVENANCE.md`](PROVENANCE.md) says what is here and where it came from. The capture tools are in [`tools/`](tools) and work on any page, including this one.
 

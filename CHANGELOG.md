@@ -33,7 +33,7 @@ Light:
 
 Motion:
 
-- A shelf driven by native scrolling: each book holds at the centre for 150 px, then follows with a critically damped motion.
+- A shelf driven by native scrolling: each book lingers at the centre for about 150 px, creeping all the while, then follows with a critically damped motion. A wheel notch is spread over a short ramp so the books do not lunge, and the turn of a book hurries after a fast scroll.
 - Poses for leaving and arriving, a tilt toward the pointer about the axes of the room, and an intro.
 - A row of spines after the last featured book: every loaded book stands side by side, the chosen one turns its cover forward, its neighbours make room and the row slides to keep it in the middle. Keys, presses and a pull on the row choose, and the chosen book opens from the row.
 - A closed book that turns in the hand: a spring between the pointer and the book, coasting after release, a trailing cover that lifts while it turns, and pitch that levels when the book was left upside down.
