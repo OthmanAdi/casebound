@@ -615,7 +615,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         source = opts.pages?.(next) ?? paginate(next.record, next.dims.leaves * 2, (paragraphs, heading) => flowPages(paragraphs, heading, next.dims.pageW / next.dims.pageH, next.faces));
         blank = next.paintPage({ folio: null, left: true }, 64);
         leaves = Array.from({ length: LIVE_LEAVES + RIFFLE_MAX * 2 }, () => new Leaf(next, engine.fx, blank!));
-        spread = clamp(Math.round((page ?? Math.round(next.dims.leaves * 0.42) * 2) / 2), 0, next.dims.leaves);
+        // Measured: without a page in the address the reference opens a book at its middle leaf.
+        spread = clamp(Math.round((page ?? Math.round(next.dims.leaves / 2) * 2) / 2), 0, next.dims.leaves);
         next.held = true;
         tiltFrom.copy(next.tilt.quaternion);
       }
