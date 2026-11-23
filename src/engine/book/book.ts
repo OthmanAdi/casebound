@@ -73,6 +73,10 @@ export class Book {
   presentYaw = Math.PI / 2;
   /** Extra yaw of the open book, for leaning toward the pointer. */
   lean = 0;
+  /** A turn the closed book was given by hand: pitch about X and yaw about Y, radians. It fades as the book opens. */
+  readonly turned = { pitch: 0, yaw: 0 };
+  /** How far each cover is lifted off the pages of the closed book, radians. */
+  readonly flap = { front: 0, back: 0 };
   /** Where the shelf wants this book. The root follows it unless a view holds the book. */
   readonly home = { position: new Vector3(), quaternion: new Quaternion(), scale: 1 };
   /** True while a view such as the reader places the root itself. */
@@ -194,22 +198,41 @@ export class Book {
     this.applyPose();
   }
 
+  /** Turns the closed book and lifts its covers. The shape is only rebuilt when a cover moved. */
+  setTurn(pitch: number, yaw: number, front = 0, back = 0): void {
+    const lifted = Math.abs(front - this.flap.front) > 1e-4 || Math.abs(back - this.flap.back) > 1e-4;
+    this.turned.pitch = pitch;
+    this.turned.yaw = yaw;
+    if (lifted) {
+      this.flap.front = front;
+      this.flap.back = back;
+      this.applyPose();
+    } else this.applyTurn();
+  }
+
   paintPage(content: PageContent, height = 1536): Texture {
     return paintPage(content, this.dims.pageW / this.dims.pageH, this.faces, height);
   }
 
   private applyPose(): void {
     // Until the pages part, every leaf lies on the back board and the front cover alone opens (SPEC S-RD-3).
-    const n = this.reading * this.pages;
-    const front = this.open * OPEN_ANGLE * (2 - 2 * n);
-    const back = this.open * OPEN_ANGLE * 2 * n;
-    this.volume.setPose({ front, back, split: n });
+    // A closed book keeps all its leaves on the back board too, so a lifted cover lifts alone.
+    const n = this.open > 0 ? this.reading * this.pages : 0;
+    const closed = 1 - this.open;
+    this.volume.setPose({ front: this.open * OPEN_ANGLE * (2 - 2 * n) + this.flap.front * closed, back: this.open * OPEN_ANGLE * 2 * n + this.flap.back * closed, split: n });
+    this.applyTurn();
+  }
+
+  private applyTurn(): void {
+    const n = this.open > 0 ? this.reading * this.pages : 0;
+    const closed = 1 - this.open;
     // Present the cover when closed; when open, turn so the spread faces the camera wherever the book is open.
     // With the pages not yet parted that is almost the same direction the cover faced, so the book only
     // turns once the pages part.
-    this.spin.rotation.y = this.presentYaw * (1 - this.open) + (front - back) / 2 + this.lean * this.open;
+    const facing = (this.open * OPEN_ANGLE * (2 - 2 * n) - this.open * OPEN_ANGLE * 2 * n) / 2;
+    this.spin.rotation.set(this.turned.pitch * closed, (this.presentYaw + this.turned.yaw) * closed + facing + this.lean * this.open, 0);
     // Closed, the book turns about its middle. Open, it turns about its spine.
-    this.volume.group.position.z = -this.volume.closedCentreZ * (1 - this.open);
+    this.volume.group.position.z = -this.volume.closedCentreZ * closed;
   }
 
   dispose(): void {
