@@ -4,10 +4,13 @@
 //
 // Usage:
 //   node tools/reanimate/capture-series.mjs --base https://example.org --out <dir> [--only a,b] [--fps 60] [--query midday]
-//        [--ready-attr data-press-agent-ready] [--reader-path /book/<slug>/page/<n>] [--ebook-at fx,fy] [--audio-at fx,fy]
+//        [--ready-attr data-press-agent-ready] [--reader-path /book/<slug>/page/<n>]
 //
 // Defaults fit the reference. For our own build:
-//   --ready-attr data-bindery-ready --reader-path "/#/book/micrographia/page/116" --ebook-at 0.764,0.648 --audio-at 0.764,0.697
+//   --ready-attr data-bindery-ready --reader-path "/#/book/micrographia/page/116"
+//
+// Targets are chosen so the same list works on both: the three.js canvas marks itself with `data-engine`,
+// and the two rows that trigger the page light effects carry "E-book" and "Audiobook" in their accessible name.
 //
 // Env:
 //   REANIMATE_SCRIPTS  absolute path of reanimate's `skills/reanimate/scripts` folder (required)
@@ -56,9 +59,12 @@ const url = (path) => {
 };
 const READER = arg("reader-path", "/book/maintenance-part-one/page/116");
 
-// Fractions of the 1440x900 canvas. The canvas ignores pointer events, so a point over a DOM control hits that control.
-const EBOOK_ROW = arg("ebook-at", "0.764,0.936");
-const AUDIOBOOK_ROW = arg("audio-at", "0.764,0.982");
+// A page can hold several canvases; only the three.js one carries this attribute.
+const CANVAS = "canvas[data-engine]";
+const EBOOK_ROW = '[aria-label*="E-book"]';
+const AUDIOBOOK_ROW = '[aria-label*="Audiobook"]';
+// Closing is triggered with the Escape key, which works whatever the close button looks like.
+const ESCAPE = `${READY}; window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true })); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }))`;
 
 // Home captures must trigger within about 5 s of load: after that the page starts to scroll by itself.
 const HOME_SETTLE = "3000";
@@ -67,11 +73,11 @@ const READER_SETTLE = "9000";
 
 const SERIES = [
   { name: "b-hover-home", path: "/", settle: HOME_SETTLE, duration: "2600",
-    args: ["--trigger", "move", "--target", "canvas", "--path", "0.15,0.5;0.45,0.55;0.6,0.4;0.4,0.6", "--path-ms", "400", "--pre-js", READY] },
+    args: ["--trigger", "move", "--target", CANVAS, "--path", "0.15,0.5;0.45,0.55;0.6,0.4;0.4,0.6", "--path-ms", "400", "--pre-js", READY] },
   { name: "c-open-book", path: "/", settle: HOME_SETTLE, duration: "4200",
     args: ["--trigger", "click", "--target", 'button[aria-label^="Open book"]', "--pre-js", READY] },
   { name: "c-close-book", path: READER, settle: READER_SETTLE, duration: "3200",
-    args: ["--trigger", "click", "--target", 'button[aria-label="Close book"]', "--pre-js", READY] },
+    args: ["--trigger", "none", "--pre-js", ESCAPE] },
   { name: "d-turn-next", path: READER, settle: READER_SETTLE, duration: "2600",
     args: ["--trigger", "click", "--target", 'button[aria-label="Next page"]', "--pre-js", READY] },
   { name: "d-turn-previous", path: READER, settle: READER_SETTLE, duration: "2600",
@@ -79,11 +85,11 @@ const SERIES = [
   { name: "e-magnifier-on", path: READER, settle: READER_SETTLE, duration: "1600",
     args: ["--trigger", "click", "--target", 'button[aria-label="Turn on magnifier"]', "--pre-js", READY] },
   { name: "e-magnifier-move", path: READER, settle: READER_SETTLE, duration: "3200",
-    args: ["--trigger", "move", "--target", "canvas", "--path", "0.2,0.35;0.5,0.5;0.4,0.75;0.25,0.5", "--path-ms", "500", "--pre-js", click("Turn on magnifier")] },
+    args: ["--trigger", "move", "--target", CANVAS, "--path", "0.2,0.35;0.5,0.5;0.4,0.75;0.25,0.5", "--path-ms", "500", "--pre-js", click("Turn on magnifier")] },
   { name: "f-hologram-ebook-row", path: READER, settle: READER_SETTLE, duration: "3200",
-    args: ["--trigger", "hover", "--target", "canvas", "--hover-at", EBOOK_ROW, "--pre-js", READY] },
+    args: ["--trigger", "hover", "--target", EBOOK_ROW, "--pre-js", READY] },
   { name: "f-radio-audiobook-row", path: READER, settle: READER_SETTLE, duration: "3200",
-    args: ["--trigger", "hover", "--target", "canvas", "--hover-at", AUDIOBOOK_ROW, "--pre-js", READY] },
+    args: ["--trigger", "hover", "--target", AUDIOBOOK_ROW, "--pre-js", READY] },
   { name: "g-view-details", path: "/", settle: HOME_SETTLE, duration: "3200",
     args: ["--trigger", "click", "--target", 'button[aria-label^="View details"]', "--pre-js", READY] },
 ];
