@@ -18,7 +18,7 @@ The folder name must equal the record's `slug`. The loader (`src/site/library.ts
 | `name` | Site name, shown as the wordmark |
 | `tagline` | One line about the library |
 | `featured` | Slugs shown one per panel, top to bottom |
-| `shelf` | Further slugs that are loaded but not featured |
+| `shelf` | Further slugs. They are loaded and stand in the row of spines at the end of the shelf |
 | `extensions` | Names of files in `extensions/` to load at start |
 
 ## book.json

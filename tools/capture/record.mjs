@@ -3,7 +3,7 @@
 //
 //   node tools/capture/record.mjs <base url> <out dir> <scene> [--fps 30] [--w 1440] [--h 900]
 //
-// Scenes: shelf, spin, reader, drag, lens, light, pointer, night, nightlens. Turn the frames into a GIF or a video with ffmpeg, for example:
+// Scenes: shelf, spin, row, reader, drag, lens, light, pointer, night, nightlens. Turn the frames into a GIF or a video with ffmpeg, for example:
 //   ffmpeg -framerate 30 -i <out dir>/f%04d.png -vf "scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" out.gif
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -91,6 +91,16 @@ const SCENES = {
     { at: sec(4.4), run: (p) => p.mouse.down() },
     ...glide(sec(4.45), 0, sec(1.4), [[760, 500], [560, 470], [700, 540]]),
     { at: sec(5.9), run: (p) => p.mouse.up() },
+  ] },
+  row: { path: '/?midday', frames: sec(10), settle: 2400, actions: [
+    js(1, `scrollTo(0, (document.querySelector('.panel').offsetHeight + 16) * 3)`),
+    { at: 2, run: (p) => p.mouse.move(1100, 330) },
+    // Scroll on past the last featured book: the row comes up.
+    ...scroll(sec(1.4), sec(1.5), 3, 4),
+    key(sec(4.4), 'ArrowRight'), key(sec(5.6), 'ArrowRight'),
+    // Run the pointer along the spines, then choose one with a press.
+    ...glide(sec(6.6), 0, sec(1.6), [[1100, 330], [560, 520], [330, 500]]),
+    { at: sec(8.4), run: (p) => p.mouse.click(330, 500) },
   ] },
   pointer: { path: '/?midday', frames: sec(6), actions: glide(sec(0.2), 0, sec(5.4), [[300, 300], [1100, 300], [1150, 700], [330, 720], [720, 450], [300, 300]]) },
   night: { path: '/?theme=dark', frames: sec(7), actions: [

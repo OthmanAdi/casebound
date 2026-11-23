@@ -29,6 +29,7 @@ Motion:
 
 - A shelf driven by native scrolling: each book holds at the centre for 150 px, then follows with a critically damped motion.
 - Poses for leaving and arriving, a tilt toward the pointer about the axes of the room, and an intro.
+- A row of spines after the last featured book: every loaded book stands side by side, the chosen one turns its cover forward, its neighbours make room and the row slides to keep it in the middle. Keys and presses choose, and the chosen book opens from the row.
 - A closed book that turns in the hand: a spring between the pointer and the book, coasting after release, a trailing cover that lifts while it turns, and pitch that levels when the book was left upside down.
 - A reader that opens in two stages after the measured pause, leans toward the pointer and turns leaves with a small physical rule. A leaf in the air lets the print on its other side show through.
 - Pages turned by hand: a held leaf follows the pointer with the measured mapping, a pull that ends on the turning side turns the page, a pull brought back lets it fall, a tap turns one page, and a leaf in the air can be caught.
@@ -57,7 +58,7 @@ Measurement:
 ### Known gaps
 
 - A page corner does not curl under the pointer, and the top leaves do not riffle when a book opens.
-- Books that are not featured are loaded but have no row of spines.
+- The row of spines cannot be dragged sideways, and it was built from the measured constants without a capture of its own to compare with.
 - The twelve corrections of the second parity pass have not been captured again.
 - Page paper is still about 8 of 255 short in blue against the reference.
 - Touch works but was not measured.

@@ -29,6 +29,8 @@ A value set this way lasts until reload. To keep it, change the default in the f
 | `stage.wall` | Shadow wall: depth, colour, opacity, fade with distance, extra softness | `src/engine/stage/wall.ts` |
 | `shelf.featured` | Slot pitch, shelf depth, rest pose, leave and arrive poses, pointer tilt, intro time | `src/engine/shelf/shelf.ts` |
 | `shelf.spin` | Turning the centred book by hand: turn per pixel, spring, coasting, cover lift, levelling | `src/engine/shelf/spin.ts` |
+| `shelf.row` | The row of spines: gap, width of an open cover, depth, how far the chosen book steps out, turn and slide times, when the row assembles, hover pop | `src/engine/shelf/row.ts` |
+| `effect.film`, `book.gutter` | Film grain on paper; the light and shade where two pages meet | `src/engine/book/surface.ts` |
 | `reader` | Pause before opening, cover and page times, height of the open book, scale, pitch, lean toward the pointer, and the page drag (`dragWidth`, `dragFollow`, `tapPx`) | `src/engine/reader/reader.ts` |
 | `reader.leaf` | Page turn physics: push, damping, landing brake, launch speed | `src/engine/reader/leaf-physics.ts` |
 | `effect.magnifier` | Magnification, radius, edge, barrel bend, rim, follow speed | `src/engine/effects/magnifier.ts` |
@@ -49,8 +51,9 @@ Themes: Morning uses `browse` with key and sun 10 % brighter. Noon uses `browse`
 
 ## Hands on the books
 
-Two things follow the pointer directly, and both are plain numbers you can test without a browser.
+Three things follow the pointer directly, and all are plain numbers you can test without a browser.
 
+- `src/engine/shelf/row.ts` lays out the row of spines: `stepRow` advances it, `placeAt` says where a book stands, `choose` and `stepChoice` move the choice. Its tests pin the order, the spacing and the thresholds.
 - `src/engine/shelf/spin.ts` turns a closed book: `grabSpin`, `dragSpin`, `releaseSpin`, `stepSpin`. Its tests in `spin.test.ts` pin the gain, the coasting distance at 30, 60 and 120 frames per second, the levelling and the cover lift.
 - `src/engine/reader/reader.ts` turns a page by hand. `take` lifts the top leaf of a stack, `aim` sends a leaf to a side and moves the page count, `outer` finds the leaf in the air that a hand or a key reaches first. The page count only changes in `aim`. Keep it that way, or two leaves end up with the same pages.
 
