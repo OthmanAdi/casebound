@@ -8,8 +8,8 @@ export interface ScrollTuning {
   /** Pixels of scrolling around a featured book's rest position during which it dwells: half after it, half before the next book rests. */
   lockPx: number;
   /**
-   * How far the book still travels while it dwells, in slots per slot of scrolling. 0 holds it dead still.
-   * Measured: 0.15 of a slot per canvas height (2.08e-4 slots per pixel at 1440 x 900); a slot here is about one canvas high.
+   * How far the book still travels while it dwells, in slots per pixel of scrolling. 0 holds it dead still.
+   * Measured: 2.08e-4 at 1440 x 900, which is 0.15 of a slot over a slot of 722 px and 0.18 over one of 872 px.
    */
   creep: number;
   /** Smooth time of the damping, seconds. */
@@ -18,8 +18,8 @@ export interface ScrollTuning {
   hysteresis: number;
 }
 
-export const SCROLL_DESKTOP: ScrollTuning = { lockPx: 150, creep: 0.15, smoothTime: 0.066, hysteresis: 0.65 };
-export const SCROLL_COMPACT: ScrollTuning = { lockPx: 150, creep: 0.15, smoothTime: 0.0945, hysteresis: 0.65 };
+export const SCROLL_DESKTOP: ScrollTuning = { lockPx: 150, creep: 2.08e-4, smoothTime: 0.066, hysteresis: 0.65 };
+export const SCROLL_COMPACT: ScrollTuning = { lockPx: 150, creep: 2.08e-4, smoothTime: 0.0945, hysteresis: 0.65 };
 
 /**
  * The dwell curve. Raw progress runs evenly with the scroll bar; the returned progress lingers around each whole
@@ -124,7 +124,7 @@ export function stepScroll(
   wheel?: { bridge: BridgeState; time: number; ago: number },
 ): boolean {
   const raw = clamp(slotPx > 0 ? scrollY / slotPx : 0, 0, Math.max(0, count - 1));
-  const asked = dwell(raw, tuning.lockPx / Math.max(1, slotPx), tuning.creep);
+  const asked = dwell(raw, tuning.lockPx / Math.max(1, slotPx), tuning.creep * slotPx);
   // A wheel notch is spread over a short ramp before the damper follows it.
   const target = wheel && state.seeded && !still ? stepBridge(wheel.bridge, asked, scrollY, wheel.time, clamp(dt, 1 / 240, 1 / 30), wheel.ago) : asked;
   const before = state.progress;

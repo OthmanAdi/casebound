@@ -7,7 +7,9 @@
   --rule: color-mix(in srgb, var(--ink) 80%, transparent);
   --nav: 162px;
   --gutter: 16px;
-  --panel: calc(100vh - var(--nav) - 24px);
+  /* Measured: a picture is taller than the room between the header and the bar at the foot, and runs on under
+     the bar. With the gap that makes 872 px of scrolling from one book to the next in a window 900 high. */
+  --panel: calc(100vh - 44px);
   --display: 'Newsreader Variable', 'Iowan Old Style', Georgia, serif;
   --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
   --shift: 0px;
