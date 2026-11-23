@@ -12,6 +12,7 @@ import { Leaf } from './leaf';
 import { LEAF_DEFAULT, sendLeaf, stepLeaf } from './leaf-physics';
 import { flowPages } from '../book/painter';
 import { paginate, type PageSource } from './pages';
+import { PUSH_DEFAULT, createPush, stepPush } from './push';
 import { RIFFLE_DEFAULT, RIFFLE_MAX, riffleCast, riffleDrop, riffleReveal, riffleTurn } from './riffle';
 
 export interface ReaderOptions {
@@ -67,8 +68,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       pitchUp: { value: 10, min: 0, max: 40, unit: 'deg', help: 'Extra pitch with the pointer at the top' },
       pitchDown: { value: 12, min: 0, max: 40, unit: 'deg' },
       pitchRate: { value: 6, min: 0.1, max: 40, unit: '1/s' },
-      lean: { value: 0.38, min: 0, max: 1.2, unit: 'rad', help: 'How far the open book turns toward the pointer side' },
-      leanRate: { value: 7, min: 0.1, max: 40, unit: '1/s' },
+      push: { value: PUSH_DEFAULT.max, min: 0, max: 0.5, help: 'How far the weight of the open book follows the pointer near the middle of the spread, as a share of the book. The spine rolls, the boards stay. Measured: 0.2' },
+      pushEdge: { value: PUSH_DEFAULT.edge, min: 0, max: 0.5, help: 'With the pointer at a window edge, a book open near that end opens up to this reading place. Measured: 0.3' },
+      pushRate: { value: PUSH_DEFAULT.rate, min: 0.1, max: 40, unit: '1/s', help: 'How fast the weight follows. Measured: 7' },
+      pushSwap: { value: PUSH_DEFAULT.swap, min: 0, max: 2, unit: 's', help: 'Blend when the pointer crosses the middle of the spread. Measured: 0.4' },
+      readingFollow: { value: 0.25, min: 0.01, max: 1, help: 'Share of the way the case moves per 60 Hz frame toward a new reading place, so a turning leaf does not jolt the boards. Measured: 0.25' },
       pageHeight: { value: 1536, min: 256, max: 4096, help: 'Height of a painted page in pixels' },
       dragWidth: { value: 0.73, min: 0.2, max: 3, help: 'Share of the window width a pointer travels to pull a leaf all the way over' },
       dragFollow: { value: 0.4, min: 0.01, max: 0.95, help: 'How far a held leaf lags the hand: remaining share per 60 Hz frame' },
@@ -176,7 +180,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   let blank: Texture | null = null;
   const cache = new Map<number, Texture>();
   const pitch = { v: 0 };
-  const lean = { v: 0 };
+  const push = createPush();
+  /** The reading place the case shows: it follows the leaves with a short lag. Negative before the first frame. */
+  let readingShown = -1;
   const q = new Quaternion();
   const goalPos = new Vector3();
   const e = new Euler();
@@ -675,7 +681,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     blank?.dispose();
     blank = null;
     book.held = false;
-    book.lean = 0;
+    book.push = 0;
+    Object.assign(push, createPush());
+    readingShown = -1;
     book.setOpen(0, 0.5, 1);
     book = null;
     cover = 0;
@@ -747,18 +755,26 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       }
     }
 
-    // Lean toward the pointer, pitch with its height.
-    const px = ctx.pointer?.x ?? 0;
+    // Where the book is open, as the case sees it. A leaf in the air counts by how far it has come, so the
+    // boards move with it instead of jumping when it starts.
+    let onLeft = spread;
+    for (const leaf of leaves) if (leaf.active && !leaf.script) onLeft += clamp(leaf.motion.shown / Math.PI, 0, 1) - leaf.side;
+    const reading = book.dims.leaves ? clamp(onLeft / book.dims.leaves, 0, 1) : 0.5;
+    readingShown = readingShown < 0 || ctx.still ? reading : readingShown + (reading - readingShown) * (1 - Math.pow(1 - t.readingFollow, frames));
+    if (Math.abs(reading - readingShown) < 5e-4) readingShown = reading;
+
+    // The weight of the book follows the pointer across the spread; its pitch follows the pointer's height.
+    const offset = opts.centreOffsetPx?.() ?? { x: 0, y: 0 };
+    const px = (ctx.pointer?.x ?? 0) - offset.x / Math.max(1, ctx.size.x / 2);
     const py = ctx.pointer?.y ?? 0;
-    lean.v = ctx.still ? 0 : approach(lean.v, -px * t.lean, t.leanRate, f.dt);
+    const pushTune = { ...PUSH_DEFAULT, max: t.push, edge: t.pushEdge, rate: t.pushRate, swap: t.pushSwap };
+    book.push = stepPush(push, px, readingShown, ctx.still ? 1e3 : f.dt, pushTune, drag !== null);
     pitch.v = ctx.still ? 0 : approach(pitch.v, py > 0 ? py * t.pitchUp : py * t.pitchDown, t.pitchRate, f.dt);
-    book.lean = lean.v;
-    book.setOpen(cover, book.dims.leaves ? spread / book.dims.leaves : 0.5, pages);
+    book.setOpen(cover, readingShown, pages);
     stack();
     for (const leaf of leaves) if (leaf.active) leaf.update();
 
     // From where the shelf keeps the book to the reading position.
-    const offset = opts.centreOffsetPx?.() ?? { x: 0, y: 0 };
     const home = book.home;
     const z = home.position.z + t.forward;
     const worldPerPx = ctx.visibleHeightAt(z) / Math.max(1, ctx.size.y);

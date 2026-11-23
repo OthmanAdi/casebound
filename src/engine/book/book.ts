@@ -71,8 +71,11 @@ export class Book {
   pages = 1;
   /** Yaw that presents the closed cover to the camera. */
   presentYaw = Math.PI / 2;
-  /** Extra yaw of the open book, for leaning toward the pointer. */
-  lean = 0;
+  /**
+   * Shift of the reading place as far as the case is concerned, as a share of the book. The stacks keep their
+   * leaves; the spine rolls as if the book were open that much later (or, negative, earlier). See reader/push.ts.
+   */
+  push = 0;
   /** A turn the closed book was given by hand: pitch about X and yaw about Y, radians. It fades as the book opens. */
   readonly turned = { pitch: 0, yaw: 0 };
   /** How far each cover is lifted off the pages of the closed book, radians. */
@@ -196,7 +199,7 @@ export class Book {
     m.needsUpdate = true;
   }
 
-  /** Re-applies the pose after `lean` or `presentYaw` changed. */
+  /** Re-applies the pose after `push` or `presentYaw` changed. */
   refresh(): void {
     this.applyPose();
   }
@@ -220,7 +223,7 @@ export class Book {
   private applyPose(): void {
     // Until the pages part, every leaf lies on the back board and the front cover alone opens (SPEC S-RD-3).
     // A closed book keeps all its leaves on the back board too, so a lifted cover lifts alone.
-    const n = this.open > 0 ? this.reading * this.pages : 0;
+    const n = this.open > 0 ? Math.min(Math.max(this.reading + this.push, 0), 1) * this.pages : 0;
     const closed = 1 - this.open;
     // The pages part by turning everything before the reading place over in one wad, first leaf up until it lands.
     // The volume lets both stacks trail their boards on the way (see `VolumePose.turn`).
@@ -234,13 +237,14 @@ export class Book {
   }
 
   private applyTurn(): void {
-    const n = this.open > 0 ? this.reading * this.pages : 0;
+    const n = this.open > 0 ? Math.min(Math.max(this.reading + this.push, 0), 1) * this.pages : 0;
     const closed = 1 - this.open;
     // Present the cover when closed; when open, turn so the spread faces the camera wherever the book is open.
     // With the pages not yet parted that is almost the same direction the cover faced, so the book only
-    // turns once the pages part.
+    // turns once the pages part. The boards therefore keep their place whatever the reading place is: a shift
+    // of it rolls the spine and nothing else.
     const facing = (this.open * OPEN_ANGLE * (2 - 2 * n) - this.open * OPEN_ANGLE * 2 * n) / 2;
-    this.spin.rotation.set(this.turned.pitch * closed, (this.presentYaw + this.turned.yaw) * closed + facing + this.lean * this.open, 0);
+    this.spin.rotation.set(this.turned.pitch * closed, (this.presentYaw + this.turned.yaw) * closed + facing, 0);
     // Closed, the book turns about its middle. Open, it turns about its spine.
     this.volume.group.position.z = -this.volume.closedCentreZ * closed;
   }
