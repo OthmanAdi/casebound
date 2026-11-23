@@ -135,7 +135,7 @@ export interface ClothParams {
   fibre: number;
   /** Output gain of surfaces with this grain. Default 0.9. */
   exposure?: number;
-  /** Share of the film grain this surface takes, 0..1. Measured on paper only, so paper takes all of it and cloth none. */
+  /** Share of the film grain this surface takes, 0..1. Measured on pages only: pages and endpapers take all of it, cover materials none, whatever they are made of. */
   film?: number;
   /**
    * Tooth of the material: a soft mottle in colour and relief, 0.14 and 0.05 world units across, that does not fade
@@ -164,7 +164,7 @@ export const CLOTH: Readonly<Record<'buckram' | 'paper' | 'cardboard' | 'none', 
   cardboard: { gloss: 0.6, sheen: 0.2, weave: 0.18, fibre: 0.03, sheenRough: 0.75, wrap: 0.2, mottle: 0.012, relief: 0.19 },
   // Paper measured 7 percent darker on screen than the reference before its gain was raised. The first leaf under
   // an opening cover takes 1.35 times full white from the shelf lamps; on the reference it tops out at 228 of 255.
-  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, film: 1, mottle: 0.006, relief: 0.19, ceiling: 0.91 },
+  paper: { gloss: 0.7, sheen: 0.15, weave: 0.12, fibre: 0.02, sheenRough: 0.8, wrap: 0.15, exposure: 1.05, mottle: 0.006, relief: 0.19, ceiling: 0.91 },
   none: { gloss: 1, sheen: 0, weave: 0, fibre: 0, sheenRough: 0.6, wrap: 0 },
 };
 
