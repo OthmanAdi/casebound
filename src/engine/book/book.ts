@@ -125,6 +125,8 @@ export class Book {
   readonly home = { position: new Vector3(), quaternion: new Quaternion(), scale: 1 };
   /** True while a view such as the reader places the root itself. */
   held = false;
+  /** Held by the reader, but its cover has not started to move yet: on the shelf it still follows the pointer. */
+  poised = false;
 
   private readonly textures: Texture[] = [];
   private readonly materials: Material[] = [];

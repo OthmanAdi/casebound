@@ -682,6 +682,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     blank?.dispose();
     blank = null;
     book.held = false;
+    book.poised = false;
     book.push = 0;
     Object.assign(push, createPush());
     readingShown = -1;
@@ -774,6 +775,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     book.setOpen(cover, readingShown, pages);
     stack();
     for (const leaf of leaves) if (leaf.active) leaf.update();
+
+    // Until its cover moves the book is still the shelf's to turn toward the pointer: the reader takes over the
+    // tilt it has at that moment.
+    book.poised = opening && cover <= 1e-4;
+    if (book.poised) tiltFrom.copy(book.tilt.quaternion);
 
     // From where the shelf keeps the book to the reading position.
     const home = book.home;

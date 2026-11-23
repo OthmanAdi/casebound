@@ -544,6 +544,10 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
         // Measured: the tilt turns about the axes of the room, not of the leaning book.
         const rowShare = row && rowTune && slot === order.length - 1 ? joinOf(row, rowPast, rowTune) : 0;
         book.tilt.quaternion.copy(qInverse.copy(book.root.quaternion).invert()).multiply(qTiltMix.copy(qTilt).slerp(qTiltRow, rowShare)).multiply(book.root.quaternion);
+      } else if (book.poised) {
+        // Measured: in the pause before its cover moves, a book that was asked to open goes on following the pointer.
+        book.tilt.quaternion.copy(qInverse.copy(book.home.quaternion).invert()).multiply(qTilt).multiply(book.home.quaternion);
+        moving = true;
       }
     }
     seeded = true;
@@ -569,7 +573,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           book.root.quaternion.copy(qUpright);
           book.root.scale.setScalar(scale);
           book.tilt.quaternion.copy(qTiltRow);
-        }
+        } else if (book.poised) book.tilt.quaternion.copy(qTiltRow);
       }
     }
 
