@@ -7,7 +7,7 @@ import type { Book } from '../book/book';
 import type { Engine } from '../index';
 import { DEG, approach, clamp, easeInOutQuad, frameFactor, lerp, smoothDamp } from '../core/math';
 import { tunable } from '../core/tune';
-import { SCROLL_COMPACT, SCROLL_DESKTOP, createScrollState, stepScroll, type ScrollState } from './scroll';
+import { SCROLL_COMPACT, SCROLL_DESKTOP, createBridge, createHaste, createScrollState, stepHaste, stepScroll, type ScrollState } from './scroll';
 import { ROW_DEFAULT, choose, createRow, joinOf, placeAt, releaseRow, rowOrder, rowSettled, stepChoice, stepRow } from './row';
 import { SPIN_DEFAULT, createSpin, dragSpin, grabSpin, releaseSpin, stepSpin, type SpinGrab } from './spin';
 
@@ -104,6 +104,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       turnEndArrive: { value: 0.8, min: 0.2, max: 3 },
       turnEndLeave: { value: 1.2, min: 0.2, max: 3 },
       turnFollow: { value: 0.165, min: 0.01, max: 1, help: 'Fraction of the way to the target pose per 60 Hz frame' },
+      turnHaste: { value: 0.5, min: 0, max: 3, help: 'How much faster the turn follows while the page scrolls fast (above 2.5 window heights per second) and for 0.6 s after. Measured: 0.5' },
       exitFrom: { value: 0.6, min: 0, max: 2, help: 'Distance past centre where a leaving book speeds away' },
       exitBoost: { value: 2.25, min: 0, max: 8 },
       visible: { value: 1.8, min: 0.5, max: 6, help: 'Books further than this many slots from centre are hidden' },
@@ -199,6 +200,10 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   for (const [i, book] of engine.books.entries()) if (!order.includes(i)) book.root.visible = false;
 
   const state = createScrollState();
+  const haste = createHaste();
+  const bridge = createBridge();
+  /** Engine time of the last wheel event, milliseconds. */
+  let wheelAt = -Infinity;
   const scrollY = opts.scrollY ?? ((): number => window.scrollY);
   const slotPx = opts.slotPx ?? ((): number => window.innerHeight);
   const qRest = new Quaternion();
@@ -250,6 +255,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     dispose: () => {
       unsub();
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('wheel', onWheel, true);
       window.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
@@ -262,6 +268,10 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
 
   const onScroll = (): void => ctx.invalidate();
   window.addEventListener('scroll', onScroll, { passive: true });
+  const onWheel = (): void => {
+    wheelAt = clock;
+  };
+  window.addEventListener('wheel', onWheel, { passive: true, capture: true });
 
   // ---------------------------------------------------------------- turning the centred book by hand
   const ignore = opts.ignore ?? 'button, a, input, select, textarea, label, aside, header, footer, nav, [role="toolbar"], [role="dialog"]';
@@ -433,7 +443,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     clock = f.time * 1000;
     if (!shelf.enabled) return;
     const tuning = ctx.compact ? SCROLL_COMPACT : SCROLL_DESKTOP;
-    let moving = stepScroll(state, scrollY(), slotPx(), order.length + (row ? 1 : 0), tuning, f.dt, ctx.still);
+    let moving = stepScroll(state, scrollY(), slotPx(), order.length + (row ? 1 : 0), tuning, f.dt, ctx.still, { bridge, time: f.time, ago: (clock - wheelAt) / 1000 });
     const widths = row && rowTune ? display.map((i) => engine.books[i]!.dims.thickness * rowTune.spine) : [];
     if (row && rowTune) {
       rowWidths = widths;
@@ -478,7 +488,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     // A book never grows wider than the screen: on a narrow one it shrinks to fit, with a little air.
     const wide = (engine.books[order[0]!]?.dims.coverW ?? 15) * 1.16 / worldPerPx;
     const scale = Math.min(ctx.compact ? t.compactScale : 1, (ctx.size.x * 0.9) / wide) * (opts.fit?.() ?? 1);
-    const follow = !seeded || ctx.still ? 1 : frameFactor(t.turnFollow, f.dt);
+    const hurry = stepHaste(haste, scrollY(), ctx.size.y, f.dt);
+    const follow = !seeded || ctx.still ? 1 : frameFactor(Math.min(1, t.turnFollow * (1 + t.turnHaste * hurry)), f.dt);
 
     /** Writes where a book of the row stands into `rowAt` and returns how far its cover is turned to the front. */
     const rowPlace = (pos: number, blend = 1): number => {
