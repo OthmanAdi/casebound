@@ -67,7 +67,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     params: {
       pitch: { value: 24, min: 4, max: 80, help: 'World distance between neighbouring books' },
       planeZ: { value: -36, min: -120, max: 20, help: 'Depth of the shelf plane' },
-      baseY: { value: -2.3068, min: -30, max: 30, help: 'Height of the centred book' },
+      baseY: { value: -0.869, min: -30, max: 30, help: 'Height of the centred book before the centre offset. Measured: the book rests at -3.0553 with the picture centred 69 px below the window centre' },
       restX: { value: -28, min: -180, max: 180, unit: 'deg' },
       restY: { value: 32, min: -180, max: 180, unit: 'deg' },
       restZ: { value: 12, min: -180, max: 180, unit: 'deg' },
@@ -102,6 +102,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   const qArrive = new Quaternion();
   const pose: ShelfPose = { position: new Vector3(), quaternion: new Quaternion(), scale: 1, visible: true };
   const tilt = { yaw: 0, pitch: 0 };
+  const qTilt = new Quaternion();
+  const qInverse = new Quaternion();
+  const eTilt = new Euler();
   let introT = 0;
   let introActive = !ctx.still;
   let seeded = false;
@@ -151,6 +154,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     tilt.yaw = ctx.still ? goalYaw : approach(tilt.yaw, goalYaw, t.tiltRate, f.dt);
     tilt.pitch = ctx.still ? goalPitch : approach(tilt.pitch, goalPitch, t.tiltRate, f.dt);
     if (Math.abs(tilt.yaw + tilt.pitch - beforeTilt) > 1e-6) moving = true;
+    qTilt.setFromEuler(eTilt.set(tilt.pitch, tilt.yaw, 0, 'YXZ'));
 
     const offset = opts.centreOffsetPx?.() ?? { x: 0, y: 0 };
     const worldPerPx = ctx.visibleHeightAt(t.planeZ) / Math.max(1, ctx.size.y);
@@ -180,7 +184,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
         book.root.position.copy(book.home.position);
         book.root.quaternion.copy(book.home.quaternion);
         book.root.scale.setScalar(pose.scale);
-        book.tilt.rotation.set(tilt.pitch, tilt.yaw, 0);
+        // Measured: the tilt turns about the axes of the room, not of the leaning book.
+        book.tilt.quaternion.copy(qInverse.copy(book.root.quaternion).invert()).multiply(qTilt).multiply(book.root.quaternion);
       }
     }
     seeded = true;
