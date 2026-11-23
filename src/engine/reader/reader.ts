@@ -9,6 +9,7 @@ import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/
 import { tunable } from '../core/tune';
 import { Leaf } from './leaf';
 import { LEAF_DEFAULT, sendLeaf, stepLeaf } from './leaf-physics';
+import { flowPages } from '../book/painter';
 import { paginate, type PageSource } from './pages';
 
 export interface ReaderOptions {
@@ -336,7 +337,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       if (book && book !== next) finish();
       if (book !== next) {
         book = next;
-        source = opts.pages?.(next) ?? paginate(next.record, next.dims.leaves * 2);
+        source = opts.pages?.(next) ?? paginate(next.record, next.dims.leaves * 2, (paragraphs, heading) => flowPages(paragraphs, heading, next.dims.pageW / next.dims.pageH, next.faces));
         blank = next.paintPage({ folio: null, left: true }, 64);
         leaves = Array.from({ length: LIVE_LEAVES }, () => new Leaf(next, engine.fx, blank!));
         spread = clamp(Math.round((page ?? Math.round(next.dims.leaves * 0.42) * 2) / 2), 0, next.dims.leaves);

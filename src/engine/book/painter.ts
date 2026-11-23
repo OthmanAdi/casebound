@@ -453,8 +453,99 @@ export interface PageContent {
   paragraphs?: string[];
   /** A heading at the top of the text block. */
   heading?: string;
+  /** Lines that were set beforehand by `flowPages`. They replace `paragraphs`. */
+  lines?: PageLine[];
   /** Left pages put the folio at the outer left. */
   left: boolean;
+}
+
+/** One set line of body text. */
+export interface PageLine {
+  words: string[];
+  /** First line of a paragraph: it starts with an indent. */
+  indent: boolean;
+  /** Spread to the full measure. The last line of a paragraph is not. */
+  justify: boolean;
+}
+
+/** What `flowPages` puts on one page. */
+export interface FlowedPage {
+  heading?: string;
+  lines: PageLine[];
+}
+
+/** Proportions of a page, as shares of its width or height. */
+const PAGE = { inner: 0.15, outer: 0.11, top: 0.105, bottom: 0.9, text: 0.0158, lead: 1.5, indent: 1.4, heading: 0.034, headingRoom: 0.16, headingGap: 0.03 };
+
+/**
+ * Sets a text in pages the way a compositor would: lines are broken by the real width of the words in the
+ * book's typeface, a paragraph runs on over the page break, and a heading starts a new page. Every page is
+ * full except the last of a chapter. The result does not depend on the size the pages are painted at.
+ */
+export function flowPages(paragraphs: string[], heading: (index: number) => string | undefined, pageAspect: number, faces: Typefaces = DEFAULT_FACES): FlowedPage[] {
+  const H = 1000;
+  const W = H * pageAspect;
+  const [, g] = canvas(8, 8);
+  const measure = W * (1 - PAGE.inner - PAGE.outer);
+  const px = H * PAGE.text;
+  const lead = px * PAGE.lead;
+  const body = `400 ${px}px ${faces.text}`;
+  const widths = new Map<string, number>();
+  const widthOf = (word: string): number => {
+    let w = widths.get(word);
+    if (w === undefined) {
+      w = g.measureText(word).width;
+      widths.set(word, w);
+    }
+    return w;
+  };
+  g.font = body;
+  const space = g.measureText(' ').width;
+  const fullRoom = Math.floor((H * (PAGE.bottom - PAGE.top)) / lead);
+
+  const pages: FlowedPage[] = [];
+  let page: FlowedPage = { lines: [] };
+  let room = fullRoom;
+  const turn = (): void => {
+    if (page.lines.length || page.heading) pages.push(page);
+    page = { lines: [] };
+    room = fullRoom;
+  };
+
+  for (const [i, para] of paragraphs.entries()) {
+    const title = heading(i);
+    if (title) {
+      turn();
+      page.heading = title;
+      const hpx = H * PAGE.heading;
+      const fit = fitLines(g, title, (p) => `500 ${p}px ${faces.display}`, measure, H * PAGE.headingRoom, hpx, 1.12);
+      room = Math.floor((H * (PAGE.bottom - PAGE.top) - fit.lines.length * fit.px * 1.12 - H * PAGE.headingGap) / lead);
+      g.font = body;
+    }
+    const words = para.split(/\s+/).filter(Boolean);
+    let line: string[] = [];
+    let width = 0;
+    let first = true;
+    const put = (justify: boolean): void => {
+      if (!line.length) return;
+      if (page.lines.length >= room) turn();
+      // The first paragraph under a heading starts flush, like the first line of a chapter.
+      page.lines.push({ words: line, indent: first && !(page.heading && page.lines.length === 0), justify });
+      first = false;
+      line = [];
+      width = 0;
+    };
+    for (const word of words) {
+      const w = widthOf(word);
+      const indent = first && !(page.heading && page.lines.length === 0) ? px * PAGE.indent : 0;
+      if (line.length && width + space + w > measure - indent) put(true);
+      width += w + (line.length ? space : 0);
+      line.push(word);
+    }
+    put(false);
+  }
+  turn();
+  return pages;
 }
 
 /**
@@ -500,11 +591,27 @@ export function paintPage(content: PageContent, pageAspect: number, faces: Typef
     y += H * 0.03;
   }
 
-  const px = Math.round(H * 0.0158);
-  const lead = px * 1.5;
+  const px = H * PAGE.text;
+  const lead = px * PAGE.lead;
   g.font = `400 ${px}px ${faces.text}`;
   const space = g.measureText(' ').width;
-  for (const [pi, para] of (content.paragraphs ?? []).entries()) {
+  g.textAlign = 'left';
+  for (const line of content.lines ?? []) {
+    if (y + lead > bottom + 1) break;
+    y += lead;
+    const indent = line.indent ? px * PAGE.indent : 0;
+    const natural = line.words.reduce((a, w) => a + g.measureText(w).width, 0);
+    const gaps = line.words.length - 1;
+    // A line that would have to stretch far (a single long word, a short measure) is left ragged.
+    const stretch = gaps > 0 ? (measure - indent - natural) / gaps : space;
+    const gap = line.justify && gaps > 0 && stretch < space * 3 ? Math.max(space * 0.6, stretch) : space;
+    let x = left + indent;
+    for (const w of line.words) {
+      g.fillText(w, x, y);
+      x += g.measureText(w).width + gap;
+    }
+  }
+  for (const [pi, para] of (content.lines ? [] : (content.paragraphs ?? [])).entries()) {
     const words = para.split(/\s+/).filter(Boolean);
     let line: string[] = [];
     let width = 0;
