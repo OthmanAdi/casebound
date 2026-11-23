@@ -31,6 +31,8 @@ export interface LeafShape {
   bow?: number;
   /** Curl at the free edge, radians. */
   tip?: number;
+  /** How far the outer half of the leaf falls over, radians at the free edge. Positive toward larger headings. */
+  flop?: number;
 }
 
 export function headingAt(shape: LeafShape, s: number): number {
@@ -39,7 +41,10 @@ export function headingAt(shape: LeafShape, s: number): number {
   const u = shape.length > 0 ? s / shape.length : 0;
   const bow = shape.bow ? shape.bow * Math.sin(Math.PI * u) : 0;
   const tip = shape.tip ? shape.tip * u * u * u : 0;
-  return up + (shape.heading - up) * settle + bow + tip;
+  // The inner half stays as it is; the outer half eases over.
+  const outer = Math.min(Math.max(u * 2 - 1, 0), 1);
+  const flop = shape.flop ? shape.flop * outer * outer * (3 - 2 * outer) : 0;
+  return up + (shape.heading - up) * settle + bow + tip + flop;
 }
 
 /**

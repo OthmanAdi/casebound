@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROFILE_STRIDE, sampleDistance, sampleIndex, sampleLeaf, sineIntegral, turnLengthForHeight, turnLengthForOffset } from './profile';
+import { PROFILE_STRIDE, headingAt, sampleDistance, sampleIndex, sampleLeaf, sineIntegral, turnLengthForHeight, turnLengthForOffset } from './profile';
 
 const sample = (shape: Parameters<typeof sampleLeaf>[0], n = 32): Float32Array => {
   const out = new Float32Array((n + 1) * PROFILE_STRIDE);
@@ -53,6 +53,14 @@ describe('sampleLeaf', () => {
     expect(between).toBeLessThan(21);
     expect(sampleIndex(12.8, 56, -1)).toBe(0);
     expect(sampleIndex(12.8, 56, 99)).toBe(56);
+  });
+
+  it('lets only the outer half of the leaf fall over', () => {
+    const shape = { x: 0, z: 0, heading: Math.PI / 2, turnLength: 0.5, length: 10 };
+    for (const s of [0, 2, 5]) expect(headingAt({ ...shape, flop: 1.6 }, s)).toBeCloseTo(headingAt(shape, s), 9);
+    expect(headingAt({ ...shape, flop: 1.6 }, 7.5) - headingAt(shape, 7.5)).toBeCloseTo(0.8, 9);
+    expect(headingAt({ ...shape, flop: 1.6 }, 10) - headingAt(shape, 10)).toBeCloseTo(1.6, 9);
+    expect(headingAt({ ...shape, flop: -1.6 }, 10) - headingAt(shape, 10)).toBeCloseTo(-1.6, 9);
   });
 
   it('mirrors left and right', () => {
