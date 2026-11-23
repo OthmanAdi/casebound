@@ -77,7 +77,7 @@ export function createMagnifier(engine: Engine): Magnifier {
       ringThickness: { value: 0.006, min: 0, max: 0.05 },
       ringOpacity: { value: 1, min: 0, max: 1 },
       follow: { value: 22, min: 1, max: 120, unit: '1/s', help: 'How fast the lens follows the pointer' },
-      fade: { value: 14, min: 1, max: 60, unit: '1/s', help: 'How fast the lens appears and disappears' },
+      fade: { value: 120, min: 1, max: 240, unit: '1/s', help: 'How fast the lens appears and disappears. Measured on the reference: fully on within three frames' },
     },
     onChange: () => ctx.invalidate(),
   });
