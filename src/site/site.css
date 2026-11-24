@@ -86,7 +86,7 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
   transform: translateX(28px);
   transition: opacity 0.3s ease-out, transform 0.3s ease-in, visibility 0s 0.3s;
 }
-html[data-detail]:not([data-reading]) #home-link {
+html[data-aside] #home-link {
   visibility: visible;
   opacity: 1;
   transform: none;
@@ -120,13 +120,13 @@ html[data-detail]:not([data-reading]) #home-link {
   opacity: 0;
   transition: right 0.3s cubic-bezier(0.32, 0, 0.67, 0) 0.1s, opacity 0s 0.4s;
 }
-html[data-detail] .marquee { clip-path: inset(0 40% 0 0); transition: clip-path 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
-html[data-detail] .marquee::after { right: 40%; opacity: 1; transition: right 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0s; }
+html[data-aside] .marquee { clip-path: inset(0 40% 0 0); transition: clip-path 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
+html[data-aside] .marquee::after { right: 40%; opacity: 1; transition: right 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0s; }
 /* The titles are placed by the page: 72 px apart, the current one upright and centred. Measured: the row glides to a
    new current title in 0.5 s, ease in and out, and every title moves with it. */
 .marquee-track { position: relative; height: 100%; will-change: transform; transition: transform 0.5s ease-in-out; }
 /* Measured: beside the details the row comes to rest over the picture in 1.5 s, quick at first. */
-html[data-detail] .marquee-track { transition-duration: 1.5s; transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+html[data-aside] .marquee-track { transition-duration: 1.5s; transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
 .marquee-track.snap, .marquee-track.snap .m-title { transition: none; }
 .m-title {
   position: absolute;
@@ -185,7 +185,7 @@ html[data-theme='dark'] .card::after { background: color-mix(in srgb, var(--bg) 
 .lens-frame { z-index: 45; }
 .panel-lens { position: absolute; right: 6px; top: 4px; width: 36px; height: 36px; border-radius: 50%; border: 0; background: none; cursor: pointer; color: #fff; mix-blend-mode: difference; font: 400 20px/1 var(--display); pointer-events: auto; }
 /* Measured: beside the details the picture ends 3 px short of 60 percent of the width. */
-html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(60vw - 19px); transition: width 0.42s cubic-bezier(0.45, 0, 0.55, 1) 0.15s; }
+html[data-aside] .pictures, html[data-aside] .lens-frame { width: calc(60vw - 19px); transition: width 0.42s cubic-bezier(0.45, 0, 0.55, 1) 0.15s; }
 
 .bar {
   position: fixed;
@@ -245,6 +245,8 @@ html[data-detail] .bar-actions { transform: translateY(54px); visibility: hidden
      fading in, in 0.6 s, quick at first. It leaves the same way in 0.3 s, slow at first. */
   animation: slide 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.575s both;
 }
+/* While a book is read it has the whole picture; the details wait underneath. */
+html[data-reading] .detail { display: none; }
 .detail.leaving { animation: leave-x 0.3s cubic-bezier(0.32, 0, 0.67, 0) both, leave-o 0.3s ease-in both; }
 @keyframes slide { from { opacity: 0; transform: translateX(10vw); } to { opacity: 1; transform: none; } }
 @keyframes leave-x { to { transform: translateX(10vw); } }
@@ -306,19 +308,17 @@ html[data-detail] .bar-actions { transform: translateY(54px); visibility: hidden
   .m-title sup { display: none; }
   .marquee { top: 76px; height: 50px; }
   .grain { display: none; }
-  html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(100vw - var(--gutter) * 2); }
+  html[data-aside] .pictures, html[data-aside] .lens-frame { width: calc(100vw - var(--gutter) * 2); }
   .detail { left: var(--gutter); right: var(--gutter); top: 46vh; bottom: 28px; background: var(--bg); }
   /* Measured on a phone: the bar holds only the title; the details take the place of the title row, and the way
      back takes the place of the section label. */
   .bar-actions { display: none; }
   /* Measured on a phone: no lens over the picture; the reader's own lens is the only one. */
   .lens-frame { display: none; }
-  html[data-detail] .marquee { opacity: 0; clip-path: inset(0 0 0 0); }
-  html[data-detail] .marquee::after { opacity: 0; }
-  html[data-detail] .section-label { opacity: 0; transform: translateX(-10px); }
+  html[data-aside] .marquee { opacity: 0; clip-path: inset(0 0 0 0); }
+  html[data-aside] .marquee::after { opacity: 0; }
+  html[data-aside] .section-label { opacity: 0; transform: translateX(-10px); }
   #home-link { left: var(--gutter); top: 54px; }
-  /* While a book is read on a narrow screen it has the whole picture; the details wait underneath. */
-  html[data-reading] .detail { display: none; }
   .toolbar { gap: 10px; padding: 8px 10px; white-space: nowrap; flex-wrap: wrap; justify-content: center; row-gap: 0; max-width: calc(100vw - 16px); }
   #folio { min-width: 64px; }
   .detail h2 { font-size: 32px; }

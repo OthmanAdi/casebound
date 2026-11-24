@@ -125,7 +125,7 @@ async function boot(): Promise<void> {
     const n = strip.list.length;
     const active = n + Math.max(0, strip.list.indexOf(slug));
     // Measured: the upright title sits with its middle at 47.5 percent of the window (27.5 percent beside the details).
-    const centre = innerWidth * (detailOpen && !phone ? 0.275 : 0.475);
+    const centre = innerWidth * (asideShown && !phone ? 0.275 : 0.475);
     if (active === strip.active && centre === strip.centre && !snap) return;
     const gap = phone ? 30 : 72;
     let at = 0;
@@ -177,6 +177,8 @@ async function boot(): Promise<void> {
   /** On a narrow screen the details take the lower half: how far the book has moved up into the rest, 0..1. */
   let lift = 0;
   let detailOpen = false;
+  /** The details stand beside the picture: open, and no book open over them. */
+  let asideShown = false;
   const offset = (): { x: number; y: number } => {
     const nav = parseFloat(getComputedStyle(html).getPropertyValue('--nav')) || 162;
     const panelH = innerHeight - nav - 24;
@@ -233,11 +235,6 @@ async function boot(): Promise<void> {
   let leaving = 0;
   function setDetail(on: boolean): void {
     const was = detailOpen;
-    if (on !== detailOpen) {
-      shiftFrom = shift;
-      // Measured against the reference: the move is already one frame along on the first frame after the press.
-      shiftClock = 1 / 60 / 0.64;
-    }
     detailOpen = on;
     const d = $('detail');
     clearTimeout(leaving);
@@ -293,6 +290,16 @@ async function boot(): Promise<void> {
     $('open').textContent = reading ? 'Close book [-]' : 'Open book [+]';
     $('open').setAttribute('aria-label', reading ? 'Close book' : `Open book: ${current().title}`);
     $('details').setAttribute('aria-label', detailOpen ? 'Close details' : `View details: ${current().title}`);
+    // Measured: an open book has the whole picture, even when it was opened from the details; the details wait
+    // underneath and come back when it closes.
+    const aside = detailOpen && !reading;
+    if (aside !== asideShown) {
+      shiftFrom = shift;
+      // Measured against the reference: the move is already one frame along on the first frame after the press.
+      shiftClock = 1 / 60 / 0.64;
+      asideShown = aside;
+    }
+    html.toggleAttribute('data-aside', aside);
     html.toggleAttribute('data-lock', reading || detailOpen);
     html.toggleAttribute('data-reading', reading);
     $('bar-title').textContent = `[▸] ${current().title}`;
@@ -521,7 +528,7 @@ async function boot(): Promise<void> {
   ctx.onFrame('before-render', (f) => {
     // Measured: the book moves aside in 0.64 s, slow at both ends.
     const before = shift;
-    const aside = detailOpen && !ctx.compact ? 1 : 0;
+    const aside = asideShown && !ctx.compact ? 1 : 0;
     shiftClock = ctx.still ? 1 : Math.min(1, shiftClock + f.dt / 0.64);
     shift = shiftFrom + (aside - shiftFrom) * easeInOutQuad(shiftClock);
     const up = detailOpen && ctx.compact && !reader.isOpen ? 1 : 0;

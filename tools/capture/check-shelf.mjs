@@ -114,6 +114,21 @@ try {
     console.log(`${ok ? 'ok  ' : 'FAIL'} beside the details: picture to ${a.picture.toFixed(0)} px, column from ${a.column.toFixed(0)} px, the way back above it at ${a.back.left.toFixed(0)}, ${a.back.top.toFixed(0)}, title row cut (${a.clip}), bar buttons ${a.bar}`);
   }
   {
+    // A book opened from the details has the whole picture; Escape leaves the book and the details come back.
+    await page.click('#row-read');
+    await run(3.4);
+    await page.waitForTimeout(1200);
+    const r = await page.evaluate(() => ({ view: document.documentElement.dataset.caseboundView, aside: document.documentElement.hasAttribute('data-aside'), column: getComputedStyle(document.getElementById('detail')).display, picture: document.getElementById('pictures').getBoundingClientRect().right }));
+    await page.keyboard.press('Escape');
+    await run(2.6);
+    await page.waitForTimeout(1600);
+    const b = await around();
+    const back = (await state()).view;
+    const ok = /\/page\//.test(r.view) && !r.aside && r.column === 'none' && Math.abs(r.picture - (b.w - 16)) < 1 && /^\/book\/[^/]+$/.test(back) && Math.abs(b.column - (0.6 * b.w + 24)) < 1;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a book opened from the details has the whole picture (to ${r.picture.toFixed(0)} px, column ${r.column}); Escape brings the details back (${back})`);
+  }
+  {
     // Sections with a rule each, a colophon, and a way on to the next book that keeps the details open.
     const d = await page.evaluate(() => ({ sections: [...document.querySelectorAll('#detail .d-sec')].filter((s) => parseFloat(getComputedStyle(s).borderTopWidth) >= 1).length, facts: document.querySelectorAll('#detail-facts li').length, next: document.getElementById('detail-next').getAttribute('aria-label') }));
     const ok = d.sections >= 3 && d.facts >= 4 && /^Next book: /.test(d.next);
