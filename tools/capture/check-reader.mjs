@@ -225,6 +225,50 @@ try {
     await run(1);
   }
   say(taken.length === 3 && taken[0] >= 2 && taken[1] >= taken[0] && taken[2] > taken[0], `a press on the fore-edge turns a block of leaves, more the deeper it falls: ${taken.join(', ') || 'none'}`);
+  // The pen: while it is in the hand a press marks the page and takes no leaf. Marks stay through a page turn.
+  await page.evaluate(() => { casebound.marker.clear(); });
+  await page.mouse.move(c.x, 30);
+  await run(4);
+  await page.keyboard.press('h');
+  const stroke = async (x0, y0, x1) => {
+    await page.mouse.move(x0, y0);
+    await run(0.05);
+    await page.mouse.down();
+    for (let k = 1; k <= 10; k++) { await page.mouse.move(x0 + ((x1 - x0) * k) / 10, y0); await run(0.02); }
+    await page.mouse.up();
+    await run(0.1);
+  };
+  await stroke(right[0] - 120, right[1] - 60, right[0] + 120);
+  await stroke(left[0] - 120, left[1] + 40, left[0] + 100);
+  const marked = await page.evaluate(() => ({ on: casebound.marker.on, marks: casebound.marker.marks(), page: casebound.reader.page }));
+  const counts = Object.fromEntries(Object.entries(marked.marks).map(([k, v]) => [k, v.length]));
+  say(marked.on && marked.page === first && counts[first] === 1 && counts[first + 1] === 1, `with the pen a pull across a page marks it and turns nothing: page ${marked.page}, strokes ${JSON.stringify(counts)}`);
+  await expect('and no leaf was taken into the hand', { page: first, inAir: 0 });
+  const overlays = () => page.evaluate(() => {
+    const blank = (m) => { const o = m.userData.uniforms.tOverlay.value; return !o || !o.image || o.image.width < 4; };
+    const book = casebound.reader.book;
+    let leaves = 0;
+    casebound.engine.ctx.scene.traverse((o) => { if (o.name === 'leaf' && o.visible) leaves += o.material.filter((m) => !blank(m)).length; });
+    return { left: !blank(book.pageMaterials.left), right: !blank(book.pageMaterials.right), leaves };
+  });
+  const atRest = await overlays();
+  say(atRest.left && atRest.right, 'both pages show their marks');
+  await page.keyboard.press('h');
+  await page.keyboard.press('ArrowRight');
+  await run(0.4);
+  const inFlight = await overlays();
+  say(inFlight.leaves === 1 && inFlight.left, `the marks ride on the leaf as it turns: ${inFlight.leaves} marked side in the air`);
+  await run(3);
+  await page.keyboard.press('ArrowLeft');
+  await run(4);
+  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('casebound.marks.' + casebound.reader.book.record.slug) || '{}'));
+  say(Object.keys(kept).length === 2, `the marks are kept for the next visit: pages ${Object.keys(kept).join(', ')}`);
+  await page.evaluate(() => casebound.marker.undo());
+  const fewer = await page.evaluate(() => Object.keys(casebound.marker.marks()).length);
+  say(fewer === 1, 'the last mark can be taken away');
+  await page.evaluate(() => casebound.marker.clear());
+  await expect('the pen is away and the book is where it was', { page: first });
+
   // Shift with an arrow, and the two buttons of the toolbar, turn ten leaves as one block.
   await page.mouse.move(c.x, 30);
   await run(1);
