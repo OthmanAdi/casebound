@@ -158,7 +158,7 @@ export class InkBook {
     return ink;
   }
 
-  private paint(ink: PageInk, stroke: Stroke, onto: InkSurface): void {
+  private paint(stroke: Stroke, onto: InkSurface): void {
     onto.fill(strokeOutlines(stroke, onto.width, onto.height, this.tuning), stroke.color, this.tuning.opacity);
   }
 
@@ -167,7 +167,7 @@ export class InkBook {
     const ink = this.pages.get(page);
     if (!ink) return;
     ink.base.clear();
-    for (const stroke of ink.strokes) this.paint(ink, stroke, ink.base);
+    for (const stroke of ink.strokes) this.paint(stroke, ink.base);
     ink.base.touch();
     this.show(page);
   }
@@ -177,7 +177,7 @@ export class InkBook {
     if (!ink) return;
     ink.shown.clear();
     ink.shown.copy(ink.base);
-    if (this.live && this.live.page === page) this.paint(ink, this.live.stroke, ink.shown);
+    if (this.live && this.live.page === page) this.paint(this.live.stroke, ink.shown);
     ink.shown.touch();
   }
 
@@ -210,7 +210,7 @@ export class InkBook {
     this.live = null;
     const ink = this.page(page);
     ink.strokes.push(stroke);
-    this.paint(ink, stroke, ink.base);
+    this.paint(stroke, ink.base);
     ink.base.touch();
     this.show(page);
   }
