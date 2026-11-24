@@ -107,7 +107,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       turnHaste: { value: 0.5, min: 0, max: 3, help: 'How much faster the turn follows while the page scrolls fast (above 2.5 window heights per second) and for 0.6 s after. Measured: 0.5' },
       exitFrom: { value: 0.6, min: 0, max: 2, help: 'Distance past centre where a leaving book speeds away' },
       exitBoost: { value: 2.25, min: 0, max: 8 },
-      riseCap: { value: 4, min: 0, max: 40, help: 'The most a featured book rises in one 60 Hz frame, world units. After a jump of the scroll bar the books go up at this pace. 0: no limit. Measured: 4' },
+      riseCap: { value: 4, min: 0, max: 40, help: 'The most a featured book rises in one 60 Hz frame, world units. After a jump of the scroll bar the books go up at this pace, each of them past the centre. 0: no limit. Measured: 4' },
+      fallCap: { value: 4, min: 0, max: 40, help: 'The most the stack comes down in one 60 Hz frame, world units. After a quick scroll or a jump back up the page every book on the way passes at this pace. 0: no limit, and the books between are skipped' },
       visible: { value: 1.8, min: 0.5, max: 6, help: 'Books further than this many slots from centre are hidden' },
       tiltYaw: { value: 0.16, min: 0, max: 1, unit: 'rad', help: 'Yaw toward the pointer at the screen edge' },
       tiltPitch: { value: 0.1, min: 0, max: 1, unit: 'rad' },
@@ -229,6 +230,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   let seeded = false;
   /** Height every featured book was shown at in the frame before. */
   const shownY: number[] = [];
+  /** False while the featured book before the last is still in the picture on its way up. The row takes it only once it is gone. */
+  let stackClear = true;
 
   const shelf: Shelf = {
     state,
@@ -451,14 +454,21 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
     clock = f.time * 1000;
     if (!shelf.enabled) return;
     const tuning = ctx.compact ? SCROLL_COMPACT : SCROLL_DESKTOP;
-    let moving = stepScroll(state, scrollY(), slotPx(), order.length + (row ? 1 : 0), tuning, f.dt, ctx.still, { bridge, time: f.time, ago: (clock - wheelAt) / 1000 });
+    // On the way back up from the row, the stack waits at its last book until the row has let go of the books
+    // that are also in the stack. Then it comes down at a pace at which each of them is seen.
+    const rowHolds = !!row && display.some((i, pos) => pos !== anchor && order.includes(i) && row.arrived[pos]! > 0.002);
+    const perUnit = 60 / Math.max(1e-3, Math.abs(t.pitch));
+    const limits = { fall: t.fallCap * perUnit, rise: t.riseCap * perUnit, floor: rowHolds ? order.length - 1 : undefined };
+    let moving = stepScroll(state, scrollY(), slotPx(), order.length + (row ? 1 : 0), tuning, f.dt, ctx.still, { bridge, time: f.time, ago: (clock - wheelAt) / 1000 }, limits);
     const widths = row && rowTune ? display.map((i) => engine.books[i]!.dims.thickness * rowTune.spine) : [];
     if (row && rowTune) {
       rowWidths = widths;
       rowWorldPerPx = ctx.visibleHeightAt(t.planeZ - rowTune.depth) / Math.max(1, ctx.size.y);
       // Measured: the row reads the scroll in a straight line from the last featured book to its own place, lightly
       // damped. The dwell that holds a featured book at the centre is not part of it.
-      const rawPast = clamp(scrollY() / Math.max(1, slotPx()) - (order.length - 1), 0, 1);
+      // After a quick scroll or a jump down the page the stack is still on its way: the row waits for its last
+      // book, and for the one before it to be out of the picture.
+      const rawPast = state.progress < order.length - 1 - 0.05 || !stackClear ? 0 : clamp(scrollY() / Math.max(1, slotPx()) - (order.length - 1), 0, 1);
       rowPast = !rowPastSeeded || ctx.still ? rawPast : smoothDamp(rowPast, rawPast, rowPastVel, 0.063, clamp(f.dt, 1 / 240, 1 / 30));
       rowPastSeeded = true;
       if (Math.abs(rowPast - rawPast) > 1e-4) moving = true;
@@ -539,6 +549,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       pose.quaternion.copy(qRest).slerp(b > 0 ? qLeave : qArrive, amount);
       pose.scale = scale;
       pose.visible = Math.abs(b) < t.visible;
+      if (slot === order.length - 2) stackClear = !pose.visible || y - (t.baseY - offset.y * worldPerPx) > 1.4 * Math.abs(t.pitch);
       opts.layout?.({ slot, offset: b, count: order.length, slug: book.record.slug }, pose);
       if (row && rowTune && slot === order.length - 1) {
         // The last featured book is where the row grows from: it moves from its featured pose into its place.

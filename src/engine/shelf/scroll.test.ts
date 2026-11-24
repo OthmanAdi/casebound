@@ -202,3 +202,69 @@ describe('stepScroll', () => {
     expect(s.progress).toBe(2);
   });
 });
+
+describe('the stack after a jump of the scroll bar', () => {
+  const slot = 872;
+  const run = (from: number, to: number, limits: Parameters<typeof stepScroll>[8], frames = 120): number[] => {
+    const s = createScrollState();
+    stepScroll(s, from * slot, slot, 5, SCROLL_DESKTOP, 1 / 60);
+    const seen: number[] = [];
+    for (let i = 0; i < frames; i++) {
+      stepScroll(s, to * slot, slot, 5, SCROLL_DESKTOP, 1 / 60, false, undefined, limits);
+      seen.push(s.progress);
+    }
+    return seen;
+  };
+  /** Frames in which book `i` is within a third of a slot of the centre. */
+  const framesNear = (seen: number[], i: number): number => seen.filter((p) => Math.abs(p - i) < 1 / 3).length;
+
+  it('without limits is over before the books between are seen', () => {
+    const seen = run(3, 0, undefined);
+    expect(framesNear(seen, 2)).toBeLessThan(3);
+    expect(framesNear(seen, 1)).toBeLessThan(3);
+  });
+
+  it('comes back up the page no faster than its limit, so every book passes', () => {
+    const seen = run(3, 0, { fall: 10 });
+    for (let i = 1; i < seen.length; i++) expect(seen[i - 1]! - seen[i]!).toBeLessThanOrEqual(10 / 60 + 1e-9);
+    expect(framesNear(seen, 2)).toBeGreaterThanOrEqual(4);
+    expect(framesNear(seen, 1)).toBeGreaterThanOrEqual(4);
+    expect(seen[seen.length - 1]).toBeCloseTo(0, 3);
+    // Quick all the same: three books in about half a second.
+    expect(seen.findIndex((p) => p < 0.05)).toBeLessThan(36);
+  });
+
+  it('goes down the page no faster than its limit either', () => {
+    const seen = run(0, 3, { rise: 10 });
+    for (let i = 1; i < seen.length; i++) expect(seen[i]! - seen[i - 1]!).toBeLessThanOrEqual(10 / 60 + 1e-9);
+    expect(framesNear(seen, 1)).toBeGreaterThanOrEqual(4);
+    expect(framesNear(seen, 2)).toBeGreaterThanOrEqual(4);
+    expect(seen[seen.length - 1]).toBeCloseTo(3, 3);
+  });
+
+  it('waits at a floor and goes on when the floor is gone', () => {
+    const s = createScrollState();
+    stepScroll(s, 4 * slot, slot, 5, SCROLL_DESKTOP, 1 / 60);
+    for (let i = 0; i < 30; i++) stepScroll(s, 0, slot, 5, SCROLL_DESKTOP, 1 / 60, false, undefined, { fall: 10, floor: 3 });
+    expect(s.progress).toBe(3);
+    for (let i = 0; i < 60; i++) stepScroll(s, 0, slot, 5, SCROLL_DESKTOP, 1 / 60, false, undefined, { fall: 10 });
+    expect(s.progress).toBeCloseTo(0, 3);
+  });
+
+  it('a floor never stops the way down the page', () => {
+    const seen = run(0, 4, { rise: 10, fall: 10, floor: 3 });
+    expect(seen[seen.length - 1]).toBeCloseTo(4, 3);
+  });
+
+  it('leaves an ordinary scroll alone', () => {
+    // 2000 px a second: well under the limit.
+    const free = createScrollState();
+    const held = createScrollState();
+    for (let i = 0; i < 90; i++) {
+      const y = 3 * slot - (2000 / 60) * i;
+      stepScroll(free, y, slot, 5, SCROLL_DESKTOP, 1 / 60);
+      stepScroll(held, y, slot, 5, SCROLL_DESKTOP, 1 / 60, false, undefined, { fall: 10, rise: 10 });
+      expect(held.progress).toBeCloseTo(free.progress, 9);
+    }
+  });
+});

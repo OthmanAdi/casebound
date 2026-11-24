@@ -110,6 +110,20 @@ export interface ScrollState {
 export const createScrollState = (): ScrollState => ({ progress: 0, velocity: { v: 0 }, active: 0, seeded: false });
 
 /**
+ * Limits on how fast the stack runs. Without them a quick scroll or a jump of the scroll bar from one end of the
+ * page to the other shows the book it left and then the book it came to: the books between are over before they
+ * are seen.
+ */
+export interface ScrollLimits {
+  /** The most the progress falls, in slots per second: the way back up the page. 0: no limit. */
+  fall?: number;
+  /** The most it rises, in slots per second: the way down the page. 0: no limit. */
+  rise?: number;
+  /** The progress does not fall below this. Used while the row of spines still holds the books of the stack. */
+  floor?: number;
+}
+
+/**
  * Advances the damped progress by one frame.
  * @returns true while the value is still moving
  */
@@ -122,6 +136,7 @@ export function stepScroll(
   dt: number,
   still = false,
   wheel?: { bridge: BridgeState; time: number; ago: number },
+  limits?: ScrollLimits,
 ): boolean {
   const raw = clamp(slotPx > 0 ? scrollY / slotPx : 0, 0, Math.max(0, count - 1));
   const asked = dwell(raw, tuning.lockPx / Math.max(1, slotPx), tuning.creep * slotPx);
@@ -133,7 +148,25 @@ export function stepScroll(
     state.velocity.v = 0;
     state.seeded = true;
   } else {
-    state.progress = smoothDamp(state.progress, target, state.velocity, tuning.smoothTime, clamp(dt, 1 / 240, 1 / 30));
+    const step = clamp(dt, 1 / 240, 1 / 30);
+    let next = smoothDamp(state.progress, target, state.velocity, tuning.smoothTime, step);
+    if (limits && next > before && limits.rise && limits.rise > 0 && next > before + limits.rise * step) {
+      next = before + limits.rise * step;
+      state.velocity.v = limits.rise;
+    }
+    if (limits && next < before) {
+      // Every book on the way is seen: the stack comes down no faster than this.
+      if (limits.fall && limits.fall > 0 && next < before - limits.fall * step) {
+        next = before - limits.fall * step;
+        state.velocity.v = -limits.fall;
+      }
+      // And it waits where it is while it may not go lower.
+      if (limits.floor !== undefined && next < limits.floor) {
+        next = Math.min(before, limits.floor);
+        state.velocity.v = 0;
+      }
+    }
+    state.progress = next;
   }
   if (Math.abs(state.progress - state.active) > tuning.hysteresis) state.active = clamp(Math.round(state.progress), 0, count - 1);
   return Math.abs(state.progress - before) > 1e-4 || Math.abs(state.progress - asked) > 1e-3;
