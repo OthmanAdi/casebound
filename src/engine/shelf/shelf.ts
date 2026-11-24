@@ -560,7 +560,9 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       if (row && rowTune && slot === order.length - 1) {
         // The last featured book is where the row grows from: it moves from its featured pose into its place.
         const join = joinOf(row, rowPast, rowTune);
-        if (join > 0) {
+        // The row's reading of the scroll is damped and never quite comes to nothing: below a thousandth the
+        // book is a featured book again, and out of sight when it is far from the centre.
+        if (join > 1e-3) {
           const turn = rowPlace(anchor, join);
           // The depth already carries the join; height and side follow it in a straight line.
           pose.position.set(lerp(pose.position.x, rowAt.x, join), lerp(pose.position.y, rowAt.y, join), rowAt.z);
