@@ -13,7 +13,7 @@ import type { ParamSpec, Registry } from '../core/registry';
 import { makeDims, type BookDims } from './dims';
 import { COVER_RELIEF, DEFAULT_FACES, GRAIN_PER_UNIT, edgeTexture, endpaperTexture, grainTexture, paintCover, paintPage, type CoverDesign, type CoverRelief, type CoverTextures, type PageContent, type Typefaces } from './painter';
 import { CLOTH, PAGE_PAPER, createEdgeMaterial, createSurfaceMaterial, type ClothParams, type SurfaceFx } from './surface';
-import { Volume } from './volume';
+import { Volume, type ChunkPose } from './volume';
 import { hashString } from '../core/math';
 
 export interface BookRecord {
@@ -127,10 +127,15 @@ export class Book {
   held = false;
   /** Held by the reader, but its cover has not started to move yet: on the shelf it still follows the pointer. */
   poised = false;
+  /**
+   * A bundle of leaves in the air (see `ChunkPose`), with `under`: the share of the leaves that lie under it on
+   * the left. While there is one the stacks go by it and `reading` only places the case. Set by the reader.
+   */
+  bundle: (ChunkPose & { under: number }) | null = null;
 
   private readonly textures: Texture[] = [];
   private readonly materials: Material[] = [];
-  private readonly pageMaterials: { left: ReturnType<typeof createSurfaceMaterial>; right: ReturnType<typeof createSurfaceMaterial> };
+  private readonly pageMaterials: Record<'left' | 'right' | 'bundleTop' | 'bundleUnder', ReturnType<typeof createSurfaceMaterial>>;
   private readonly coverMaterial: ReturnType<typeof createSurfaceMaterial>;
   private cover: CoverTextures;
 
@@ -169,7 +174,8 @@ export class Book {
         fx,
       });
     // The left page is drawn mirrored along the stack, so its spine edge is on the right of its picture.
-    this.pageMaterials = { left: page(blank, 1), right: page(blank, 0) };
+    // A bundle in the air has a page on both faces: a right-hand one on top and a left-hand one underneath.
+    this.pageMaterials = { left: page(blank, 1), right: page(blank, 0), bundleTop: page(blank, 0), bundleUnder: page(blank, 1) };
     const endpaper = createSurfaceMaterial({
       map: end,
       grain: paper,
@@ -187,7 +193,15 @@ export class Book {
     const edgeMat = createEdgeMaterial(edge, undefined, fx.uEdgeEnds, dims.pageW);
 
     // Temporary cover material so the volume can be built; replaced right below once the atlas is known.
-    const volume = (this.volume = new Volume(dims, { cover: endpaper, endpaper, pageLeft: this.pageMaterials.left, pageRight: this.pageMaterials.right, edge: edgeMat }));
+    const volume = (this.volume = new Volume(dims, {
+      cover: endpaper,
+      endpaper,
+      pageLeft: this.pageMaterials.left,
+      pageRight: this.pageMaterials.right,
+      edge: edgeMat,
+      chunkTop: this.pageMaterials.bundleTop,
+      chunkUnder: this.pageMaterials.bundleUnder,
+    }));
     const atlas = volume.atlas;
     const cover = (this.cover = this.paintCover(relief));
     const stripLength = atlas.aspect * dims.coverH;
@@ -212,7 +226,7 @@ export class Book {
       fx,
     }));
     volume.caseMesh.material = [coverMat, endpaper];
-    this.materials.push(coverMat, endpaper, edgeMat, this.pageMaterials.left, this.pageMaterials.right);
+    this.materials.push(coverMat, endpaper, edgeMat, ...Object.values(this.pageMaterials));
 
     this.root.name = `book.${record.slug}`;
     this.root.add(this.tilt);
@@ -244,8 +258,8 @@ export class Book {
     this.applyPose();
   }
 
-  /** Replaces the texture on one of the two visible pages. */
-  setPage(side: 'left' | 'right', map: Texture): void {
+  /** Replaces the texture on one of the two visible pages, or on a face of a bundle in the air. */
+  setPage(side: 'left' | 'right' | 'bundleTop' | 'bundleUnder', map: Texture): void {
     const m = this.pageMaterials[side];
     if (m.map === map) return;
     m.map = map;
@@ -299,10 +313,16 @@ export class Book {
     const pose = {
       front: this.open * OPEN_ANGLE * (2 - 2 * n) + this.flap.front * closed,
       back: this.open * OPEN_ANGLE * 2 * n + this.flap.back * closed,
-      split: this.open > 0 ? this.reading : 0,
+      split: this.open > 0 ? (this.bundle ? this.bundle.under : this.reading) : 0,
       turn: this.pages,
+      chunk: this.open > 0 && this.bundle ? this.bundle : undefined,
     };
     this.volume.setPose(pose);
+    if (this.bundle) {
+      // Rings lift both faces of the bundle alike, by where it is across the spread, as they do a single leaf.
+      const side = Math.cos(Math.PI * this.bundle.turn);
+      for (const m of [this.pageMaterials.bundleTop, this.pageMaterials.bundleUnder]) (m.userData.uniforms as { uRingSide: { value: number } }).uRingSide.value = side;
+    }
     // The joint relief follows the hinges: a quarter turn when the book is closed, none when a board lies flat.
     const hinge = (this.coverMaterial.userData.uniforms as { uHinge: { value: { set(x: number, y: number): void } } }).uHinge;
     hinge.value.set(Math.max(0, Math.PI / 2 - pose.back), Math.max(0, Math.PI / 2 - pose.front));
@@ -330,5 +350,6 @@ export class Book {
     this.volume.caseMesh.geometry.dispose();
     this.volume.leftBlock.geometry.dispose();
     this.volume.rightBlock.geometry.dispose();
+    this.volume.chunkBlock.geometry.dispose();
   }
 }

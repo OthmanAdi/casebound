@@ -1,5 +1,6 @@
 /**
- * The physical book: a hardcover case (two boards and a spine joined by hinges) and two page blocks.
+ * The physical book: a hardcover case (two boards and a spine joined by hinges) and two page blocks. A third
+ * block is a bundle of leaves on its way from one stack to the other.
  * All geometry is generated here and re-posed on the CPU when the book opens. No model file is loaded.
  *
  * Frame: the open-book frame (see profile.ts). The spine lies along Y at the origin. Closed, both boards
@@ -25,6 +26,25 @@ export interface VolumePose {
    * it: the back stack lifts off its board on the way and the wad comes over late. Default 1.
    */
   turn?: number;
+  /** A bundle of leaves in the air between the two stacks. */
+  chunk?: ChunkPose;
+}
+
+/**
+ * A bundle of leaves that turns as one block. While there is one, `split` counts only the leaves that lie under
+ * it on the front board: the back stack has what is left of the book.
+ */
+export interface ChunkPose {
+  /** Its share of the leaves of the book. */
+  share: number;
+  /** 0 = it lies on the back (right) stack, 1 = on the front (left) one. */
+  turn: number;
+  /** How far it is lifted off the stack it lies on, radians. */
+  lift?: number;
+  /** The foot of the page leads the lift by this share and the head trails by it. */
+  twist?: number;
+  /** How far it bows against the air at mid-turn, radians at mid-length. Positive bows toward the left. */
+  bow?: number;
 }
 
 export interface VolumeMaterials {
@@ -34,6 +54,9 @@ export interface VolumeMaterials {
   pageLeft: Material;
   pageRight: Material;
   edge: Material;
+  /** The two faces of a bundle of leaves in the air: the one it shows lying right, and the one it shows lying left. Default: the page materials. */
+  chunkTop?: Material;
+  chunkUnder?: Material;
 }
 
 /** Segments per side of the case strip: half spine, hinge arc, board. */
@@ -167,6 +190,8 @@ export class Volume {
   readonly caseMesh: Mesh;
   readonly leftBlock: Mesh;
   readonly rightBlock: Mesh;
+  /** A bundle of leaves in the air. Hidden unless the pose has one. */
+  readonly chunkBlock: Mesh;
   /**
    * Horizontal ranges of the cover atlas, for the painter: back cover, spine, front cover. A hinge lies half in the
    * spine's range and half in its board's; `hinge` is that half as a share of the strip.
@@ -178,12 +203,15 @@ export class Volume {
 
   private readonly caseSurface = new Surface(COLS * 8 + 8);
   private readonly blockSurfaces: [Surface, Surface];
+  private readonly chunkSurface: Surface;
   private readonly cx = new Float32Array(COLS);
   private readonly cz = new Float32Array(COLS);
   private readonly nx = new Float32Array(COLS);
   private readonly nz = new Float32Array(COLS);
   private readonly cs = new Float32Array(COLS);
   private readonly layer = new Float32Array((BLOCK_K + 1) * (BLOCK_S + 1) * PROFILE_STRIDE);
+  /** The layers of a bundle at the head of the page. `layer` holds them at the foot. */
+  private readonly layerHead = new Float32Array((BLOCK_K + 1) * (BLOCK_S + 1) * PROFILE_STRIDE);
 
   constructor(readonly dims: BookDims, materials: VolumeMaterials) {
     const blockVerts = (BLOCK_S + 1) * (BLOCK_R + 3) + (BLOCK_K + 1) * 2 + (BLOCK_S + 1) * (BLOCK_K + 1) * 2;
@@ -192,10 +220,14 @@ export class Volume {
     // The left stack has a third face: its underside, the first leaf of the book, seen while the stack turns over.
     this.leftBlock = new Mesh(this.blockSurfaces[0].geometry, [materials.pageLeft, materials.edge, materials.endpaper]);
     this.rightBlock = new Mesh(this.blockSurfaces[1].geometry, [materials.pageRight, materials.edge]);
+    this.chunkSurface = new Surface((BLOCK_S + 1) * (BLOCK_R + 1) * 2 + (BLOCK_K + 1) * 2 + (BLOCK_S + 1) * (BLOCK_K + 1) * 2);
+    this.chunkBlock = new Mesh(this.chunkSurface.geometry, [materials.chunkTop ?? materials.pageRight, materials.edge, materials.chunkUnder ?? materials.pageLeft]);
     this.caseMesh.name = 'case';
     this.leftBlock.name = 'pages.left';
     this.rightBlock.name = 'pages.right';
-    for (const m of [this.caseMesh, this.leftBlock, this.rightBlock]) {
+    this.chunkBlock.name = 'pages.bundle';
+    this.chunkBlock.visible = false;
+    for (const m of [this.caseMesh, this.leftBlock, this.rightBlock, this.chunkBlock]) {
       m.castShadow = true;
       m.receiveShadow = true;
       m.frustumCulled = false;
@@ -217,6 +249,13 @@ export class Volume {
     this.buildCase(pose);
     this.buildBlock(0, pose);
     this.buildBlock(1, pose);
+    this.buildChunk(pose);
+  }
+
+  /** Thickness of one of the two stacks. A bundle in the air belongs to neither. */
+  stackThickness(which: 0 | 1, pose: VolumePose = this.pose): number {
+    const share = which === 0 ? pose.split : 1 - pose.split - (pose.chunk?.share ?? 0);
+    return this.dims.blockT * Math.min(Math.max(share, 0), 1);
   }
 
   /** z of the middle of the closed book, used to spin the closed book about its centre. */
@@ -342,29 +381,58 @@ export class Volume {
 
   /** Shape of layer k (0 = on the board, 1 = top of the stack) of one page block. */
   layerShape(which: 0 | 1, k: number, pose: VolumePose = this.pose): LeafShape {
+    return this.shapeAt(which === 0, k * this.stackThickness(which, pose), pose);
+  }
+
+  /** Shape of a leaf that lies `h` above a board, on the front (left) or the back one. */
+  private shapeAt(left: boolean, h: number, pose: VolumePose): LeafShape {
     const d = this.dims;
-    const left = which === 0;
-    const t = d.blockT * (left ? pose.split : 1 - pose.split);
     const open = this.lie(left, pose);
     const heading = left ? Math.PI / 2 + open : Math.PI / 2 - open;
-    const x = left ? -d.blockT / 2 + k * t : d.blockT / 2 - k * t;
+    const x = left ? -d.blockT / 2 + h : d.blockT / 2 - h;
     const z = d.board / 2 + SEAT;
-    // Away from the spine the layer runs k x t above the inner face of its board, wherever that board points:
+    // Away from the spine the layer runs h above the inner face of its board, wherever that board points:
     // lying flat, standing, or folded right back while the book is open near its first or last page. A stack on
     // its way out is shaped as if a board stood where the stack is now.
     const face = this.boardFace(left, open);
-    const offset = (face.x - x) * face.nx + (face.z - z) * face.nz + k * t + SEAT;
+    const offset = (face.x - x) * face.nx + (face.z - z) * face.nz + h + SEAT;
     // The higher a page lies in its stack, the more it bulges: the board under the lowest one is flat.
     const fall = Math.max(1e-4, this.arch.fall * d.pageW);
-    const arch = this.arch.height * d.pageW * (1 - Math.exp(-(k * t) / fall));
+    const arch = this.arch.height * d.pageW * (1 - Math.exp(-h / fall));
     return { x, z, heading, turnLength: turnLengthForOffset(offset, heading - Math.PI / 2), length: d.pageW, arch };
+  }
+
+  /**
+   * Shape of layer j of a bundle in the air: 0 = the leaf that lies lowest while the bundle is on the back stack,
+   * 1 = the one on top there. Lying on either stack a layer has the very shape that stack would have at its
+   * height, so the bundle leaves and joins a stack without a seam. `lead` scales the lift: the foot of the page
+   * rises first.
+   */
+  chunkShape(j: number, pose: VolumePose = this.pose, lead = 1): LeafShape {
+    const c = pose.chunk ?? { share: 0, turn: 0 };
+    const tc = this.dims.blockT * Math.max(0, c.share);
+    const right = this.shapeAt(false, this.stackThickness(1, pose) + j * tc, pose);
+    const left = this.shapeAt(true, this.stackThickness(0, pose) + (1 - j) * tc, pose);
+    const a = Math.min(Math.max(c.turn, 0), 1);
+    const air = Math.sin(Math.PI * a);
+    const mix = (p: number, q: number): number => p + (q - p) * a;
+    return {
+      x: right.x,
+      z: right.z,
+      // The lift raises the bundle off whichever stack it is nearer to.
+      heading: mix(right.heading, left.heading) + (c.lift ?? 0) * (1 - 2 * a) * lead,
+      turnLength: mix(right.turnLength, left.turnLength) + 0.25 * air,
+      length: this.dims.pageW,
+      arch: mix(right.arch ?? 0, left.arch ?? 0),
+      bow: (c.bow ?? 0) * air,
+    };
   }
 
   private buildBlock(which: 0 | 1, pose: VolumePose): void {
     const d = this.dims;
     const left = which === 0;
     const mesh = left ? this.leftBlock : this.rightBlock;
-    const t = d.blockT * (left ? pose.split : 1 - pose.split);
+    const t = this.stackThickness(which, pose);
     mesh.visible = t > 1e-3;
     const s = this.blockSurfaces[which];
     const stride = (BLOCK_S + 1) * PROFILE_STRIDE;
@@ -433,6 +501,89 @@ export class Volume {
           const o = at(k, i);
           const u = ((k / BLOCK_K) * leavesHere) / EDGE_TEXTURE_LEAVES;
           grid.push(s.touch(s.vert(L[o]!, y, L[o + 1]!, 0, ny, 0, u, sampleDistance(d.pageW, BLOCK_S, i) / d.pageW), own(k), other(k), 99, 99));
+        }
+      }
+      const w = BLOCK_S + 1;
+      for (let k = 0; k < BLOCK_K; k++) {
+        for (let i = 0; i < BLOCK_S; i++) s.quad(grid[k * w + i]!, grid[k * w + i + 1]!, grid[(k + 1) * w + i + 1]!, grid[(k + 1) * w + i]!, 1);
+      }
+    }
+    s.end();
+  }
+
+  /**
+   * The bundle in the air: a block with a printed page on both faces. Its foot and its head are shaped apart, so
+   * it can twist as it lifts; in between the faces run straight from one to the other.
+   */
+  private buildChunk(pose: VolumePose): void {
+    const d = this.dims;
+    const c = pose.chunk;
+    const tc = c ? d.blockT * Math.max(0, c.share) : 0;
+    this.chunkBlock.visible = tc > 1e-4;
+    if (!c || !this.chunkBlock.visible) return;
+    const s = this.chunkSurface;
+    const stride = (BLOCK_S + 1) * PROFILE_STRIDE;
+    const twist = c.twist ?? 0;
+    const F = this.layer;
+    const H = this.layerHead;
+    for (let k = 0; k <= BLOCK_K; k++) {
+      sampleLeaf(this.chunkShape(k / BLOCK_K, pose, 1 + twist), BLOCK_S, F.subarray(k * stride, (k + 1) * stride));
+      sampleLeaf(this.chunkShape(k / BLOCK_K, pose, 1 - twist), BLOCK_S, H.subarray(k * stride, (k + 1) * stride));
+    }
+    const at = (k: number, i: number): number => k * stride + i * PROFILE_STRIDE;
+    const y0 = -d.pageH / 2;
+    const y1 = d.pageH / 2;
+    const a = Math.min(Math.max(c.turn, 0), 1);
+    const tr = this.stackThickness(1, pose);
+    const tl = this.stackThickness(0, pose);
+    // Height of a layer above the board it lies toward, for the stripes and the shade of the page edges.
+    const height = (k: number): number => (a < 0.5 ? tr + (k / BLOCK_K) * tc : tl + (1 - k / BLOCK_K) * tc);
+    const stripe = (k: number): number => (tr + (k / BLOCK_K) * tc) / LEAF_THICKNESS / EDGE_TEXTURE_LEAVES;
+    const aloft = Math.sin(Math.PI * a) * 9;
+
+    s.begin();
+    // The two printed faces: the page on top while the bundle lies on the back stack, and the one underneath,
+    // which is on top once it has come over.
+    const rows = BLOCK_R + 1;
+    for (const [k, sign, group] of [[BLOCK_K, 1, 0], [0, -1, 2]] as const) {
+      const face: number[] = [];
+      for (let i = 0; i <= BLOCK_S; i++) {
+        const o = at(k, i);
+        const along = sampleDistance(d.pageW, BLOCK_S, i) / d.pageW;
+        const u = sign > 0 ? along : 1 - along;
+        for (let r = 0; r <= BLOCK_R; r++) {
+          const v = r / BLOCK_R;
+          const x = F[o]! + (H[o]! - F[o]!) * v;
+          const z = F[o + 1]! + (H[o + 1]! - F[o + 1]!) * v;
+          const tx = F[o + 2]! + (H[o + 2]! - F[o + 2]!) * v;
+          const tz = F[o + 3]! + (H[o + 3]! - F[o + 3]!) * v;
+          face.push(s.vert(x, y0 + (y1 - y0) * v, z, -tz * sign, 0, tx * sign, u, v));
+        }
+      }
+      for (let i = 0; i < BLOCK_S; i++) {
+        for (let r = 0; r < BLOCK_R; r++) s.quad(face[i * rows + r]!, face[(i + 1) * rows + r]!, face[(i + 1) * rows + r + 1]!, face[i * rows + r + 1]!, group);
+      }
+    }
+
+    // Fore-edge.
+    const fore: number[] = [];
+    for (let k = 0; k <= BLOCK_K; k++) {
+      const o = at(k, BLOCK_S);
+      const near = height(k) + aloft;
+      fore.push(
+        s.touch(s.vert(F[o]!, y0, F[o + 1]!, F[o + 2]!, 0, F[o + 3]!, stripe(k), 0), near, 99, 0, d.pageH),
+        s.touch(s.vert(H[o]!, y1, H[o + 1]!, H[o + 2]!, 0, H[o + 3]!, stripe(k), 1), near, 99, d.pageH, 0),
+      );
+    }
+    for (let k = 0; k < BLOCK_K; k++) s.quad(fore[k * 2]!, fore[(k + 1) * 2]!, fore[(k + 1) * 2 + 1]!, fore[k * 2 + 1]!, 1);
+
+    // Head and tail.
+    for (const [L, y, ny] of [[H, y1, 1], [F, y0, -1]] as const) {
+      const grid: number[] = [];
+      for (let k = 0; k <= BLOCK_K; k++) {
+        for (let i = 0; i <= BLOCK_S; i++) {
+          const o = at(k, i);
+          grid.push(s.touch(s.vert(L[o]!, y, L[o + 1]!, 0, ny, 0, stripe(k), sampleDistance(d.pageW, BLOCK_S, i) / d.pageW), height(k) + aloft, 99, 99, 99));
         }
       }
       const w = BLOCK_S + 1;

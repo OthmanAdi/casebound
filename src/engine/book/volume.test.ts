@@ -70,3 +70,56 @@ describe('page stacks while a book opens', () => {
     expect(v.layerShape(1, 0, pose(0.5, 1)).arch!).toBeCloseTo(0, 9);
   });
 });
+
+describe('a bundle of leaves in the air', () => {
+  // A book open in the middle, 20 of its 180 leaves in the bundle.
+  const share = 20 / 180;
+  const whole = pose(0.5, 1);
+  const with20 = (turn: number, lift = 0): Parameters<Volume['setPose']>[0] => ({ ...whole, split: 0.5 - share, chunk: { share, turn, lift } });
+
+  it('lying on the back stack is the top of that stack as it was', () => {
+    const v = volume();
+    const before = { ...whole, split: 0.5 - share };
+    const top = v.layerShape(1, 1, before);
+    const lowest = v.layerShape(1, 1, with20(0));
+    for (const key of ['x', 'z', 'heading', 'turnLength', 'arch'] as const) {
+      expect(v.chunkShape(1, with20(0))[key]).toBeCloseTo(top[key]!, 9);
+      // Its lowest leaf lies on what is left of the stack.
+      expect(v.chunkShape(0, with20(0))[key]).toBeCloseTo(lowest[key]!, 9);
+    }
+  });
+
+  it('lying on the front stack is the top of that stack as it will be', () => {
+    const v = volume();
+    const after = { ...whole, split: 0.5 };
+    const top = v.layerShape(0, 1, after);
+    const under = v.layerShape(0, 1, with20(1));
+    for (const key of ['x', 'z', 'heading', 'turnLength', 'arch'] as const) {
+      // The leaf that lay lowest is on top now.
+      expect(v.chunkShape(0, with20(1))[key]).toBeCloseTo(top[key]!, 9);
+      expect(v.chunkShape(1, with20(1))[key]).toBeCloseTo(under[key]!, 9);
+    }
+  });
+
+  it('takes its leaves from the back stack and leaves the front one alone', () => {
+    const v = volume();
+    v.setPose(with20(0.3));
+    expect(v.stackThickness(0)).toBeCloseTo(v.dims.blockT * (0.5 - share), 9);
+    expect(v.stackThickness(1)).toBeCloseTo(v.dims.blockT * 0.5, 9);
+    expect(v.chunkBlock.visible).toBe(true);
+    v.setPose(whole);
+    expect(v.chunkBlock.visible).toBe(false);
+  });
+
+  it('lifts off the stack it is nearer to, the foot of the page first', () => {
+    const v = volume();
+    const lift = 0.12;
+    const flat = v.chunkShape(1, with20(0)).heading;
+    expect(v.chunkShape(1, with20(0, lift)).heading - flat).toBeCloseTo(lift, 9);
+    expect(v.chunkShape(1, with20(0, lift), 1.6).heading - flat).toBeCloseTo(lift * 1.6, 9);
+    const down = v.chunkShape(1, with20(1)).heading;
+    expect(v.chunkShape(1, with20(1, lift)).heading - down).toBeCloseTo(-lift, 9);
+    // Half way over there is no stack to lift off.
+    expect(v.chunkShape(1, with20(0.5, lift)).heading).toBeCloseTo(v.chunkShape(1, with20(0.5)).heading, 9);
+  });
+});
