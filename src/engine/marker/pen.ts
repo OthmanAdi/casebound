@@ -7,8 +7,6 @@
  * hides the cursor over a page, and gives the pen its gloss and its shadow (SPEC S-RD-13).
  */
 import {
-  BackSide,
-  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   Color,
@@ -24,10 +22,11 @@ import {
   PMREMGenerator,
   Quaternion,
   RGBADepthPacking,
-  Scene,
+  SRGBColorSpace,
   Vector3,
   type Texture,
 } from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Engine } from '../index';
 import { tunable } from '../core/tune';
 import type { Reader } from '../reader/reader';
@@ -86,32 +85,16 @@ const geometry = (part: PartMesh): BufferGeometry => {
 };
 
 /**
- * What the lacquer of the pen reflects: not the scene, but a small room of its own, dark with a few bright
- * panels, blurred once. It shows as two or three soft spots on the dome and a streak down the barrel.
+ * What the lacquer of the pen reflects: not the scene, but a small room of its own, the stock room of three
+ * (lit walls, a few boxes, bright panels), blurred once. Its walls fill the barrel with soft light; its panels
+ * show as two or three spots on the dome.
  */
 function glossRoom(engine: Engine): Texture {
-  const room = new Scene();
-  const wall = new Mesh(new BoxGeometry(10, 10, 10), new MeshBasicMaterial({ color: new Color(0.06, 0.06, 0.065), side: BackSide }));
-  room.add(wall);
-  const panel = (w: number, h: number, x: number, y: number, z: number, bright: number): void => {
-    const m = new Mesh(new PlaneGeometry(w, h), new MeshBasicMaterial({ color: new Color(bright, bright, bright * 0.96) }));
-    m.position.set(x, y, z);
-    m.lookAt(0, 0, 0);
-    room.add(m);
-  };
-  panel(5, 5, 0, 4.9, 0, 9);
-  panel(2.2, 6, -4.9, 1, 1.5, 6);
-  panel(1.6, 5, 4.9, 0.5, 2.5, 4);
-  panel(6, 1.4, 0, 2.5, 4.9, 5);
+  const room = new RoomEnvironment();
   const pmrem = new PMREMGenerator(engine.ctx.renderer);
   const target = pmrem.fromScene(room, 0.04);
   pmrem.dispose();
-  room.traverse((o) => {
-    if (o instanceof Mesh) {
-      o.geometry.dispose();
-      (o.material as MeshBasicMaterial).dispose();
-    }
-  });
+  room.dispose();
   return target.texture;
 }
 
@@ -186,7 +169,12 @@ void main() {`)
           '#include <begin_vertex>',
           'vPenHigh = smoothstep( 0.1, 1.0, ( position.y + uPivot ) / uLength );',
           'transformed += normalize( normal ) * uSwell * vPenHigh;',
-          'vPenFace = abs( normalize( normalMatrix * normal ).z );',
+          // How squarely the point faces the lamp, read across the barrel only: the normal without its part along
+          // the pen, and of that the share that points at the lamp, over the most a normal of this pen can reach.
+          'vec3 penAlong = normalize( mat3( modelViewMatrix ) * vec3( 0.0, 1.0, 0.0 ) );',
+          'vec3 penRound = mat3( modelViewMatrix ) * vec3( normal.x, 0.0, normal.z );',
+          'float penReach = length( penRound ) * sqrt( max( 0.0, 1.0 - penAlong.z * penAlong.z ) );',
+          'vPenFace = penReach > 1e-4 ? clamp( penRound.z / penReach, -1.0, 1.0 ) : 0.0;',
         ].join(String.fromCharCode(10)),
       );
     shader.fragmentShader = shader.fragmentShader
@@ -198,8 +186,8 @@ void main() {`)
         '#include <clipping_planes_fragment>',
         [
           '#include <clipping_planes_fragment>',
-          'float penEdge = smoothstep( 0.0, 1.0, vPenFace );',
-          'float penCover = mix( 1.0, uThin * penEdge * penEdge, vPenHigh );',
+          'float penSoft = smoothstep( 0.0, 1.0, vPenFace * vPenFace );',
+          'float penCover = ( 1.0 - vPenHigh * ( 1.0 - uThin ) ) * ( 1.0 - vPenHigh * ( 1.0 - penSoft ) );',
           'if ( fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ) > penCover ) discard;',
         ].join(String.fromCharCode(10)),
       );
@@ -233,7 +221,7 @@ void main() {`)
 
   let color: PenColor | null = null;
   const body = new Color();
-  const white = new Color(1, 1, 1);
+  const seen = { r: 1, g: 1, b: 1 };
   /** Gives the parts the colours of the pen that is out. */
   const paint = (): void => {
     if (!color) return;
@@ -350,7 +338,8 @@ void main() {`)
       foot.position.copy(at.point).addScaledVector(toCam, 0.01);
       const s = book.root.scale.x;
       foot.scale.set(h.width * book.dims.pageW * s, h.width * book.dims.pageH * s, 1);
-      footMat.color.copy(white).lerp(body, state.footprint);
+      body.getRGB(seen, SRGBColorSpace);
+      footMat.color.setRGB(1 - state.footprint * (1 - seen.r), 1 - state.footprint * (1 - seen.g), 1 - state.footprint * (1 - seen.b), SRGBColorSpace);
       foot.visible = true;
     } else foot.visible = false;
 
