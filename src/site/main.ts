@@ -37,7 +37,13 @@ async function boot(): Promise<void> {
   const { ctx } = engine;
 
   // ---------------------------------------------------------------- page furniture
+  // Each featured book owns a stretch of the page (a panel) that gives the scroll its length. The pictures are not
+  // in those stretches: they are cards in one fixed window below the title row, moved by the shelf's own progress,
+  // so a picture dwells and travels with its book and never runs up under the header.
   const panels = $('panels');
+  const pictures = $('pictures');
+  const cards: { el: HTMLElement; art: HTMLElement; zoom: number; shown: boolean }[] = [];
+  $('panel-lens').addEventListener('click', () => setLens(!magnifier.on));
   const marquee = $('marquee');
   const track = document.createElement('div');
   track.className = 'marquee-track';
@@ -48,16 +54,15 @@ async function boot(): Promise<void> {
     panel.className = 'panel';
     panel.dataset.slug = book.slug;
     panel.setAttribute('aria-label', `${book.title} by ${book.author}`);
-    panel.style.backgroundImage = `url(${paintBackdrop(book.background ?? '#77808a', book.slug)})`;
-    const lens = document.createElement('button');
-    lens.type = 'button';
-    lens.className = 'panel-lens';
-    lens.textContent = '⌕';
-    lens.setAttribute('aria-label', 'Turn on magnifier');
-    lens.setAttribute('aria-pressed', 'false');
-    lens.addEventListener('click', () => setLens(!magnifier.on));
-    panel.append(lens);
     panels.append(panel);
+    const card = document.createElement('div');
+    card.className = 'card';
+    const art = document.createElement('div');
+    art.className = 'card-art';
+    art.style.backgroundImage = `url(${paintBackdrop(book.background ?? '#77808a', book.slug)})`;
+    card.append(art);
+    pictures.append(card);
+    cards.push({ el: card, art, zoom: 1, shown: true });
 
     const t = document.createElement('span');
     t.className = 'm-title';
@@ -75,13 +80,13 @@ async function boot(): Promise<void> {
     titles.push(t);
   }
 
-  // One more picture and title for the row, where every book of the library stands spine to the front.
+  // One more stretch and title for the row, where every book of the library stands spine to the front. Measured:
+  // the row stands on the bare page, with no picture behind it.
   {
     const panel = document.createElement('section');
     panel.className = 'panel';
     panel.dataset.slug = '';
     panel.setAttribute('aria-label', `All ${library.books.length} books`);
-    panel.style.backgroundImage = `url(${paintBackdrop('#7d838c', 'the whole shelf')})`;
     panels.append(panel);
     const t = document.createElement('span');
     t.className = 'm-title';
@@ -441,8 +446,27 @@ async function boot(): Promise<void> {
     if (Math.abs(shift - before) > 1e-4 || shiftClock < 1) ctx.invalidate();
     html.style.setProperty('--shift', `${offset().x}px`);
 
-    // Marquee: the current title sits at the centre of the picture; neighbours slide with the scroll.
+    // The pictures ride on the same progress as the books, a card's height and the gap below it apart.
+    // Measured: the art inside a card moves at 0.3 of the card's pace (it is shifted back by 0.7 of the card's
+    // offset), and it is drawn up to 6.3 percent larger as the card leaves the middle, eased over 40 ms.
     const p = shelf.state.progress;
+    const pitch = pictures.clientHeight + 24;
+    for (const [k, c] of cards.entries()) {
+      const away = k - p;
+      const show = Math.abs(away) < 1.2;
+      if (show !== c.shown) {
+        c.el.style.visibility = show ? '' : 'hidden';
+        c.shown = show;
+      }
+      if (!show) continue;
+      const zoom = 1 + 0.063 * Math.min(1, Math.abs(away));
+      c.zoom = ctx.still ? zoom : c.zoom + (zoom - c.zoom) * (1 - Math.exp(-f.dt / 0.04));
+      const y = away * pitch;
+      c.el.style.transform = `translate3d(0,${y.toFixed(1)}px,0)`;
+      c.art.style.transform = `translate3d(0,${(-0.7 * y).toFixed(1)}px,0) scale(${c.zoom.toFixed(4)})`;
+    }
+
+    // Marquee: the current title sits at the centre of the picture; neighbours slide with the scroll.
     const i = Math.max(0, Math.min(titles.length - 1, Math.floor(p)));
     const j = Math.min(titles.length - 1, i + 1);
     const centre = (el: HTMLElement): number => el.offsetLeft + el.offsetWidth / 2;

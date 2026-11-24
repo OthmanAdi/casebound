@@ -107,6 +107,37 @@ try {
   await page.evaluate(() => scrollTo(0, document.querySelector('.panel').offsetHeight + 16));
   await run(3);
   await check('the next book is centred and the first has forgotten its turn', (s) => s.active !== 0 && Math.abs(s.firstYaw) < 0.01 && s.yaw === 0);
+
+  // The pictures: cards in one window below the title row, moved by the shelf's progress, not by the scroll bar.
+  const pictures = () => page.evaluate(() => {
+    const frame = document.getElementById('pictures').getBoundingClientRect();
+    const cards = [...document.querySelectorAll('#pictures .card')].map((c) => { const r = c.getBoundingClientRect(); return { top: r.top - frame.top, height: r.height, shown: getComputedStyle(c).visibility !== 'hidden' && r.bottom > frame.top && r.top < frame.bottom }; });
+    return { top: frame.top, bottom: frame.bottom, height: frame.height, progress: casebound.shelf.state.progress, cards };
+  });
+  const slotOf = () => page.evaluate(() => document.querySelector('.panel').offsetHeight + 16);
+  const slot = await slotOf();
+  await page.evaluate((y) => scrollTo(0, y), Math.round(slot * 1.5));
+  await run(3);
+  {
+    const pic = await pictures();
+    const pitch = pic.height + 24;
+    const off = pic.cards.map((c, k) => Math.abs(c.top - (k - pic.progress) * pitch));
+    const ok = pic.top >= 140 && off[1] < 1 && off[2] < 1 && pic.cards[1].shown && pic.cards[2].shown && Math.abs(pic.cards[2].top - pic.cards[1].top - pitch) < 1;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} half way between two books both pictures share the window below the title row (top ${pic.top}) and follow the books: off by ${off.map((x) => x.toFixed(1)).join(', ')} px`);
+  }
+  // In the dwell the book hardly moves, and nor does its picture: 60 px of scroll move it a few pixels only.
+  await page.evaluate((y) => scrollTo(0, y), slot);
+  await run(3);
+  {
+    const before = (await pictures()).cards[1].top;
+    await page.evaluate((y) => scrollTo(0, y), slot + 60);
+    await run(2);
+    const after = (await pictures()).cards[1].top;
+    const ok = Math.abs(after - before) > 2 && Math.abs(after - before) < 20;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} 60 px of scroll in the dwell move the picture by ${(before - after).toFixed(1)} px, as the book`);
+  }
   // The row: past the last featured book every book of the library stands spine to the front.
   const row = () => page.evaluate(() => {
     const { engine, shelf, reader } = casebound;
@@ -124,6 +155,11 @@ try {
   await run(3.5);
   const lastFeatured = await page.evaluate(() => casebound.engine.books[casebound.shelf.order.at(-1)].record.slug);
   const stood = await rowCheck('the row stands with the last featured book chosen', (r) => r.settled && r.selected === lastFeatured && r.active === lastFeatured && r.visible === r.books);
+  {
+    const shown = (await pictures()).cards.filter((c) => c.shown).length;
+    if (shown) failed++;
+    console.log(`${shown ? 'FAIL' : 'ok  '} the row stands on the bare page: ${shown} picture(s) in the window`);
+  }
   await shot('row');
   await page.keyboard.press('ArrowRight');
   await run(1.6);

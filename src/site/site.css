@@ -100,19 +100,26 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
 .m-title.is-current { font-style: normal; color: var(--ink); }
 
 #panels { padding: var(--nav) var(--gutter) 40px; }
-.panel {
-  position: relative;
-  height: var(--panel);
-  margin-bottom: var(--gutter);
-  border-radius: 8px;
-  background-size: cover;
-  background-position: center;
-  overflow: hidden;
+/* A stretch of the page for each book: it gives the scroll its length and names the book. Nothing is drawn in it. */
+.panel { height: var(--panel); margin-bottom: var(--gutter); }
+
+/* The pictures. Measured: one window below the title row, 24 px above the foot of the screen, with rounded
+   corners; in it each book has a card 8 px taller than the window, a 16 px gap from the next. The cards move with
+   the shelf's progress, not with the scroll bar, so the window never reaches up under the header. */
+.pictures, .lens-frame {
+  position: fixed;
+  left: var(--gutter);
+  top: var(--nav);
+  bottom: 24px;
   /* A stated width, because a change from `auto` does not animate. Measured: the picture narrows from 150 ms to 570 ms. */
   width: calc(100vw - var(--gutter) * 2);
   transition: width 0.42s cubic-bezier(0.45, 0, 0.55, 1) 0.15s;
+  pointer-events: none;
 }
-.panel::after {
+.pictures { overflow: hidden; border-radius: 8px; z-index: 10; }
+.card { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% + 8px); border-radius: 8px; overflow: hidden; will-change: transform; }
+.card-art { position: absolute; inset: 0; background-size: cover; background-position: center; will-change: transform; }
+.card::after {
   /* A veil that takes the picture toward the page colour, so the book reads against it. */
   content: '';
   position: absolute;
@@ -121,9 +128,11 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
   transition: background-color 0.6s ease;
 }
 /* At night the picture falls back into dusk, so the lit book and the spot of light that follows the pointer carry the scene. */
-html[data-theme='dark'] .panel::after { background: color-mix(in srgb, var(--bg) 64%, transparent); }
-.panel-lens { position: absolute; right: 12px; top: 10px; z-index: 2; width: 36px; height: 36px; border-radius: 50%; border: 0; background: none; cursor: pointer; color: #fff; mix-blend-mode: difference; font: 400 20px/1 var(--display); }
-html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
+html[data-theme='dark'] .card::after { background: color-mix(in srgb, var(--bg) 64%, transparent); }
+/* Measured: one lens button for the whole window, in its upper right corner and above the book. */
+.lens-frame { z-index: 45; }
+.panel-lens { position: absolute; right: 6px; top: 4px; width: 36px; height: 36px; border-radius: 50%; border: 0; background: none; cursor: pointer; color: #fff; mix-blend-mode: difference; font: 400 20px/1 var(--display); pointer-events: auto; }
+html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(60vw - var(--gutter) * 1.5); }
 
 .bar {
   position: fixed;
@@ -226,7 +235,7 @@ html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
   .m-title { font-size: 34px; }
   .marquee { top: 76px; height: 50px; }
   .grain { display: none; }
-  html[data-detail] .panel { width: calc(100vw - var(--gutter) * 2); }
+  html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(100vw - var(--gutter) * 2); }
   .detail { left: var(--gutter); width: auto; top: 46vh; background: var(--bg); }
   /* While a book is read on a narrow screen it has the whole picture; the details wait underneath. */
   html[data-reading] .detail { display: none; }
@@ -237,6 +246,6 @@ html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html, .panel, .panel::after, .bar, .m-title { transition: none; }
+  html, .pictures, .lens-frame, .card::after, .bar, .m-title { transition: none; }
   .toolbar, .detail { animation: none; }
 }
