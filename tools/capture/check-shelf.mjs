@@ -55,6 +55,17 @@ try {
   await run(2.6);
   const c = await centre();
   await check('at rest', (s) => s.yaw === 0 && s.pitch === 0 && s.front === 0 && s.view === '/');
+  {
+    // The theme control stands at the right end of the label row and still changes the light.
+    const t = await page.evaluate(() => { const b = document.getElementById('theme').getBoundingClientRect(); const l = document.getElementById('section-label').getBoundingClientRect(); return { top: b.top, right: b.right, label: l.top, w: innerWidth, text: document.getElementById('theme').textContent }; });
+    await page.click('#theme');
+    const after = await page.evaluate(() => document.getElementById('theme').textContent);
+    await page.click('#theme');
+    await page.click('#theme');
+    const ok = Math.abs(t.top - t.label) < 2 && Math.abs(t.right - (t.w - 16)) < 1 && after !== t.text && (await page.evaluate(() => document.getElementById('theme').textContent)) === t.text;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the theme control stands at the right end of the label row and goes round the themes`);
+  }
 
   // Turn the book to the right by 240 px, quickly enough for the cover to lift.
   await page.mouse.move(c.x, c.y);

@@ -71,6 +71,8 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
 }
 .wordmark { font: 500 17px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
 .nav-right { display: flex; gap: 22px; align-items: center; }
+/* Measured: the theme control stands at the right end of the label row, under the header's own links. */
+#theme { position: fixed; top: 54px; right: var(--gutter); padding: 0; z-index: 40; }
 .section-label { position: fixed; left: var(--gutter); top: 54px; margin: 0; z-index: 40; transition: opacity 0.3s ease, transform 0.3s ease; }
 .section-label::before { content: '[ '; }
 .section-label::after { content: ' ]'; }
