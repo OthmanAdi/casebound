@@ -37,6 +37,7 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | `Shift` with `→` or `←`, `Page Down` and `Page Up`, or `[ » ]` and `[ « ]` in the bar | Ten leaves turn as one block |
 | Rest the pointer on a page | The corner under it lifts |
 | Drag a page | The leaf follows your hand and its corner rolls over. Let go to turn it, or bring it back and it falls |
+| `h`, or one of the two pens in the bar | A highlighter stands on the pointer. Press and pull to mark a line. Marks stay on their page, in the book, for the next visit. `Ctrl` + `Z` takes the last one away |
 | Rest the pointer on the edge of a page stack, beside the page | The leaves above that place lift as one block. Click and they turn over. The deeper the place, the more leaves |
 | `m`, or the lens button | A round magnifier follows the pointer |
 | Press the book, or **View details**, then hover **E-book** or **Audiobook** | The print shears under scanlines and splits its colours, or rings ripple the pages |
@@ -104,13 +105,19 @@ Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with
 
    *Recorded from the demo: the lens over a page of Hooke's Micrographia.*
 
-9. Two light effects cover the whole book. Hover the e-book row and scanlines run down covers and pages, lines shear sideways and colours split. Hover the audiobook row and rings travel across the paper and ripple it.
+9. A pen marks the pages. Two highlighters sit in the reader's bar. Taken out, one stands on the pointer: it hovers a little above the paper, leans toward you, swings against its travel on two springs and throws a soft shadow, and under its nib a faint mark shows what a press would paint. Pressed, it comes down and draws a line as high as one line of print, dyed into the paper so the print under it stays black. Marks belong to their page: they turn with the leaf, are kept per book in the browser, and come back on the next visit. While a pen is out the hand is off the pages, and only keys and the bar turn them. The pen is generated in code from a table of numbers; the marks are plain data.
+
+   ![A yellow highlighter is taken from the bar and marks two lines on the right page of an open book. The pink one marks a line on the left page. Then the marked page turns and its marks turn with it](docs/media/pen-demo.gif)
+
+   *Recorded from the demo: two pens, three marks, and a marked page turning.*
+
+10. Two light effects cover the whole book. Hover the e-book row and scanlines run down covers and pages, lines shear sideways and colours split. Hover the audiobook row and rings travel across the paper and ripple it.
 
    ![The print of an open book shears sideways under scanlines and takes colour fringes. Then rings travel across the spread from its upper corner and ripple the pages](docs/media/light-demo.gif)
 
    *Recorded from the demo: first the e-book row, then the audiobook row.*
 
-10. At night the light is dimmed. The picture falls back into dusk, the book is lit by a spot that follows the pointer, and the lens works in it like a reading glass under a lamp.
+11. At night the light is dimmed. The picture falls back into dusk, the book is lit by a spot that follows the pointer, and the lens works in it like a reading glass under a lamp.
 
    ![An open book in dim light. A pool of light follows the pointer over the pages, then a round lens enlarges the lit text](docs/media/night-demo.gif)
 
@@ -231,6 +238,8 @@ The rebuild is then captured with the same tool, the same settings and the same 
 | Shelf, a wheel notch: 10, 50, 90, 99 % of the book's move | 29, 93, 173, 265 ms against 29, 93, 173, 265 |
 | Shelf, how far a book creeps in its dwell after 75 px of scroll | within 0.5 px of 11.8 px |
 | A page turned by a tap: sheet down on its stack | 978 ms against 951 ms |
+| The pen coming down onto the paper: share of the way left after one, two and three frames | 0.698, 0.352, 0.156 against 0.698, 0.352, 0.156 |
+| The pen's swing through a sweep of 1200 px a second: largest roll | 0.268 rad against 0.268 |
 | A page pulled by hand: angle of the held leaf | equal frame for frame |
 | Closed book turned by hand: lift of the trailing cover | 15.1 to 15.6 degrees against 14.5 to 15.0 |
 | Row of spines: cover turn of the arriving book | 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9 |
@@ -238,7 +247,7 @@ The rebuild is then captured with the same tool, the same settings and the same 
 | Grain of a cloth spine, percent of brightness | 2.9 to 3.0 against 3.0 |
 | Iridescent foil, saturation | 0.09 to 0.25 against 0.10 to 0.25 |
 
-A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections. A fourth put frames side by side and found what the numbers had hidden: how the pages part, a first leaf that burnt out to white, a book that swung toward the pointer where the reference only shifts its weight, pages that lay flat, and seventeen differences in the row of spines. A fifth rebuilt the two page lights from the reference's own arithmetic and measured the covers: cloth grain, foil, the cloth turned in over the boards. A sixth captured the shelf under scrolling: wheel, dwell and the turn after a fast scroll. A seventh captured the hand: a page pulled across, the corner under the pointer, a closed book turned on the shelf. An eighth built what the seventh had found missing: a bundle of leaves turned as one block. A second round closed what the seventh and the eighth had left open. The table shows where things stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
+A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections. A fourth put frames side by side and found what the numbers had hidden: how the pages part, a first leaf that burnt out to white, a book that swung toward the pointer where the reference only shifts its weight, pages that lay flat, and seventeen differences in the row of spines. A fifth rebuilt the two page lights from the reference's own arithmetic and measured the covers: cloth grain, foil, the cloth turned in over the boards. A sixth captured the shelf under scrolling: wheel, dwell and the turn after a fast scroll. A seventh captured the hand: a page pulled across, the corner under the pointer, a closed book turned on the shelf. An eighth built what the seventh had found missing: a bundle of leaves turned as one block. A second round closed what the seventh and the eighth had left open. A ninth pass found a tool the earlier ones had never opened, the highlighter, and built it from the reference's scripts and two captures. The table shows where things stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
 
 No model, artwork, text or typeface of the reference is in this repository, and none of its code was copied. A few behaviours do follow its formulas term by term, because matching them frame by frame left no other way: the two page lights, the way the pointer shifts the weight of an open book, the curve by which a book lingers while the page scrolls, and the ramp that spreads a wheel notch. Their terms and constants were read from the reference's shipped code and written again in this project's own functions and shaders. [`PROVENANCE.md`](PROVENANCE.md) says what is here and where it came from. The project is not affiliated with Stripe. The capture tools are in [`tools/`](tools) and work on any page, including this one.
 
@@ -258,7 +267,7 @@ The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 fram
 
 ## What is missing
 
-Touch works but was not measured against the reference. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages.
+Touch works but was not measured against the reference. The pen's motion follows rules that reproduce a capture; its look, its shadow and the colour of its ink on the page were set by eye against frames. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages.
 
 ## Licence
 

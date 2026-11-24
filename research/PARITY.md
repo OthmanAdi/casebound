@@ -47,6 +47,35 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, 14 corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758; a far press glides in 0.4 s | close: the three later corrections were built to the measured numbers and not captured again |
 
+## 2026-11-24 · Ninth pass: the pen
+
+Eight passes compared what both sides had. None of them had opened the reference's control bar far enough to find a tool ours did not have at all: a highlighter. It marks the pages of the open book, and it was the largest thing missing.
+
+How it was studied. The reference's scripts were read for the rules, and two sessions of its reader were captured with a scripted pointer: taking a pen, sweeps across and up the page, slow and fast strokes, taps, the gutter, the page edge, page turns, a reload. The rules read in the scripts were then held against the captured series. The roll of the pen through a sweep agrees with the rule to 0.0014 rad over 271 frames, so the rule is what was built.
+
+What the pen is, and what ours does now:
+
+| | Reference | Ours |
+| --- | --- | --- |
+| Taking a pen | two places in the bar, pink and yellow; a click takes, changes or puts back; `h`; Escape puts it away and leaves the book open | the same rules |
+| The object | generated from primitives: chisel nib, cone, barrel, cap with a dome; 0.445 page heights from nib to cap rim | generated from the same table of numbers |
+| Where it stands | on the pointer's ray in every frame, no lag; beside the book on the nearest page edge | the same; 0 px across and 18 px above the pointer at rest, as measured there |
+| Coming down | lift 0.698, 0.352, 0.156, 0.065, 0.026, 0.010 of the way left, frame by frame | the same to two places |
+| Rising | 10, 50 and 90 % after 23, 76 and 176 ms | within those marks |
+| Lean | 0.420 rad hovering, 0.540 pressed | 0.420 and 0.540 |
+| Roll through 1200 px a second for 250 ms | 0.012, 0.048, 0.107, 0.172, 0.229, 0.266 every 50 ms, largest 0.268 at 67 ms after the stop, 0.021 past rest | within 0.01 of each reading, largest 0.268 |
+| Lean moving up at 200 px a second | 0.444 rad | 0.444 |
+| Footprint under the nib | 0.354, 0.569, 0.699, 0.778 of its strength in the first four frames | the same to three places |
+| A stroke | the raw points of the hand, one round-ended line, 1.17 lines of print high, smoothed; a press without a move leaves nothing | the same; the line is 1.17 lines of our own print high |
+| Ink | multiplied onto the paper before lighting; yellow 0.8, pink 0.48 | the same rule and strengths |
+| Life of a mark | belongs to one page side, turns with it, kept per book across closing and reloading | the same |
+| With a pen out | no page is pulled, no corner curls, no bundle lifts; keys and the bar still turn pages | the same |
+| Sound | a scratch of band-passed noise by sideways travel | the same band |
+
+Where ours goes further: marks also show on the page blocks and on a bundle in flight (the reference draws them on single leaves only), `Ctrl` + `Z` takes the last mark away, a chisel nib is a second way to draw, and the hooks the pens are built on are open to other tools.
+
+Not verified: the look of the pen (its colours under our lamps, the highlights, the width and darkness of its shadow) and the colour of the ink on paper and on print were set by eye against frames, not measured; a second comparison is running. The scratch was built from the logged audio calls of the reference and not listened to side by side. Touch was captured on the reference with an emulated finger and not on ours. Every reference number is one reading.
+
 ## 2026-11-24 · The bundle, second reading, and what was left of the lists
 
 The eighth pass built the bundle from a reading of the reference's code that was half right. A second reading of the pointer code beside it shows two kinds of block, and the eighth pass had given the pointer the wrong one.

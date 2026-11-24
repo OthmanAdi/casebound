@@ -46,6 +46,8 @@ Motion:
 - An opening riffle: the top leaves of both stacks settle one after another as a book opens.
 - A turned leaf is down on its stack in a second and a leaf let go by hand is thrown on, both as measured against a capture.
 - A sheet in a hand stands where the hand has it and bows only as far as it moves fast; a press held still on a leaf in the air brakes it and lets it go on. Both as measured against a capture.
+- Highlighter pens for the open book: two pens in the reader's bar, a pen generated in code that stands on the pointer with gloss, shadow and a footprint under its nib, lines dyed into the paper that stay on their page through page turns and are saved per book, a felt scratch that follows the hand, `casebound.marker` with `pick`, `undo`, `clear` and `marks`, and the tunables `marker` and `marker.pen`.
+- Hooks for tools on the pages: `reader.pageAt`, `reader.pageNear`, `reader.overlay` and `reader.handsOff`. The pens are built on them and nothing else.
 - A bundle of leaves: under a pointer resting on the fore-edge of a page stack every leaf above that place lifts as one block, with a printed page on both faces. A click or a flick turns it over, a pointer that leaves lets it sink back. `reader.turnLeaves(count)` turns a block from code, the `page-turn` event carries the number of leaves, and `reader.bundle` holds the rules.
 - Ten leaves at a time: `[ « ]` and `[ » ]` in the reader's bar, `Shift` with an arrow, `Page Up` and `Page Down`. The edge of a page stack is a narrow place to find, and a finger has no pointer to rest on it.
 - The cover of the centred book lifts under a resting pointer in the details view and in the row, and stays shut on the shelf itself, as measured (`peek` in the shelf options).
