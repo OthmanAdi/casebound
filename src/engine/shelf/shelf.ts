@@ -107,6 +107,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       turnHaste: { value: 0.5, min: 0, max: 3, help: 'How much faster the turn follows while the page scrolls fast (above 2.5 window heights per second) and for 0.6 s after. Measured: 0.5' },
       exitFrom: { value: 0.6, min: 0, max: 2, help: 'Distance past centre where a leaving book speeds away' },
       exitBoost: { value: 2.25, min: 0, max: 8 },
+      riseCap: { value: 4, min: 0, max: 40, help: 'The most a featured book rises in one 60 Hz frame, world units. After a jump of the scroll bar the books go up at this pace. 0: no limit. Measured: 4' },
       visible: { value: 1.8, min: 0.5, max: 6, help: 'Books further than this many slots from centre are hidden' },
       tiltYaw: { value: 0.16, min: 0, max: 1, unit: 'rad', help: 'Yaw toward the pointer at the screen edge' },
       tiltPitch: { value: 0.1, min: 0, max: 1, unit: 'rad' },
@@ -226,6 +227,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   let introT = 0;
   let introActive = !ctx.still;
   let seeded = false;
+  /** Height every featured book was shown at in the frame before. */
+  const shownY: number[] = [];
 
   const shelf: Shelf = {
     state,
@@ -523,6 +526,13 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       let y = b * t.pitch + t.baseY - offset.y * worldPerPx;
       // Measured: the boost is complete 0.4 slots on and grows no further (it used to grow without bound).
       if (b > t.exitFrom) y += Math.pow(Math.min(1, (b - t.exitFrom) / 0.4), 3) * t.pitch * t.exitBoost;
+      // Measured: a book rises 4 units a frame at most, so after a jump of the scroll bar it is seen on its way.
+      const was = shownY[slot];
+      if (seeded && !ctx.still && t.riseCap > 0 && was !== undefined && y > was + t.riseCap * 60 * clamp(f.dt, 1 / 240, 1 / 30)) {
+        y = was + t.riseCap * 60 * clamp(f.dt, 1 / 240, 1 / 30);
+        moving = true;
+      }
+      shownY[slot] = y;
       const end = b > 0 ? t.turnEndLeave : t.turnEndArrive;
       const amount = easeInOutQuad(clamp((Math.abs(b) - t.turnStart) / Math.max(1e-3, end - t.turnStart), 0, 1));
       pose.position.set(offset.x * worldPerPx, y, t.planeZ);
