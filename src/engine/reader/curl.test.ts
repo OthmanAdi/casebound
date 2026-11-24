@@ -217,6 +217,45 @@ describe('stepCurl', () => {
     expect(c.shape.lift).toBe(-1);
   });
 
+  it('lifts a hovered corner at the pace measured on the reference', () => {
+    // Strength under a pointer that came to rest at 0.8 of the page width, read per frame from a capture
+    // (PARITY-hand): 2, 5, 11, 17, 23, 29 and 59 frames after the pointer arrived.
+    const measured: [number, number][] = [[2, 0.207], [5, 0.542], [11, 0.917], [17, 1.175], [23, 1.353], [29, 1.476], [59, 1.706]];
+    const c = createCurl();
+    let frame = 0;
+    for (const [frames, value] of measured) {
+      for (; frame < frames; frame++) stepCurl(c, { ...lying, hovered: true, grabU: 0.8 }, 1 / 60);
+      // The capture has the pointer glide in over four frames, so the count is good to about a frame.
+      expect(Math.abs(c.shape.amount - value), `after ${frames} frames`).toBeLessThan(0.13);
+    }
+  });
+
+  it('builds the fold under a hand without a second delay', () => {
+    const c = createCurl();
+    run(c, { ...lying, held: true, angle: 0.3, shown: 0.3 }, 0.1);
+    // Six frames at 4 % each: 22 % of the full strength.
+    expect(c.shape.amount).toBeGreaterThan(DRAG * 0.2);
+  });
+
+  it('shows the lift of a resting pointer on a leaf in the air once the pointer is on it', () => {
+    const c = createCurl();
+    run(c, { ...lying, held: true, angle: 1.9, shown: 1.9 }, 2);
+    // Let go past upright with the pointer still: the leaf carries its curl.
+    run(c, { ...lying, angle: 2.0, shown: 2.0, target: 1, velocity: 0.07 }, 0.1);
+    expect(c.flying).toBe(true);
+    expect(c.shape.amount).toBeGreaterThan(5);
+    // The pointer moves on the leaf: the fold comes down to the hover lift and its line follows the pointer.
+    run(c, { ...lying, angle: 2.2, shown: 2.2, target: 1, velocity: 0.06, hovered: true, grabV: 0.45 }, 0.3);
+    expect(c.flying).toBe(false);
+    // The fall is eased over a few frames (`fall`), so it is within a few percent of the hover lift by now.
+    expect(c.shape.amount).toBeLessThan(HOVER * 1.05);
+    expect(c.shape.amount).toBeGreaterThan(HOVER * 0.5);
+    expect(Math.abs(c.shape.tilt)).toBeLessThan(0.1);
+    // Left alone again while still up, it takes its flight back.
+    run(c, { ...lying, angle: 2.3, shown: 2.3, target: 1, velocity: 0.05 }, 0.2);
+    expect(c.flying).toBe(true);
+  });
+
   it('does not jump when a hand takes a hovered page', () => {
     const c = createCurl();
     run(c, { ...lying, hovered: true, grabV: 0.9 }, 3);

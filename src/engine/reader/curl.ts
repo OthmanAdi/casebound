@@ -186,6 +186,10 @@ export function stepCurl(c: CurlState, i: CurlInput, dt: number, t: CurlTuning =
   if (i.held) {
     c.flying = false;
     c.thrown = true;
+  } else if (i.hovered && up) {
+    // Measured: a leaf the pointer rests on is not a leaf in the air, however it got there. It shows the lift of
+    // a resting pointer; let alone again while still up, it takes its flight back.
+    c.flying = false;
   } else if (!c.flying) {
     // Let go in the air, or moving fast enough by itself.
     if (i.pages > 0.98 && i.target !== null && up && (c.thrown || Math.abs(i.velocity) > AIR_SPEED) && done < t.fadeTo) c.flying = true;
@@ -223,9 +227,14 @@ export function stepCurl(c: CurlState, i: CurlInput, dt: number, t: CurlTuning =
     goal = c.raw * (1 - t.innerLoss * c.inner);
   }
 
-  // The drawn strength follows without a jump, also when the leaf changes hands.
+  // Measured: only a leaf in the air eases up to a stronger curl. Under a resting pointer or a hand the strength
+  // itself is already a slow approach, and easing it again made the corner lift a tenth of a second late.
+  // A weaker curl is eased to in every case, so the fold does not jump when the leaf changes hands.
   const step = Math.min(dt, 1 / 30);
-  c.shown = goal === c.shown ? goal : smoothDamp(c.shown, goal, c.speed, goal > c.shown ? t.rise : t.fall, step);
+  if (goal > c.shown && !c.flying) {
+    c.shown = goal;
+    c.speed.v = 0;
+  } else c.shown = goal === c.shown ? goal : smoothDamp(c.shown, goal, c.speed, goal > c.shown ? t.rise : t.fall, step);
   if (goal === 0 && c.shown < FLAT) c.shown = c.speed.v = 0;
 
   // Edge-on the roll would flip from one face to the other, so it fades out there.
