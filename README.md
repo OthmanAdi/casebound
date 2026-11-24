@@ -36,7 +36,7 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | `→` and `←`, or a tap on a page | A leaf turns |
 | Rest the pointer on a page | The corner under it lifts |
 | Drag a page | The leaf follows your hand and its corner rolls over. Let go to turn it, or bring it back and it falls |
-| Press the edge of a page stack, beside the page | Every leaf above that place turns as one block. The deeper the press, the more leaves |
+| Rest the pointer on the edge of a page stack, beside the page | The leaves above that place lift as one block. Click and they turn over. The deeper the place, the more leaves |
 | `m`, or the lens button | A round magnifier follows the pointer |
 | Press the book, or **View details**, then hover **E-book** or **Audiobook** | The print shears under scanlines and splits its colours, or rings ripple the pages |
 | The theme button | Morning, Noon and Night light |
@@ -89,11 +89,11 @@ Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with
 
    *Recorded from the demo: a corner under the pointer, then the page taken by that corner.*
 
-   Many leaves turn as one block. A press on the fore-edge of a page stack, the striped face beside the page, takes every leaf from the top of the stack down to that place. Let go, the block lifts off its stack, the foot of the page first, and turns over in 0.7 to 1.1 seconds, longer the more leaves it holds. `reader.turnLeaves(40)` does the same from code.
+   Many leaves turn as one block. Rest the pointer on the fore-edge of a page stack, the striped face beside the page, and every leaf from the top of the stack down to that place lifts 16 degrees off the stack, the foot of the page first. Move along the edge and the block takes more leaves, or fewer. Click, and it turns over in a third of a second. Leave, and it sinks back. `reader.turnLeaves(40)` turns a block from code, on a clock of 0.7 to 1.1 seconds.
 
-   ![A press on the edge of the right page stack turns fifteen leaves as one block. A deeper press turns sixty. A press on the edge of the left stack turns fifty back](docs/media/bundle-demo.gif)
+   ![The pointer comes to rest on the edge of the right page stack and a block of leaves lifts. Moved down the edge, the block takes more leaves. A click turns it over. A second block lifts and sinks back when the pointer leaves. A click on the edge of the left stack turns a block back](docs/media/bundle-demo.gif)
 
-   *Recorded from the demo: three presses on the edges of the page stacks.*
+   *Recorded from the demo: the pointer on the edges of the two page stacks.*
 
 7. The pages are typeset. The text is flowed line by line in the book's typeface, justified, with running heads and folios, and a paragraph runs on over the page break, so every page is full.
 
@@ -237,7 +237,7 @@ The rebuild is then captured with the same tool, the same settings and the same 
 | Grain of a cloth spine, percent of brightness | 2.9 to 3.0 against 3.0 |
 | Iridescent foil, saturation | 0.09 to 0.25 against 0.10 to 0.25 |
 
-A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections. A fourth put frames side by side and found what the numbers had hidden: how the pages part, a first leaf that burnt out to white, a book that swung toward the pointer where the reference only shifts its weight, pages that lay flat, and seventeen differences in the row of spines. A fifth rebuilt the two page lights from the reference's own arithmetic and measured the covers: cloth grain, foil, the cloth turned in over the boards. A sixth captured the shelf under scrolling: wheel, dwell and the turn after a fast scroll. A seventh captured the hand: a page pulled across, the corner under the pointer, a closed book turned on the shelf. An eighth built what the seventh had found missing: a bundle of leaves turned as one block. The table shows where things stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
+A second pass compared all ten interactions and found twelve differences, from a wall shadow that was up to 4.7 times too dark to an opening that ran 0.7 s early. A third pass measured the corrections. A fourth put frames side by side and found what the numbers had hidden: how the pages part, a first leaf that burnt out to white, a book that swung toward the pointer where the reference only shifts its weight, pages that lay flat, and seventeen differences in the row of spines. A fifth rebuilt the two page lights from the reference's own arithmetic and measured the covers: cloth grain, foil, the cloth turned in over the boards. A sixth captured the shelf under scrolling: wheel, dwell and the turn after a fast scroll. A seventh captured the hand: a page pulled across, the corner under the pointer, a closed book turned on the shelf. An eighth built what the seventh had found missing: a bundle of leaves turned as one block. A second round closed what the seventh and the eighth had left open. The table shows where things stand. The log lists each one with its numbers, what is still open, and the mistakes made on the way.
 
 No model, artwork, text or typeface of the reference is in this repository, and none of its code was copied. A few behaviours do follow its formulas term by term, because matching them frame by frame left no other way: the two page lights, the way the pointer shifts the weight of an open book, the curve by which a book lingers while the page scrolls, and the ramp that spreads a wheel notch. Their terms and constants were read from the reference's shipped code and written again in this project's own functions and shaders. [`PROVENANCE.md`](PROVENANCE.md) says what is here and where it came from. The project is not affiliated with Stripe. The capture tools are in [`tools/`](tools) and work on any page, including this one.
 
@@ -257,7 +257,7 @@ The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 fram
 
 ## What is missing
 
-Touch works but was not measured against the reference. A bundle of leaves turns on the clock read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages.
+Touch works but was not measured against the reference. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages.
 
 ## Licence
 

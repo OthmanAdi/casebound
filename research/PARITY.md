@@ -47,6 +47,33 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, 14 corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758; a far press glides in 0.4 s | close: the three later corrections were built to the measured numbers and not captured again |
 
+## 2026-11-24 · The bundle, second reading, and what was left of the lists
+
+The eighth pass built the bundle from a reading of the reference's code that was half right. A second reading of the pointer code beside it shows two kinds of block, and the eighth pass had given the pointer the wrong one.
+
+| | Reference | Ours after the eighth pass | Now |
+| --- | --- | --- | --- |
+| A mouse resting on the fore-edge of a page stack | a block lifts 16 degrees and waits; moved along the edge it is counted again; 90 ms off the edge and it sinks back | nothing | the same: 19 to 85 leaves across the edge of a stack of 90, 16.0 degrees, down again 0.7 s after the pointer has left |
+| A press on the edge, let go | the lifted block is sent: it covers 7 tenths of the rest per second, 0.9 of the turn per second at least | waited 120 ms, then turned in 0.7 to 1.1 s on a cosine | 0.22, 0.57, 0.80, 0.92 and 1.00 of the turn after 50, 100, 150, 200 and 300 ms |
+| A flick with the block in the hand | sends it at 0.7 px per ms after 5 px | nothing | the same rule |
+| A jump of more than three leaves by the page itself | a block on the clock: 120 ms, then 0.7 to 1.1 s | the clock, on the pointer | the clock, on `reader.turnLeaves` |
+| Leaves at a place on the edge | read off the leaf positions of the block | a ray onto the meshes as they stand | the edge of the stack as it lies, so a lifted block does not move the place away from under the pointer |
+
+What a press takes is the block that stands lifted. The book leans toward the pointer, so the place under a resting pointer drifts by a pixel or two while the block waits; picked again at the press it would be another block than the one shown.
+
+One thing the capture of the seventh pass seemed to say, that nothing lifts before the press is let go, did not hold against the code: the lift waits for the page under the block to be painted, at most 1.2 s, and in that capture the press came sooner.
+
+The rest of the open lists:
+
+| Item | From | Decision |
+| --- | --- | --- |
+| The cover of a featured book lifts under a resting pointer | seventh pass, 9 | built: the lift belongs to the details view and the row. On the shelf the cover stays shut |
+| The first featured book dwells 110 px, not 75, and the second is 943 px away | sixth pass, 8 | not copied. It follows from the reference's page, whose canvas sits 73 px below the middle of the window. Ours is centred and every book dwells alike |
+| A scripted jump of the scroll bar shows one frame later | sixth pass, 6 | not copied. With a real wheel the delay was absent on the reference too: it belongs to how its page hands a scripted scroll to the scene, not to anything a reader sees |
+| The lift left at the landing of a block goes in one frame on the reference | eighth pass, 2 | kept ours: the lift fades as the block comes down |
+
+Not verified: none of the bundle was laid beside a capture frame by frame; the capture of the seventh pass shows four presses and no resting pointer. The numbers of ours are from the browser check and a probe. Touch takes a block by a press on the edge; it was not tried on a touch screen. The Noon theme was never captured.
+
 ## 2026-11-24 · The hand, second round
 
 Two differences of the seventh pass were left open. Both are built now, from the capture of that pass and the rules read beside it.
@@ -104,7 +131,7 @@ Differences that remain:
 | --- | --- | --- | --- |
 | 1 | Leaves taken at a place on the edge | read off a table of leaf positions along the edge | in proportion to the depth of the press |
 | 2 | Lift at the landing | 2 degrees are left when the block lands and go in one frame | fades to nothing over the last fifth of the turn |
-| 3 | A block followed by a gesture | a second path with a lift of 16 degrees, 26 with a twist, that follows the hand | not built: every block turns on the clock |
+| 3 | A block taken by a pointer | lifts 16 degrees under the pointer and turns in a third of a second when let go (read wrongly at first as a block that follows the hand) | built in the second reading: see the entry above |
 | 4 | Twist of the lift | seen in the capture as a lower corner that rises first; its amount was not measured | the foot leads the lift by 0.6 of it and the head trails by as much |
 
 Not verified: the turn of ours was not laid beside a capture frame by frame, so the timing rests on the constants read in the code. Mouse only. The number of leaves the reference takes at a given place was seen with four presses and not measured.
@@ -125,7 +152,7 @@ What already agreed: the angle of a held leaf frame for frame, the choice betwee
 | 6 | Corner under a resting pointer | 44, 185, 609 ms | 95, 284, 707 ms | 27, 185, 609 ms |
 | 7 | Fold of a leaf let go with the pointer moving on | 1.6 rad within 50 ms | 8.2 rad after 200 ms | 2.0 rad after 200 ms |
 | 8 | The sheet rises later in the first half of a held pull | 59 degrees after 500 ms | 36.6 degrees | 52.8 degrees in the second round: a held sheet has its own rule |
-| 9 | Front cover of a featured book under a resting pointer | does not lift | lifts 5 degrees | open |
+| 9 | Front cover of a featured book under a resting pointer | does not lift | lifts 5 degrees | shut on the shelf, 5 degrees in the details view and in the row |
 
 Ours draws one frame ahead of the reference throughout, so a number about 16 ms early is the best match there is.
 

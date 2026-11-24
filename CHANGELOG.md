@@ -46,7 +46,8 @@ Motion:
 - An opening riffle: the top leaves of both stacks settle one after another as a book opens.
 - A turned leaf is down on its stack in a second and a leaf let go by hand is thrown on, both as measured against a capture.
 - A sheet in a hand stands where the hand has it and bows only as far as it moves fast; a press held still on a leaf in the air brakes it and lets it go on. Both as measured against a capture.
-- A bundle of leaves: a press on the fore-edge of a page stack turns every leaf above that place as one block, with a printed page on both faces. `reader.turnLeaves(count)` does it from code, the `page-turn` event carries the number of leaves, and `reader.bundle` holds its timing.
+- A bundle of leaves: under a pointer resting on the fore-edge of a page stack every leaf above that place lifts as one block, with a printed page on both faces. A click or a flick turns it over, a pointer that leaves lets it sink back. `reader.turnLeaves(count)` turns a block from code, the `page-turn` event carries the number of leaves, and `reader.bundle` holds the rules.
+- The cover of the centred book lifts under a resting pointer in the details view and in the row, and stays shut on the shelf itself, as measured (`peek` in the shelf options).
 - Pages turned by hand: a held leaf follows the pointer with the measured mapping, a pull that ends on the turning side turns the page, a pull brought back lets it fall, a tap turns one page, and a leaf in the air can be caught.
 - Reduced motion is honoured in the scene: with it on, every animation jumps to its end.
 
