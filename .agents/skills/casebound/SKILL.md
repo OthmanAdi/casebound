@@ -78,6 +78,19 @@ Rules that keep extensions healthy:
 3. Respect `engine.ctx.still`. When it is true the reader asked for reduced motion: jump to the end state instead of animating.
 4. Return a cleanup function that removes everything you added.
 
+### A tool for the pages
+
+The reader lends its pages to tools. The highlighter in `src/engine/marker/` is built on four hooks and nothing else, and a tool of your own (a pencil, a ruler, sticky notes, a search that lights up its hits) can use the same ones:
+
+| Hook | What it gives |
+| --- | --- |
+| `reader.pageAt(x, y)` | The printed page under a point of the window: its number, the place on its picture (`u` from the left, `v` from the foot), and the place and facing of the paper in the world. Stacks, leaves in the air and a bundle all count |
+| `reader.pageNear(x, y)` | For a point beside the book: the nearest place on the outline of the two pages on show |
+| `reader.overlay` | A function from a page number to a texture that is laid over that page's print like a dye. Call `reader.refreshOverlays()` when a page gets its first one |
+| `reader.handsOff` | While true, presses take no leaf and turn nothing: your tool has the pointer |
+
+Marks made with the pens are plain data: `casebound.marker.marks()` returns strokes by page number, in page coordinates. Pass your own `colors` or `store` to `createMarker` to change the pens or where marks are kept.
+
 ## Verify
 
 Run `npm run check` (types, unit tests, production build). Then look at the result in a real browser, because a passing build says nothing about how a page turn looks:
