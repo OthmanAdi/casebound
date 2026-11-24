@@ -31,6 +31,14 @@ export interface SpinTuning {
   levelSeconds: number;
 }
 
+/**
+ * A cover of the reference is a chain of five bones, each turning 0.8 of the one before it, and its controller
+ * works in the angle of the first: the board ends up 3.36 times as far open as that number says. Our board is one
+ * piece, so the lift is asked for in the angle of the board. Measured at 3 rad/s: the board of the reference
+ * stands 15 degrees open; with the plain number ours stood 4.6.
+ */
+const COVER_CHAIN = 1 + 0.8 + 0.8 ** 2 + 0.8 ** 3 + 0.8 ** 4;
+
 export const SPIN_DEFAULT: SpinTuning = {
   gain: 0.0084375,
   touchGain: 0.01125,
@@ -38,8 +46,9 @@ export const SPIN_DEFAULT: SpinTuning = {
   friction: 0.95,
   stiffness: 480,
   damping: 42,
-  flap: 0.0592,
-  flapLimit: 28 * DEG,
+  flap: 0.0592 * COVER_CHAIN,
+  // 28 degrees on the first bone are 94 on the board, past its stop: the stop is the limit.
+  flapLimit: 80 * DEG,
   flapRate: 40,
   coverMax: 80 * DEG,
   levelDelay: 2,

@@ -86,6 +86,24 @@ describe('spin', () => {
     expect(s.front).toBe(0);
   });
 
+  it('lifts the board as far as the board of the reference stood', () => {
+    // A pull of 260 px straight down in 0.8 s (PARITY-hand): the pitch runs at 2.6 to 3 rad/s and the front board
+    // of the reference stands 14.5 to 15 degrees open from 400 ms on.
+    const s = createSpin();
+    const grab = grabSpin(s, false);
+    const lift: number[] = [];
+    for (let i = 1; i <= 48; i++) {
+      dragSpin(s, grab, 0, (260 * i) / 48);
+      stepSpin(s, 1 / 60);
+      lift.push((s.front * 180) / Math.PI);
+    }
+    expect(lift[23]).toBeGreaterThan(12.5);
+    expect(lift[23]).toBeLessThan(16.5);
+    expect(lift[47]).toBeGreaterThan(13);
+    expect(lift[47]).toBeLessThan(16.5);
+    expect(s.back).toBe(0);
+  });
+
   it('comes to rest and says so', () => {
     const s = createSpin();
     const grab = grabSpin(s, false);
