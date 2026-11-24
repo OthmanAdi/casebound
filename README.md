@@ -137,6 +137,7 @@ Make a folder with one record. The cover, the page edges and the pages follow fr
   "author": "Me",
   "pages": 280,
   "background": "#5a6b7c",
+  "paper": "#e9e2cd",
   "cover": { "cloth": "#22324a", "ink": "#e8dcc0", "pattern": "rules", "foil": "#d9b25a", "grain": "buckram" }
 }
 ```

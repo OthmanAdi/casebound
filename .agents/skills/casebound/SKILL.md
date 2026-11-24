@@ -35,6 +35,7 @@ Create `content/books/<slug>/book.json` and list the slug in `content/library.js
   "year": 1661,
   "pages": 300,
   "background": "#6b5a3c",
+  "paper": "#e9e2cd",
   "blurb": "Two or three plain sentences about the book.",
   "cover": { "cloth": "#3a2a1c", "ink": "#e3c98a", "pattern": "rules", "foil": "#d9b25a", "grain": "buckram" }
 }
