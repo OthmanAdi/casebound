@@ -154,6 +154,34 @@ try {
   await run(12);
   await expect('and back, with the pointer away', { page: first, lying: 0, inAir: (n) => n <= 1 });
 
+  // A press held still on a leaf in the air does not catch it: the leaf goes on and the page turns.
+  await run(4);
+  await page.keyboard.press('ArrowRight');
+  await run(0.25);
+  await page.mouse.move(right[0] + 40, right[1]);
+  await page.mouse.down();
+  await run(0.3);
+  await expect('a press held still on a flying leaf lets it go on', { page: first + 2 });
+  await page.mouse.move(right[0] + 190, right[1]);
+  await run(0.2);
+  await page.mouse.up();
+  await run(4);
+  await expect('and the page has turned, whatever the hand does with the next one', { page: first + 2 });
+  await page.mouse.move(c.x, 30);
+  await page.keyboard.press('ArrowLeft');
+  await run(4);
+  await expect('back again', { page: first, inAir: (n) => n <= 1 });
+  // A turned leaf whose sheet is down does not keep a block from being taken, although its angle creeps on.
+  await page.keyboard.press('ArrowRight');
+  await run(1.6);
+  const soon = await page.evaluate(() => casebound.reader.turnLeaves(5));
+  if (!soon) failed++;
+  console.log(`${soon ? 'ok  ' : 'FAIL'} a block can be taken 1.6 s after a page was turned`);
+  await run(3);
+  await expect('one leaf and five on', { page: first + 12 });
+  await page.evaluate((p) => casebound.reader.goTo(p), first);
+  await run(1);
+
   // A bundle of leaves: several turned as one block, by a call and by a press on the fore-edge of a stack.
   const block = () => page.evaluate(() => {
     const book = casebound.reader.book;
