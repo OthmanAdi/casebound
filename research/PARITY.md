@@ -47,6 +47,21 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, 14 corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758; a far press glides in 0.4 s | close: the three later corrections were built to the measured numbers and not captured again |
 
+## 2026-11-24 · No book skipped after a jump
+
+Not a comparison with the reference: a fault of ours, found by scrolling from the bottom of the page to the top in one go.
+
+The row of spines holds the books of the stack while it stands, and lets go of them over about 0.15 s. The stack followed the scroll bar at once. After a jump from the bottom to the top it had arrived before the row let go: the last book dropped away and the first one appeared at the centre. The books between were never seen. The other way was no better: the row took the books of the stack while they were still in the picture.
+
+| Jump | Frames each book between spends at the centre of the stack, before | Now |
+| --- | --- | --- |
+| Bottom to top, four featured books | 0, 0, 0 | 4, 4, 5 |
+| Top to bottom | 0, 0, 0 | 4, 4, 6 |
+
+What changed. The stack runs at ten books a second at most in both directions, the pace of the measured rise of 4 units a frame. On the way up it waits at its last book until the row has let go. On the way down the row waits until the stack has reached its last book and the one before it has left the picture. A scroll slower than ten books a second, about 8700 px a second at this window size, is not touched: with and without the limits the stack agrees to nine places over 90 frames at 2000 px a second.
+
+Not verified: what the reference does after such a jump was never captured, so this behaviour is ours. A jump of one book reached 11 books a second for a few frames before and is now held at 10; the series of the sixth pass were not measured again.
+
 ## 2026-11-24 · Eighth pass: the bundle of leaves
 
 The seventh pass left one feature unbuilt: on the reference a press on the edge of a page stack turns many leaves as one block. It is built now.

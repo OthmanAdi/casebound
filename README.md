@@ -247,7 +247,7 @@ No model, artwork, text or typeface of the reference is in this repository, and 
 | --- | --- |
 | `npm run check` | Type check, unit tests and a production build |
 | `node tools/capture/check-reader.mjs <url>` | The reader in a real browser: keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves |
-| `node tools/capture/check-shelf.mjs <url>` | The shelf in a real browser: a book turned by hand, its coasting, a press that opens the details, the row of spines |
+| `node tools/capture/check-shelf.mjs <url>` | The shelf in a real browser: a book turned by hand, its coasting, a press that opens the details, the row of spines, a jump of the scroll bar that skips no book |
 | `node tools/capture/shot.mjs <url> <out.png>` | One picture of a page in a real browser, with console errors |
 | `node tools/capture/record.mjs <url> <dir> <scene>` | A scripted visit as exact frames, for GIFs and review |
 | `node tools/capture/gif.mjs <dir> <out.gif>` | Those frames as a GIF |
