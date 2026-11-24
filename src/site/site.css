@@ -156,6 +156,16 @@ html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
 }
 .toolbar[hidden], .detail[hidden] { display: none; }
 #folio { min-width: 92px; text-align: center; }
+/* The pens in their holder: two squares side by side in the reader's bar. A pen that is out leaves its place
+   empty, with a red line across it. */
+.pens { display: inline-flex; align-items: center; }
+.pen-slot { width: 24px; height: 25px; padding: 0; border: 0; background: none; cursor: pointer; display: inline-flex; align-items: center; transition: opacity 0.15s; }
+.pen-slot:first-child { justify-content: flex-end; }
+.pen-slot:hover { opacity: 0.7; }
+.pen-slot::before { content: ''; width: 10px; height: 10px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--pen); transition: background-color 0.15s; }
+.pen-slot + .pen-slot::before { border-left: 0; width: 9px; }
+.pen-slot[aria-pressed='true']::before { background: linear-gradient(to top right, transparent calc(50% - 0.7px), #e5322d calc(50% - 0.7px), #e5322d calc(50% + 0.7px), transparent calc(50% + 0.7px)); }
+.pen-slot:focus-visible { outline: 1.5px solid var(--ink); outline-offset: -3px; }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 .detail {
@@ -220,7 +230,7 @@ html[data-detail] .panel { width: calc(60vw - var(--gutter) * 1.5); }
   .detail { left: var(--gutter); width: auto; top: 46vh; background: var(--bg); }
   /* While a book is read on a narrow screen it has the whole picture; the details wait underneath. */
   html[data-reading] .detail { display: none; }
-  .toolbar { gap: 10px; padding: 8px 10px; white-space: nowrap; }
+  .toolbar { gap: 10px; padding: 8px 10px; white-space: nowrap; flex-wrap: wrap; justify-content: center; row-gap: 0; max-width: calc(100vw - 16px); }
   #folio { min-width: 64px; }
   .detail h2 { font-size: 32px; }
   .byline { margin-bottom: 20px; }

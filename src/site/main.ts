@@ -131,7 +131,7 @@ async function boot(): Promise<void> {
   };
   const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
   const magnifier: Magnifier = createMagnifier(engine, { centreOffsetPx: offset, onToggle: (on) => setLens(on) });
-  const marker: Marker = createMarker(engine, reader);
+  const marker: Marker = createMarker(engine, reader, { onChange: () => syncPens() });
   const effects = createSurfaceEffects(engine);
 
   // Extensions: any file in `extensions/` with a default export. Listed in content/library.json or in `?ext=a,b`.
@@ -150,6 +150,11 @@ async function boot(): Promise<void> {
       b.setAttribute('aria-pressed', String(on));
       b.setAttribute('aria-label', on ? 'Turn off magnifier' : 'Turn on magnifier');
     }
+  }
+
+  /** Shows which pen is out of its holder. */
+  function syncPens(): void {
+    for (const slot of $('pens').children) slot.setAttribute('aria-pressed', String(marker.on && (slot as HTMLElement).dataset.pen === marker.color));
   }
 
   function setDetail(on: boolean): void {
@@ -186,7 +191,10 @@ async function boot(): Promise<void> {
       ctx.registry.set('reader', 'forward', fromRow ? 18 : 0);
       ctx.registry.set('reader', 'scale', fromRow ? 1.1 : 1);
       reader.open(current().slug, page);
-    } else reader.close();
+    } else {
+      marker.set(false);
+      reader.close();
+    }
     sync();
   }
 
@@ -250,6 +258,18 @@ async function boot(): Promise<void> {
   $('on-many').addEventListener('click', () => reader.turnLeaves(BLOCK));
   $('close').addEventListener('click', () => setReading(false));
   $('lens').addEventListener('click', () => setLens(!magnifier.on));
+  for (const pen of marker.colors) {
+    const slot = document.createElement('button');
+    slot.type = 'button';
+    slot.className = 'pen-slot';
+    slot.dataset.pen = pen.name;
+    slot.style.setProperty('--pen', pen.body);
+    slot.setAttribute('aria-label', `${pen.name[0]!.toUpperCase()}${pen.name.slice(1)} highlighter`);
+    slot.setAttribute('aria-pressed', 'false');
+    // Measured: a click takes that pen, changes to it, or puts it back if it is the one that is out.
+    slot.addEventListener('click', () => marker.pick(pen.name));
+    $('pens').append(slot);
+  }
   $('home-link').addEventListener('click', (e) => {
     e.preventDefault();
     home();
@@ -362,7 +382,9 @@ async function boot(): Promise<void> {
       if (!e.repeat) setReading(!reader.isOpen);
     } else if (e.key === 'Escape') {
       // One step back at a time: out of the book first, then out of the details.
-      if (reader.isOpen) {
+      // Measured: with a pen out, Escape puts it away and the book stays open.
+      if (marker.on) marker.set(false);
+      else if (reader.isOpen) {
         setLens(false);
         setReading(false);
       } else home();
@@ -379,6 +401,11 @@ async function boot(): Promise<void> {
       e.preventDefault();
       if (!e.repeat) leaf(e.key === 'ArrowRight' ? 1 : -1, e.key);
     } else if (e.key === 'm' && !e.repeat) setLens(!magnifier.on);
+    else if (e.key === 'h' && !e.repeat && reader.isOpen) marker.toggle();
+    else if (e.key === 'z' && (e.ctrlKey || e.metaKey) && marker.on) {
+      e.preventDefault();
+      marker.undo();
+    }
   });
   addEventListener('keyup', (e) => {
     if (e.key === held.key) stopLeafing();
