@@ -99,9 +99,31 @@ try {
   await run(1.5);
   await check('in the details the cover lifts under a resting pointer', (s) => Math.abs(s.front - 5 * Math.PI / 180) < 0.01);
   await shot('peek');
+  // The page around the details. Its transitions run on the browser's clock, so these wait in real time.
+  const around = () => page.evaluate(() => {
+    const r = (id) => document.getElementById(id).getBoundingClientRect();
+    const cs = (el) => getComputedStyle(el);
+    const bar = document.querySelector('.bar-actions');
+    return { column: r('detail').left, picture: r('pictures').right, back: { left: r('home-link').left, top: r('home-link').top, opacity: +cs(document.getElementById('home-link')).opacity }, clip: cs(document.getElementById('marquee')).clipPath, bar: cs(bar).visibility, hidden: document.getElementById('detail').hidden, w: innerWidth };
+  });
+  await page.waitForTimeout(1800);
+  {
+    const a = await around();
+    const ok = Math.abs(a.column - (0.6 * a.w + 24)) < 1 && Math.abs(a.picture - (0.6 * a.w - 3)) < 1 && Math.abs(a.back.left - a.column) < 1 && a.back.top < 60 && a.back.opacity > 0.99 && /40%/.test(a.clip) && a.bar === 'hidden';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} beside the details: picture to ${a.picture.toFixed(0)} px, column from ${a.column.toFixed(0)} px, the way back above it at ${a.back.left.toFixed(0)}, ${a.back.top.toFixed(0)}, title row cut (${a.clip}), bar buttons ${a.bar}`);
+  }
   await page.keyboard.press('Escape');
   await run(1.2);
   await check('Escape closes them', (s) => s.view === '/');
+  {
+    const leaving = await around();
+    await page.waitForTimeout(600);
+    const gone = await around();
+    const ok = !leaving.hidden && gone.hidden && gone.back.opacity < 0.01 && gone.bar === 'visible';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the column fades out before it goes, and the bar buttons come back`);
+  }
 
   // The next book comes to the centre; the turned one forgets its turn.
   await page.evaluate(() => scrollTo(0, document.querySelector('.panel').offsetHeight + 16));

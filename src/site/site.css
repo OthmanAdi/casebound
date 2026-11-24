@@ -71,9 +71,27 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
 }
 .wordmark { font: 500 17px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
 .nav-right { display: flex; gap: 22px; align-items: center; }
-.section-label { position: fixed; left: var(--gutter); top: 54px; margin: 0; z-index: 40; }
+.section-label { position: fixed; left: var(--gutter); top: 54px; margin: 0; z-index: 40; transition: opacity 0.3s ease, transform 0.3s ease; }
 .section-label::before { content: '[ '; }
 .section-label::after { content: ' ]'; }
+/* The way back from the details, in the label row at the left edge of the column. Measured: it comes 0.91 s after the
+   press, from 28 px to the right, in 0.35 s, and leaves in 0.3 s. While a book is open the book has its own close. */
+#home-link {
+  position: fixed;
+  top: 51px;
+  left: calc(60vw + 24px);
+  padding: 0;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateX(28px);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-in, visibility 0s 0.3s;
+}
+html[data-detail]:not([data-reading]) #home-link {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.35s cubic-bezier(0.5, 1, 0.89, 1) 0.91s, transform 0.35s cubic-bezier(0.5, 1, 0.89, 1) 0.91s, visibility 0s 0.91s;
+}
 
 .marquee {
   position: fixed;
@@ -85,7 +103,25 @@ button.label:hover, a.label:hover { text-decoration: underline; text-underline-o
   overflow: hidden;
   z-index: 20;
   mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  /* Measured: beside the details the row is cut off where the picture ends, 40 percent from the right, in 0.6 s,
+     quick at first; on the way back it opens again from 0.1 s to 0.4 s. */
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 0.3s cubic-bezier(0.32, 0, 0.67, 0) 0.1s, opacity 0.3s ease;
 }
+.marquee::after {
+  /* The titles fade out toward the cut, over the last 70 px. */
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 70px;
+  background: linear-gradient(90deg, transparent, var(--bg));
+  opacity: 0;
+  transition: right 0.3s cubic-bezier(0.32, 0, 0.67, 0) 0.1s, opacity 0s 0.4s;
+}
+html[data-detail] .marquee { clip-path: inset(0 40% 0 0); transition: clip-path 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
+html[data-detail] .marquee::after { right: 40%; opacity: 1; transition: right 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0s; }
 /* The titles are placed by the page: 72 px apart, the current one upright and centred. Measured: the row glides to a
    new current title in 0.5 s, ease in and out, and every title moves with it. */
 .marquee-track { position: relative; height: 100%; will-change: transform; transition: transform 0.5s ease-in-out; }
@@ -128,7 +164,8 @@ html[data-detail] .marquee-track { transition-duration: 1.5s; transition-timing-
   bottom: 24px;
   /* A stated width, because a change from `auto` does not animate. Measured: the picture narrows from 150 ms to 570 ms. */
   width: calc(100vw - var(--gutter) * 2);
-  transition: width 0.42s cubic-bezier(0.45, 0, 0.55, 1) 0.15s;
+  /* Measured: it widens again from 0.26 s to 0.8 s after the details close. */
+  transition: width 0.55s cubic-bezier(0.45, 0, 0.55, 1) 0.26s;
   pointer-events: none;
 }
 .pictures { overflow: hidden; border-radius: 8px; z-index: 10; }
@@ -147,7 +184,8 @@ html[data-theme='dark'] .card::after { background: color-mix(in srgb, var(--bg) 
 /* Measured: one lens button for the whole window, in its upper right corner and above the book. */
 .lens-frame { z-index: 45; }
 .panel-lens { position: absolute; right: 6px; top: 4px; width: 36px; height: 36px; border-radius: 50%; border: 0; background: none; cursor: pointer; color: #fff; mix-blend-mode: difference; font: 400 20px/1 var(--display); pointer-events: auto; }
-html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(60vw - var(--gutter) * 1.5); }
+/* Measured: beside the details the picture ends 3 px short of 60 percent of the width. */
+html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(60vw - 19px); transition: width 0.42s cubic-bezier(0.45, 0, 0.55, 1) 0.15s; }
 
 .bar {
   position: fixed;
@@ -161,7 +199,10 @@ html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(60vw - 
   transition: background-color 0.6s ease;
   z-index: 40;
 }
-.bar-actions { display: flex; gap: 0; }
+/* Measured: once the picture has narrowed for the details, the buttons at the right of the bar sink out of the
+   window (54 px in 0.5 s, quick at first) and come back at once when the details close. */
+.bar-actions { display: flex; gap: 0; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s; }
+html[data-detail] .bar-actions { transform: translateY(54px); visibility: hidden; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.585s, visibility 0s 1.085s; }
 .bar-actions button + button { margin-left: 16px; padding-left: 16px; border-left: 1px dotted var(--rule); }
 
 .toolbar {
@@ -194,17 +235,22 @@ html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(60vw - 
 
 .detail {
   position: fixed;
-  right: var(--gutter);
+  left: calc(60vw + 24px);
+  right: 24px;
   top: var(--nav);
   bottom: 40px;
-  width: calc(40vw - var(--gutter) * 1.5);
   overflow: auto;
   border-top: 1px solid var(--rule);
   padding-top: 12px;
   z-index: 35;
-  animation: slide 0.81s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* Measured: the column waits until the picture has narrowed, then comes 10 percent of the width from the right,
+     fading in, in 0.6 s, quick at first. It leaves the same way in 0.3 s, slow at first. */
+  animation: slide 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.575s both;
 }
-@keyframes slide { from { opacity: 0; transform: translateX(5vw); } to { opacity: 1; transform: none; } }
+.detail.leaving { animation: leave-x 0.3s cubic-bezier(0.32, 0, 0.67, 0) both, leave-o 0.3s ease-in both; }
+@keyframes slide { from { opacity: 0; transform: translateX(10vw); } to { opacity: 1; transform: none; } }
+@keyframes leave-x { to { transform: translateX(10vw); } }
+@keyframes leave-o { to { opacity: 0; } }
 .detail .label::before { content: '[ '; }
 .detail .label::after { content: ' ]'; }
 .detail h2 { font: 500 50px/1.06 var(--display); font-variation-settings: 'opsz' 72; letter-spacing: -0.025em; margin: 18px 0 8px; }
@@ -257,7 +303,14 @@ html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(60vw - 
   .marquee { top: 76px; height: 50px; }
   .grain { display: none; }
   html[data-detail] .pictures, html[data-detail] .lens-frame { width: calc(100vw - var(--gutter) * 2); }
-  .detail { left: var(--gutter); width: auto; top: 46vh; background: var(--bg); }
+  .detail { left: var(--gutter); right: var(--gutter); top: 46vh; bottom: 28px; background: var(--bg); }
+  /* Measured on a phone: the bar holds only the title; the details take the place of the title row, and the way
+     back takes the place of the section label. */
+  .bar-actions { display: none; }
+  html[data-detail] .marquee { opacity: 0; clip-path: inset(0 0 0 0); }
+  html[data-detail] .marquee::after { opacity: 0; }
+  html[data-detail] .section-label { opacity: 0; transform: translateX(-10px); }
+  #home-link { left: var(--gutter); top: 54px; }
   /* While a book is read on a narrow screen it has the whole picture; the details wait underneath. */
   html[data-reading] .detail { display: none; }
   .toolbar { gap: 10px; padding: 8px 10px; white-space: nowrap; flex-wrap: wrap; justify-content: center; row-gap: 0; max-width: calc(100vw - 16px); }

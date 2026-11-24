@@ -214,7 +214,10 @@ async function boot(): Promise<void> {
     for (const slot of $('pens').children) slot.setAttribute('aria-pressed', String(marker.on && (slot as HTMLElement).dataset.pen === marker.color));
   }
 
+  /** The details column fades out before it goes. */
+  let leaving = 0;
   function setDetail(on: boolean): void {
+    const was = detailOpen;
     if (on !== detailOpen) {
       shiftFrom = shift;
       // Measured against the reference: the move is already one frame along on the first frame after the press.
@@ -222,6 +225,16 @@ async function boot(): Promise<void> {
     }
     detailOpen = on;
     const d = $('detail');
+    clearTimeout(leaving);
+    d.classList.remove('leaving');
+    if (!on && was && !ctx.still) {
+      // Measured: the column slides back out and fades in 0.3 s, quicker toward the end.
+      d.classList.add('leaving');
+      leaving = window.setTimeout(() => {
+        d.classList.remove('leaving');
+        d.hidden = true;
+      }, 300);
+    }
     if (on) {
       const book = current();
       $('detail-title').textContent = book.title;
@@ -235,7 +248,7 @@ async function boot(): Promise<void> {
       audio.setAttribute('aria-label', `Audiobook of ${book.title} at LibriVox`);
       $('detail-source').textContent = book.source ? `Text: ${book.source.name}. ${book.source.note ?? ''}` : '';
     }
-    d.hidden = !on;
+    if (on || !d.classList.contains('leaving')) d.hidden = !on;
     html.toggleAttribute('data-detail', on);
     $('details').textContent = on ? 'Close details [-]' : 'View details [+]';
     sync();
@@ -263,7 +276,6 @@ async function boot(): Promise<void> {
     $('open').textContent = reading ? 'Close book [-]' : 'Open book [+]';
     $('open').setAttribute('aria-label', reading ? 'Close book' : `Open book: ${current().title}`);
     $('details').setAttribute('aria-label', detailOpen ? 'Close details' : `View details: ${current().title}`);
-    $('home-link').hidden = !(reading || detailOpen);
     html.toggleAttribute('data-lock', reading || detailOpen);
     html.toggleAttribute('data-reading', reading);
     $('bar-title').textContent = `[▸] ${current().title}`;
