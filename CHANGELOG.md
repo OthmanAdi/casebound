@@ -54,6 +54,18 @@ Motion:
 - Pages turned by hand: a held leaf follows the pointer with the measured mapping, a pull that ends on the turning side turns the page, a pull brought back lets it fall, a tap turns one page, and a leaf in the air can be caught.
 - Reduced motion is honoured in the scene: with it on, every animation jumps to its end.
 
+The page:
+
+- The pictures behind the books stand in one window below the title row and move with the books, not with the scroll bar, so a picture rests while its book rests and never runs up under the header. The art in a picture moves at 0.3 of its pace and grows a little as it leaves the middle. The row of spines stands on the bare page.
+- A title row with every book of the library, the featured ones first. It holds still while the books move and glides to the new title in half a second when the current book changes. The current title stands upright and the others lean in italic. A press on a title brings its book.
+- The details open in the measured order: the picture narrows, the column comes in from the right, the title row is cut where the picture ends, the buttons of the bar sink out of the window, and the way back appears in the label row. Closing, the column fades out first.
+- The details as one long page through every book of the library. Each book has its title, its description, the ways to read it, an excerpt of its text in the book's typeface and a colophon written from its record. The book and its picture stay at the top of the window while the column scrolls past, then go up with the page, and the next book comes up from below.
+- A book opened from the details has the whole picture. Escape leaves the book and the details come back.
+- A menu in the bar. A mouse on the title at the foot of the window, a tap on it, or `Enter` brings up every book of the library and the sections of the page with their keys (`f`, `a`, `u`), the sections of the details of an open book, and links to the source, the skill and the licence.
+- The page goes on past the row: a band that shows what a visitor can do with the books, and a footer with what Casebound is, the command that installs the skill, and links to the source, the skill and the licence. The row goes up with the page on the way there.
+- On a phone a counter under the row with arrows that step it, a bar that holds only the title of the current book, and no lens over the picture.
+- The theme control at the right end of the label row, a section label that changes where the next section of the page begins, and titles that fade in after the page has loaded.
+
 Effects:
 
 - A magnifier as a second pass over the frame, with magnification, barrel bend and the measured rim. It opens in the middle of the picture and follows the pointer from its next move.
@@ -65,13 +77,14 @@ System:
 - Extension points for scene objects, surface effects, shelf layouts, light presets and page sources, with three example extensions.
 - A content folder: one record per book, optional text beside it, and a tool that fetches public-domain texts from Project Gutenberg.
 - An agent skill, `casebound`, with references for content, extending, tuning and verifying, and manifests for the Claude Code plugin marketplace.
-- A demo site with six public-domain books, deep links, a detail column and keyboard control. Escape goes one step back at a time.
+- A demo site with six public-domain books, deep links, a long page of details and keyboard control. Escape goes one step back at a time.
 
 Measurement:
 
 - `research/SPEC.md`: about 110 numbered values measured from the reference, each with a note on how it was verified.
 - `research/PARITY.md`: comparisons of this build against the reference, frame by frame.
 - `research/PARITY.md` holds two passes. The second compared all ten interactions and led to twelve corrections, from the darkness of the wall shadow to the timing of the opening.
+- A pass on the page around the books: its layout and timing measured at 1440 by 900 and on a 390 px phone, with the shelf's browser check extended by a step for each correction.
 - Tools: a screenshot script, a frame recorder that drives the engine's clock, a GIF encoder for its frames, two functional checks that run the reader and the shelf in a real browser, a runner for frame-stepped capture with reanimate, a channel comparison and a scene pose reader.
 
 ### Known gaps

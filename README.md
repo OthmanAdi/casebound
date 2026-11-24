@@ -31,7 +31,9 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | Scroll, `↓` and `↑`, or a click on a title | Books ride up with the page, hold at the centre, and turn away as they leave. Left alone, the shelf shows its books one after another |
 | Move the pointer | The book tilts and a spot of light follows. Over an open book its weight shifts to the page under the pointer |
 | Drag the book | It turns in your hand, coasts on, and its trailing cover lifts |
-| Scroll to the end | Every book of the library stands in a row, spine to the front. `←` and `→`, a press on a spine, or a pull on the row choose one, and it turns its cover forward |
+| Scroll past the last featured book | Every book of the library stands in a row, spine to the front. `←` and `→`, a press on a spine, or a pull on the row choose one, and it turns its cover forward. On a phone a counter under the row steps it |
+| Scroll on to the end | The row goes up with the page, then what you can do here, and a footer with the source, the skill and the licence |
+| Move the pointer onto the title at the foot of the window, tap it, or press `Enter` on it | A menu of every book and of the sections of the page. `f`, `a` and `u` go to those sections from the shelf |
 | `Space`, or **Open book** | The cover swings open, then the pages before your place turn over in one wad |
 | `→` and `←`, or a tap on a page | A leaf turns |
 | `Shift` with `→` or `←`, `Page Down` and `Page Up`, or `[ » ]` and `[ « ]` in the bar | Ten leaves turn as one block |
@@ -40,6 +42,7 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | `h`, or one of the two pens in the bar | A highlighter stands on the pointer. Press and pull to mark a line. Marks stay on their page, in the book, for the next visit. `Ctrl` + `Z` takes the last one away |
 | Rest the pointer on the edge of a page stack, beside the page | The leaves above that place lift as one block. Click and they turn over. The deeper the place, the more leaves |
 | `m`, or the lens button | A round magnifier follows the pointer |
+| Press the book, or **View details**, and scroll on | The details of every book follow one another on one page: the book and its picture stay at the top while its column scrolls past, then the next book comes up from below |
 | Press the book, or **View details**, then hover **E-book** or **Audiobook** | The print shears under scanlines and splits its colours, or rings ripple the pages |
 | The theme button | Morning, Noon and Night light |
 | `Esc` | One step back: out of the book, then out of the details |
@@ -244,6 +247,9 @@ The rebuild is then captured with the same tool, the same settings and the same 
 | Closed book turned by hand: lift of the trailing cover | 15.1 to 15.6 degrees against 14.5 to 15.0 |
 | Row of spines: cover turn of the arriving book | 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9 |
 | Row of spines: slide after a step | 31, 171, 480, 888 ms against 32, 172, 481, 887 |
+| The picture behind a book, 60 px of scroll while the book dwells | moves 9.2 px with its book (it moved 60 px with the scroll bar) |
+| The title row in a 1.4 s scroll to the next book | glides from 850 to 1333 ms against 850 to 1317 (it slid from 117 to 1400) |
+| The details coming in: opacity of the column at 600, 700 and 800 ms | 0.44, 0.81, 0.94 against 0.31, 0.79, 0.94 (it was in from the first frame) |
 | Grain of a cloth spine, percent of brightness | 2.9 to 3.0 against 3.0 |
 | Iridescent foil, saturation | 0.09 to 0.25 against 0.10 to 0.25 |
 

@@ -46,6 +46,41 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Resting spread | belly of the pages | about 1.1 units high, a third of the way out; ours built to that | built from one frame, not measured again |
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, 14 corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758; a far press glides in 0.4 s | close: the three later corrections were built to the measured numbers and not captured again |
+| Pictures behind the books | how a picture moves while its book dwells, and where it stands half way between two books | 9.2 px for 60 px of scroll, in a window below the title row; it moved 60 px and ran up under the header | matches |
+| Title row | when it moves in a 1.4 s scroll to the next book | 850 to 1333 ms against 850 to 1317; it slid from 117 to 1400 | matches |
+| Details opening | column, title row and bar, frame by frame | column 0.44, 0.81, 0.94 at 600, 700, 800 ms against 0.31, 0.79, 0.94; title row cut at 40 % in 0.6 s; bar buttons 54 px down after 0.585 s | matches to about a frame |
+| Menu of the bar | rise of the lists | 0.50, 0.29, 0.16, 0.09 of the way left at 33 to 133 ms against 0.57, 0.33, 0.19, 0.10 | matches, ours one frame ahead |
+| Section label | where it turns to the row's section | 0.41 of the way into the row, by the scroll bar; it was half way, by the books, 134 ms late in a 1.4 s scroll | matches |
+
+## 2026-11-24 · Tenth pass: the page around the books
+
+Eight passes measured the books. This one measured the ordinary page around them: the pictures, the title row, the labels and the bar, the details, and what comes after the row. Two complaints led to it, that some scrolling with every book closed felt wrong and that the panels of information did not match. Both turned out to be the page, not the books.
+
+How it was studied. Both sides were loaded at 1440 by 900 and as a 390 by 844 touch phone, with the reference's requests to its shop refused before they left the browser. Every element outside the canvas was read with its computed styles in eleven states (each featured book, half way between two, the row, the details at four moments, the reader), and the page was then stepped frame by frame under reanimate's clock through 21 kinds of scrolling, the opening and closing of the details, the menu, and the way from the row to the foot of the page. The books themselves were captured once more with the sixth pass's sampler for the new kinds of scrolling.
+
+What already agreed: the books. A trackpad (60 wheel events of 4 px), a fling, the arrow keys, Page Down, a slow drag of the scroll bar and a scroll that stops half way between two books all move the books within a frame and a few pixels of the reference. Neither side settles onto a book when a scroll stops between two. Overscroll at the top moves nothing on either side.
+
+What did not, and what ours does now:
+
+| | Reference | Ours before | Now |
+| --- | --- | --- | --- |
+| Pictures | one window from the title row to 24 px above the foot of the screen; a card per book, 8 px taller than the window and 16 px apart, placed by the shelf's eased progress; the art moves at 0.3 of the card's pace and grows by up to 6.3 % | panels in the page that moved with the scroll bar and ran up under the header: 60 px of scroll in the dwell moved the picture 60 px while the book moved 9 | the same rule: 9.2 px |
+| The row | stands on the bare page | had a picture of its own | bare page |
+| Title row | every book of the library three times over, featured first; still until the current book changes, then a 0.5 s glide; others in italic at 0.8; the current title's middle at 47.5 % of the width | four titles and one for the row, sliding with every pixel and flipping half way; others at 46 % ink; nothing left of the first book | the same rule; in the row it follows the chosen book |
+| Details, opening | picture narrows from 100 to 550 ms; the column waits and comes 10 % of the width from the right in 0.6 s; title row cut at 40 % from the right; bar buttons sink 54 px; the way back appears at 0.91 s in the label row | column in at once from 5 %; title row ran over it; buttons stayed; way back in the header | the same order to about a frame |
+| Details, closing | the column slides out and fades in 0.3 s, then the picture widens | gone in one frame | the same |
+| Details, as a page | one page through every book: the book and its picture stay at the top while the column scrolls past, go up with the page when its part ends, and the next book comes up from below and stays; the title row shows only while a picture stands at the top | one short column beside one book | the same structure, with the content our records hold: title, description, the ways to read it, an excerpt of the text in the book's typeface, a colophon |
+| A book opened from the details | has the whole picture; Escape brings the details back | read beside the column, scaled down | the same |
+| The menu of the bar | the title at the foot of the window is its handle: a mouse on it, a tap or `Enter` brings up every book by title and the sections of the page with their keys, rising in 0.38 s; from the keyboard the focus lands on the current book, Tab stays inside, Escape gives the focus back | none | the same; a press on a book brings it and opens its details |
+| After the row | a dark band and a footer, 2295 px in all; the row goes up with the page (109, 334, 597 px after 230, 460, 690 px of scroll), the title row fades out from 0.2 of a slot past the row, the bar's strip and buttons go | the page ended 174 px past the row | a band of what a visitor can do with the books and a footer with what Casebound is, the command for the skill and links to the source, the skill and the licence; the row lifts by the same curve |
+| Section label | names the section whose top has passed 40 px below the top of the window; the row's section begins 0.41 of the way into the row (0.47 on a phone) | followed the books, 134 ms late | the same rule |
+| Phone | the bar holds only the title; no lens over the picture; a counter under the row, 42 px below the chosen cover and 18 px wider, "11 / 21" between two arrows | title and two buttons that wrapped onto two lines; a lens; no counter | the same |
+| Theme control and titles at load | the control at the right end of the label row; the titles fade in over 1.6 s from 1.2 s | in the header; titles at once | the same |
+| Tab in the details | header, then the column | reached the lenses of other pictures and scrolled the shelf behind the open details | one lens, and the details are their own page |
+
+Left on purpose: our typefaces and their sizes and tracking, the page colour, which stays ours in the details where the reference tints it from the book, the header's own links, and the content itself. The band holds what a visitor can do with the books where the reference shows its films, and the details hold no reviews or photographs because our records have none.
+
+Not verified: every reference number is one reading from one load at each size. The zoom of the art in a picture is a fit to the frames (within 0.0024 of scale), not read from code. The details as a page were compared by their behaviour in steps of 450 px and by the arrival of the next book frame by frame; our parts are shorter than the reference's, so a picture stays at the top for less scrolling. Touch scrolls natively on both sides, but the headless browser made no fling from synthetic touches, so momentum was not compared. The reference's band plays films; how its row of cards is stepped was not captured.
 
 ## 2026-11-24 · Ninth pass: the pen
 
