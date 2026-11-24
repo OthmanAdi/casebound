@@ -25,6 +25,12 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Shelf, turn after a jump of the scroll bar | 10, 50, 90, 99 % of the arriving book's turn | 37, 81, 178, 328 ms against 54, 98, 195, 344 (it was 43, 104, 253, 466) | close: one frame early |
 | Shelf, damping, poses and intro | height curve after a jump; rest, arrive and leave poses; intro | the damper is the reference's, one frame earlier; poses equal; intro within 0.01 units and 0.1 degrees | matches |
 | Shelf, scroll per book | pixels of scrolling from one book to the next | 872 against 872, 943 from the first book on the reference (it was 730) | matches but for the first book |
+| Page pulled by hand | angle of the held leaf, turn or fall back, tap | equal frame for frame | matches |
+| Page landing | sheet down after a tap | 978 ms against 951 ms (it was 2781) | matches |
+| Leaf let go by hand | half way to its stack after a full pull | 189 ms against 204 ms (it was 341) | matches, ours one frame ahead |
+| Corner under a resting pointer | 10, 50, 90 % of the lift | 27, 185, 609 ms against 44, 185, 609 (it was 95, 284, 707) | matches from 200 ms on |
+| Closed book turned by hand | turn under the hand, coast, levelling | within 0.003 rad and one frame | matches |
+| Closed book, trailing cover | lift at 3 rad/s | 15.1 to 15.6 degrees against 14.5 to 15.0 (it was 4.5 to 4.7) | matches |
 | Open book | when the book turns | 10, 50, 90 and 99 % at 1222, 1803, 2120 and 2226 ms against 1335, 1835, 2146 and 2252 | close: 113 ms early at the start, 26 to 32 ms from half way on |
 | Pages parting | page progress at seven times, 1700 to 2300 ms | 0.159, 0.300, 0.477, 0.665, 0.833, 0.962, 1 against 0.172, 0.292, 0.458, 0.639, 0.808, 0.943, 1 | matches to 0.03 |
 | Pages parting | path of the two stacks | both swing out by their final angle times the square of the page progress, as read in the reference's code and seen in its frames | matches by rule; frames of a new capture agree within two to three frames |
@@ -40,6 +46,30 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Resting spread | belly of the pages | about 1.1 units high, a third of the way out; ours built to that | built from one frame, not measured again |
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, 14 corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758; a far press glides in 0.4 s | close: the three later corrections were built to the measured numbers and not captured again |
+
+## 2026-11-24 · Seventh pass: the hand
+
+Three things a hand does were built from constants read in the reference's code and had never been set beside a capture: a page pulled across the book, the corner that lifts under the pointer, and a closed book turned on the shelf. A second session captured both sides with the same scripted pointer: a full pull, a half pull, a pull brought back, taps, a press on a leaf in the air, the pointer resting low and high on a page, a slow pull by the corner, a quick and a slow turn of the closed book and a turn that leaves it tilted.
+
+What already agreed: the angle of a held leaf frame for frame, the choice between turning the page and letting it fall back, the tap; the fold line and the strength of the curl at rest; the turn of the closed book under the hand (0.003 rad), its coasting and its levelling (one frame).
+
+| # | Difference | Reference | Ours before | Now |
+| --- | --- | --- | --- | --- |
+| 1 | A turned leaf kept sinking onto its stack | down 951 ms after a tap | 2781 ms | 978 ms |
+| 2 | The outer fifth of a page takes a bundle of leaves | a press at 0.85 of the page width turns 7 to 10 leaves as a block, a tap 23 | always one leaf | open: a feature ours does not have |
+| 3 | A leaf let go by hand is thrown on | 10 and 50 % at 61 and 204 ms | 110 and 341 ms | 46 and 189 ms |
+| 4 | Trailing cover of a turned book | lifts 14.5 to 15.0 degrees at 3 rad/s | 4.5 to 4.7 degrees | 15.1 to 15.6 degrees |
+| 5 | A press held still on a leaf in the air | slows it for 200 ms, then it goes on and the page turns | stops it | open |
+| 6 | Corner under a resting pointer | 44, 185, 609 ms | 95, 284, 707 ms | 27, 185, 609 ms |
+| 7 | Fold of a leaf let go with the pointer moving on | 1.6 rad within 50 ms | 8.2 rad after 200 ms | 2.0 rad after 200 ms |
+| 8 | The sheet rises later in the first half of a held pull | 59 degrees after 500 ms | 36.6 degrees | 28.8 degrees: worse by the landing fix, open |
+| 9 | Front cover of a featured book under a resting pointer | does not lift | lifts 5 degrees | open |
+
+Ours draws one frame ahead of the reference throughout, so a number about 16 ms early is the best match there is.
+
+Two notes were wrong and the capture corrected them. A leaf let go does start from rest, but the reference sets its speed once it stands past upright. And the 28 degrees of cover lift in the notes belong to the first of five cover bones; the board stands 3.36 times as far.
+
+Not verified: every reference number is one reading from one capture, mouse only, one window size. The bundle of leaves was seen with four presses at one place; its zone and its count were not measured. The leaves of the opening were not captured again after the landing fix.
 
 ## 2026-11-23 · Sixth pass: the shelf under scrolling
 
