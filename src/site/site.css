@@ -368,9 +368,9 @@ html[data-detail] .bar-actions, html[data-foot] .bar-actions { transform: transl
 .pen-slot { width: 24px; height: 25px; padding: 0; border: 0; background: none; cursor: pointer; display: inline-flex; align-items: center; transition: opacity 0.15s; }
 .pen-slot:first-child { justify-content: flex-end; }
 .pen-slot:hover { opacity: 0.7; }
-.pen-slot::before { content: ''; width: 10px; height: 10px; box-sizing: border-box; border: 1px solid var(--ink); background: var(--pen); transition: background-color 0.15s; }
-.pen-slot + .pen-slot::before { border-left: 0; width: 9px; }
-.pen-slot[aria-pressed='true']::before { background: linear-gradient(to top right, transparent calc(50% - 0.7px), #e5322d calc(50% - 0.7px), #e5322d calc(50% + 0.7px), transparent calc(50% + 0.7px)); }
+.pen-slot::before { content: ''; width: 10.6px; height: 10.6px; box-sizing: border-box; border: 0.85px solid var(--ink); background: var(--pen); transition: background-color 0.15s; }
+.pen-slot + .pen-slot::before { border-left: 0; width: 9.75px; }
+.pen-slot[aria-pressed='true']::before { background: linear-gradient(to top right, transparent calc(50% - 0.43px), #e5322d calc(50% - 0.43px), #e5322d calc(50% + 0.43px), transparent calc(50% + 0.43px)); }
 .pen-slot:focus-visible { outline: 1.5px solid var(--ink); outline-offset: -3px; }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
