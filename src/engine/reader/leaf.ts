@@ -12,7 +12,7 @@ import { CLOTH, PAGE_PAPER, createSurfaceMaterial, type SurfaceFx } from '../boo
 import { BLOCK_S, Surface } from '../book/volume';
 import { clamp, lerp, smoothstep } from '../core/math';
 import { ROLL_STRIDE, createCurl, createFlop, fillRoll, type CurlState, type FlopState } from './curl';
-import { createLeafMotion, type LeafMotion } from './leaf-physics';
+import { createLeafMotion, sheetTurn, type LeafMotion } from './leaf-physics';
 import type { RifflePart } from './riffle';
 
 /** Samples across the page, crowded toward the binding: the same as the top of a page block, so the two coincide. */
@@ -47,6 +47,8 @@ export class Leaf {
   side: 0 | 1 = 0;
   /** While a hand holds the leaf: the angle it is pulled toward. Null when it moves by itself. */
   dragTarget: number | null = null;
+  /** The stack a hand has sent this leaf across to, until it is thrown on as it passes upright. Null otherwise. */
+  toss: 0 | 1 | null = null;
   /** While the opening riffle moves the leaf: its part in it. */
   script: RifflePart | null = null;
   /** How limp the sheet is in the air, 0 (stiff) to 1: how far it bows and lets its free edge trail. */
@@ -114,7 +116,10 @@ export class Leaf {
   /** Rebuilds the sheet for the current angle and curl. */
   update(): void {
     const { volume, dims } = this.book;
-    const turn = this.motion.shown / Math.PI;
+    const drawn = this.motion.shown / Math.PI;
+    // Where the sheet stands. A leaf that turns by itself or in a hand eases off its stack and lies down before
+    // its angle has come to rest; one in the opening riffle stands where its script puts it.
+    const turn = this.script ? drawn : sheetTurn(drawn);
     const right = volume.layerShape(1, 1);
     const left = volume.layerShape(0, 1);
     // In the air the sheet bows back against the air and its free edge trails.
@@ -231,7 +236,7 @@ export class Leaf {
     for (const mat of [this.front, this.back]) {
       const uniforms = mat.userData.uniforms as Record<string, { value: number }>;
       // Print shows through most at mid-turn (SPEC S-RD-9). The shader derives it from the turn progress.
-      uniforms.uTurn!.value = turn;
+      uniforms.uTurn!.value = drawn;
       // Rings lift both sides of the sheet alike, by where the sheet is across the spread.
       uniforms.uRingSide!.value = Math.cos(Math.PI * turn);
       uniforms.uAloft!.value = aloft;

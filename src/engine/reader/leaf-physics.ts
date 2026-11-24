@@ -93,3 +93,30 @@ export function sendLeaf(m: LeafMotion, side: 0 | 1, kick = LEAF_DEFAULT.kick): 
   m.resting = false;
   m.velocity += kick * (side === 1 ? 1 : -1);
 }
+
+/**
+ * A leaf let go by a hand starts from rest, and is thrown on once it stands past upright on its way to the other
+ * stack: measured on the reference, its speed is then set to the starting speed of a button turn, whatever it
+ * was. Call after `stepLeaf` while the throw is still to come.
+ * @returns true once the leaf has been thrown, or can no longer be
+ */
+export function throwLeaf(m: LeafMotion, side: 0 | 1, kick = LEAF_DEFAULT.kick): boolean {
+  if (m.target !== side || m.resting) return true;
+  if (side === 1 ? m.angle < Math.PI / 2 : m.angle > Math.PI / 2) return false;
+  m.velocity = kick * (side === 1 ? 1 : -1);
+  return true;
+}
+
+/** Share of a turn at which the sheet starts to leave its stack, and the share over which it travels to the other. */
+const SHEET_FROM = 0.03;
+const SHEET_SPAN = 0.87;
+
+/**
+ * Where the sheet of a turning leaf stands, 0 (on the right stack) to 1, for a drawn turn of 0..1. Measured on the
+ * reference: the sheet eases off its stack, moves fastest near upright and lies down by nine tenths of the turn.
+ * The angle creeps on for seconds after that; the sheet does not.
+ */
+export function sheetTurn(turn: number): number {
+  const t = Math.min(Math.max((turn - SHEET_FROM) / SHEET_SPAN, 0), 1);
+  return t * t * (3 - 2 * t);
+}

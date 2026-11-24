@@ -9,7 +9,7 @@ import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/
 import { tunable } from '../core/tune';
 import { CURL_DEFAULT, curlFlat, resetCurl, resetFlop, stepCurl, stepFlop } from './curl';
 import { Leaf } from './leaf';
-import { LEAF_DEFAULT, sendLeaf, stepLeaf } from './leaf-physics';
+import { LEAF_DEFAULT, sendLeaf, stepLeaf, throwLeaf } from './leaf-physics';
 import { flowPages } from '../book/painter';
 import { paginate, type PageSource } from './pages';
 import { PUSH_DEFAULT, createPush, stepPush } from './push';
@@ -250,6 +250,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const retire = (leaf: Leaf): void => {
     leaf.active = false;
     leaf.dragTarget = null;
+    leaf.toss = null;
     leaf.script = null;
     leaf.limp = 1;
     leaf.mesh.visible = false;
@@ -283,6 +284,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     leaf.index = index;
     leaf.side = direction === 1 ? 0 : 1;
     leaf.dragTarget = null;
+    leaf.toss = null;
     leaf.motion.angle = leaf.motion.shown = leaf.side * Math.PI;
     leaf.motion.velocity = 0;
     leaf.motion.target = leaf.side;
@@ -305,11 +307,14 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   /** Sends a leaf to a side and moves the page count with it. */
   const aim = (leaf: Leaf, side: 0 | 1, kick: number): void => {
     unscript(leaf);
-    if (leaf.side !== side) {
+    const across = leaf.side !== side;
+    if (across) {
       spread += side === 1 ? 1 : -1;
       leaf.side = side;
       if (book) ctx.events.emit('page-turn', { slug: book.record.slug, leaf: leaf.index, direction: side === 1 ? 1 : -1 });
     }
+    // A hand gives no speed. A leaf it sends across is thrown on as it passes upright (see `throwLeaf`).
+    leaf.toss = across && kick === 0 ? side : null;
     sendLeaf(leaf.motion, side, kick);
     paintSpread();
     emitView();
@@ -458,6 +463,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   let hovered: Leaf | null = null;
   /** Where on the page the pointer is. */
   const grab = { u: 1, v: 0.5 };
+  /** True once the pointer has moved since a press was last let go. */
+  let stirred = true;
 
   /**
    * Finds the leaf under the pointer, once a frame. A corner can only lift on a live sheet, so if the page under
@@ -490,7 +497,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       {
         pages,
         held: leaf.dragTarget !== null,
-        hovered: leaf === hovered,
+        // Measured: a leaf in the air counts as under the pointer only once the pointer has moved since it was
+        // let go. Until then it carries the curl of a leaf in the air.
+        hovered: leaf === hovered && (stirred || m.resting || leaf.dragTarget !== null),
         covered: outer(leaf.side) !== leaf,
         grabU: grab.u,
         grabV: grab.v,
@@ -533,6 +542,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     drag = { leaf, id: ev.pointerId, startX: ev.clientX, startAngle: leaf.motion.angle, remembered: leaf.side, half, travel: 0, dx: 0 };
     gripAt(ev.clientX, ev.clientY);
     leaf.dragTarget = leaf.motion.angle;
+    leaf.toss = null;
     leaf.motion.resting = false;
     document.documentElement.style.cursor = 'grabbing';
     ev.preventDefault();
@@ -542,6 +552,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const onMove = (ev: PointerEvent): void => {
     const blocked = ev.target instanceof Element && !!ev.target.closest(ignore);
     point = ev.pointerType === 'mouse' ? { x: ev.clientX, y: ev.clientY, blocked } : null;
+    stirred = true;
     if (!drag) {
       if (opening && ev.pointerType === 'mouse') {
         const over = !blocked && halfAt(ev.clientX, ev.clientY) !== 0;
@@ -562,6 +573,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (!drag || ev.pointerId !== drag.id) return;
     const { leaf, travel, dx, startAngle, remembered, half } = drag;
     drag = null;
+    stirred = false;
     document.documentElement.style.cursor = '';
     leaf.dragTarget = null;
     // Measured: a released leaf starts from rest, whatever speed the hand had.
@@ -748,6 +760,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         continue;
       }
       stepLeaf(leaf.motion, f.dt, { ...LEAF_DEFAULT, ...leafTune });
+      if (leaf.toss !== null && throwLeaf(leaf.motion, leaf.toss, leafTune.kick)) leaf.toss = null;
       bend(leaf, f.dt);
       if (leaf.motion.resting || ctx.still) {
         leaf.motion.angle = leaf.motion.shown = leaf.side * Math.PI;
