@@ -43,6 +43,7 @@ Motion:
 - Page lights as measured: the hologram shears the print sideways and splits its colours, the radio rings cross the whole spread and ripple the pages.
 - A corner curl: the page under a resting pointer lifts its corner, a page in the hand rolls over where it is held, a leaf in the air carries a curl that relaxes as it lands.
 - An opening riffle: the top leaves of both stacks settle one after another as a book opens.
+- A turned leaf is down on its stack in a second and a leaf let go by hand is thrown on, both as measured against a capture.
 - Pages turned by hand: a held leaf follows the pointer with the measured mapping, a pull that ends on the turning side turns the page, a pull brought back lets it fall, a tap turns one page, and a leaf in the air can be caught.
 - Reduced motion is honoured in the scene: with it on, every animation jumps to its end.
 
