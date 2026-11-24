@@ -31,9 +31,11 @@ The light, the motion and the structure of this project were studied from one pu
 
 What that study contributes here is numbers and structure: light colours, intensities and positions, damping times, poses, timings, the fact that a magnifier is a second pass over the frame, the fact that a leaf's shape is a cross-section curve. These are in `research/SPEC.md`, each with a note on how it was verified, and in the longer reports beside it.
 
+A few behaviours follow that site's arithmetic closely, because matching them frame by frame left no other way: the two page lights (the sheared print with colour fringes, and the rings), the way the pointer shifts the weight of an open book, the curve by which a book lingers at the centre while the page scrolls, and the ramp that spreads a wheel notch. For these the terms and constants of its formulas were read from its shipped code and written again here, in this project's own functions and shaders. `research/SPEC.md` and `research/PARITY.md` name each of them.
+
 What is not here:
 
-- No source code of that site. Every shader and every function in this repository was written for it. Where a published method is used (a sheen distribution, a visibility term, a bump technique), the paper is named in the source.
+- No source code of that site was copied. Every shader and every function in this repository was written for it, including the ones that reproduce a formula of the reference. Where a published method is used (a sheen distribution, a visibility term, a bump technique), the paper is named in the source.
 - None of its 3D models, cover artwork, page scans, photographs, films, typefaces, texts or brand elements.
 - None of the material downloaded for the study. Script bundles, screenshots, frame sequences and scene dumps were kept in a folder that is excluded from version control and is not distributed.
 
