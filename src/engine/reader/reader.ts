@@ -2,7 +2,7 @@
  * The reader: opens a book from the shelf, lays it open toward the camera, turns its leaves and closes it again.
  * SPEC section 9.
  */
-import { Euler, Quaternion, Vector3, type Texture } from 'three';
+import { Euler, Quaternion, Raycaster, Vector2, Vector3, type Mesh, type Texture } from 'three';
 import type { Book } from '../book/book';
 import type { Engine } from '../index';
 import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/math';
@@ -27,6 +27,15 @@ export interface ReaderOptions {
   ignore?: string;
 }
 
+/** A place on a printed page. See `Reader.pageAt`. */
+export interface PageHit {
+  page: number;
+  u: number;
+  v: number;
+  point: Vector3;
+  normal: Vector3;
+}
+
 export interface Reader {
   readonly isOpen: boolean;
   /** 0 = closed, 1 = fully open. */
@@ -47,6 +56,21 @@ export interface Reader {
    */
   turnLeaves(count: number): boolean;
   goTo(page: number): void;
+  /**
+   * A second picture over the print of every page, in the page's own picture space: the marks of a pen, say. A
+   * function from the page number to its overlay, or null for a page without one. Call `refreshOverlays` when a
+   * page gets its first overlay or loses it; painting into an overlay that is already on show needs no call.
+   */
+  overlay: ((page: number) => Texture | null) | null;
+  refreshOverlays(): void;
+  /**
+   * The printed page under a point of the window: its number, where on its picture the point lies (u from the
+   * left, v from the foot, both 0 to 1), and the place and the facing of the paper there in the world. Stacks,
+   * leaves in the air and a bundle all count. Null where no page is.
+   */
+  pageAt(x: number, y: number): PageHit | null;
+  /** While true, a press on a page takes no leaf and turns nothing: a tool such as a pen has the pointer. */
+  handsOff: boolean;
   dispose(): void;
 }
 
@@ -264,8 +288,14 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     }
     const tex = book.paintPage(source(page), t.pageHeight);
     cache.set(page, tex);
+    pageOf.set(tex, page);
     return tex;
   };
+
+  /** Which page a painted picture is of, for the overlays. */
+  const pageOf = new Map<Texture, number>();
+  /** The pages on show on the two stacks and on the faces of a bundle. 0: none. */
+  const shown = { left: 0, right: 0, top: 0, under: 0 };
 
   /** Pages that are wanted soon but not painted yet, the most urgent first. One is painted per frame. */
   let pending: number[] = [];
@@ -283,6 +313,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       if (cache.size <= TEXTURE_BUDGET) break;
       if (keep.has(page)) continue;
       tex.dispose();
+      pageOf.delete(tex);
       cache.delete(page);
     }
   };
@@ -306,9 +337,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       book.setPage('bundleUnder', have(bundle.hi * 2));
       book.setPage('left', have(bundle.lo * 2));
       book.setPage('right', have(bundle.hi * 2 + 1));
+      Object.assign(shown, { left: bundle.lo * 2, right: bundle.hi * 2 + 1, top: bundle.lo * 2 + 1, under: bundle.hi * 2 });
     } else {
       book.setPage('left', soon(left * 2));
       book.setPage('right', soon(right * 2 + 1));
+      Object.assign(shown, { left: left * 2, right: right * 2 + 1, top: 0, under: 0 });
     }
     trim();
     ctx.invalidate();
@@ -412,6 +445,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     aim(leaf, direction === 1 ? 1 : 0, leafTune.kick);
     return true;
   };
+
+  const pick = new Raycaster();
+  const pickAt = new Vector2();
 
   // ---------------------------------------------------------------- a bundle of leaves (SPEC S-RD-12)
   const edgeA = new Vector3();
@@ -721,7 +757,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       grab.v = at.v;
     }
     if (drag) hovered = drag.leaf;
-    else hovered = at && at.inside && !point!.blocked && curlTune.amount > 0 && curlTune.hover > 0 ? reach(at.half, false) : null;
+    else hovered = at && at.inside && !point!.blocked && !reader.handsOff && curlTune.amount > 0 && curlTune.hover > 0 ? reach(at.half, false) : null;
   };
 
   /** Advances the curl of one leaf. */
@@ -802,6 +838,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   };
 
   const onDown = (ev: PointerEvent): void => {
+    if (reader.handsOff) return;
     if (drag || brake || edgePress || ev.button !== 0 || !ev.isPrimary) return;
     if (ev.target instanceof Element && ev.target.closest(ignore)) return;
     // A block that stands lifted under the pointer is the one that goes: what was shown is what turns. The book
@@ -861,7 +898,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       ctx.invalidate();
       return;
     }
-    if (ev.pointerType === 'mouse' && ev.buttons === 0 && opening) {
+    if (ev.pointerType === 'mouse' && ev.buttons === 0 && opening && !reader.handsOff) {
       hoverEdge(ev.clientX, ev.clientY, blocked);
       if (bundle) ctx.invalidate();
     }
@@ -875,8 +912,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       if (brake) return;
       if (opening && ev.pointerType === 'mouse') {
         const over = !blocked && halfAt(ev.clientX, ev.clientY) !== 0;
-        // Over a block that stands lifted the cursor says that a click sends it.
-        document.documentElement.style.cursor = lifted() ? 'pointer' : over ? 'grab' : '';
+        // Over a block that stands lifted the cursor says that a click sends it. A tool that has the pointer
+        // sets the cursor itself.
+        if (!reader.handsOff) document.documentElement.style.cursor = lifted() ? 'pointer' : over ? 'grab' : '';
       }
       return;
     }
@@ -971,6 +1009,10 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       if (book && book !== next) finish();
       if (book !== next) {
         book = next;
+        next.overlayFor = (map) => {
+          const page = pageOf.get(map);
+          return page !== undefined && reader.overlay ? reader.overlay(page) : null;
+        };
         source = opts.pages?.(next) ?? paginate(next.record, next.dims.leaves * 2, (paragraphs, heading) => flowPages(paragraphs, heading, next.dims.pageW / next.dims.pageH, next.faces));
         blank = next.paintPage({ folio: null, left: true }, 64);
         leaves = Array.from({ length: LIVE_LEAVES + RIFFLE_MAX * 2 }, () => new Leaf(next, engine.fx, blank!));
@@ -1001,6 +1043,35 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     },
     next: () => launch(1),
     previous: () => launch(-1),
+    overlay: null,
+    refreshOverlays: () => {
+      book?.refreshOverlays();
+      for (const leaf of leaves) leaf.refreshOverlays();
+      ctx.invalidate();
+    },
+    pageAt: (x, y) => {
+      if (!book || !opening || pages < 0.9) return null;
+      const rect = ctx.canvas.getBoundingClientRect();
+      pick.setFromCamera(pickAt.set(((x - rect.left) / Math.max(1, rect.width)) * 2 - 1, 1 - ((y - rect.top) / Math.max(1, rect.height)) * 2), ctx.camera);
+      const v = book.volume;
+      const meshes: Mesh[] = [v.leftBlock, v.rightBlock, v.chunkBlock, ...leaves.filter((l) => l.active).map((l) => l.mesh)].filter((m) => m.visible);
+      // The vertices of all of them are rewritten in place whenever the book moves.
+      for (const m of meshes) m.geometry.computeBoundingSphere();
+      const hit = pick.intersectObjects(meshes, false)[0];
+      if (!hit || !hit.uv || !hit.face) return null;
+      const face = hit.face.materialIndex ?? 0;
+      let page = 0;
+      if (hit.object === v.leftBlock) page = face === 0 ? shown.left : 0;
+      else if (hit.object === v.rightBlock) page = face === 0 ? shown.right : 0;
+      else if (hit.object === v.chunkBlock) page = face === 0 ? shown.top : face === 2 ? shown.under : 0;
+      else {
+        const leaf = leaves.find((l) => l.mesh === hit.object);
+        page = leaf ? leaf.index * 2 + 1 + face : 0;
+      }
+      if (page < 1 || page > book.dims.leaves * 2) return null;
+      return { page, u: hit.uv.x, v: hit.uv.y, point: hit.point.clone(), normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld) };
+    },
+    handsOff: false,
     turnLeaves: (count) => (Math.abs(count) < 2 ? count !== 0 && launch(count > 0 ? 1 : -1) : takeBundle(count > 0 ? 1 : -1, Math.abs(count))),
     goTo: (page) => {
       if (!book) return;
@@ -1048,6 +1119,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     document.documentElement.style.cursor = '';
     for (const tex of cache.values()) tex.dispose();
     cache.clear();
+    pageOf.clear();
+    book.overlayFor = null;
     blank?.dispose();
     blank = null;
     book.held = false;
