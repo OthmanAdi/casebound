@@ -4,6 +4,8 @@
  */
 import { Euler, Quaternion, Raycaster, Vector2, Vector3, type Mesh, type Texture } from 'three';
 import type { Book } from '../book/book';
+import { PROFILE_STRIDE, sampleDistance, sampleLeaf } from '../book/profile';
+import { BLOCK_S } from '../book/volume';
 import type { Engine } from '../index';
 import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/math';
 import { tunable } from '../core/tune';
@@ -69,6 +71,11 @@ export interface Reader {
    * leaves in the air and a bundle all count. Null where no page is.
    */
   pageAt(x: number, y: number): PageHit | null;
+  /**
+   * For a point of the window beside the pages: the place on the outline of the two pages on show that is nearest
+   * to it on the screen, with that place in window pixels. Null when no book is open.
+   */
+  pageNear(x: number, y: number): (PageHit & { x: number; y: number }) | null;
   /** While true, a press on a page takes no leaf and turns nothing: a tool such as a pen has the pointer. */
   handsOff: boolean;
   dispose(): void;
@@ -448,6 +455,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
 
   const pick = new Raycaster();
   const pickAt = new Vector2();
+  const nearProfile = new Float32Array((BLOCK_S + 1) * PROFILE_STRIDE);
+  const nearPoint = new Vector3();
+  const nearScreen = new Vector3();
 
   // ---------------------------------------------------------------- a bundle of leaves (SPEC S-RD-12)
   const edgeA = new Vector3();
@@ -1070,6 +1080,45 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       }
       if (page < 1 || page > book.dims.leaves * 2) return null;
       return { page, u: hit.uv.x, v: hit.uv.y, point: hit.point.clone(), normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld) };
+    },
+    pageNear: (x, y) => {
+      if (!book || !opening || pages < 0.9) return null;
+      const v = book.volume;
+      const d = v.dims;
+      const rect = ctx.canvas.getBoundingClientRect();
+      let best: (PageHit & { x: number; y: number }) | null = null;
+      let nearest = Infinity;
+      for (const which of [0, 1] as const) {
+        const left = which === 0;
+        const page = left ? shown.left : shown.right;
+        if (!(left ? v.leftBlock : v.rightBlock).visible || page < 1 || page > d.leaves * 2) continue;
+        sampleLeaf(v.layerShape(which, 1), BLOCK_S, nearProfile);
+        const consider = (i: number, up: number): void => {
+          const o = i * PROFILE_STRIDE;
+          nearPoint.set(nearProfile[o]!, (up - 0.5) * d.pageH, nearProfile[o + 1]!);
+          v.group.localToWorld(nearPoint);
+          nearScreen.copy(nearPoint).project(ctx.camera);
+          const sx = rect.left + (nearScreen.x * 0.5 + 0.5) * rect.width;
+          const sy = rect.top + (0.5 - nearScreen.y * 0.5) * rect.height;
+          const far = Math.hypot(sx - x, sy - y);
+          if (far >= nearest) return;
+          nearest = far;
+          const along = sampleDistance(d.pageW, BLOCK_S, i) / d.pageW;
+          const tx = nearProfile[o + 2]!;
+          const tz = nearProfile[o + 3]!;
+          best = { page, u: left ? 1 - along : along, v: up, point: nearPoint.clone(), normal: new Vector3(left ? tz : -tz, 0, left ? -tx : tx).transformDirection(v.group.matrixWorld), x: sx, y: sy };
+        };
+        // Head and foot along the page, spine and fore-edge up it.
+        for (let i = 0; i <= BLOCK_S; i++) {
+          consider(i, 0);
+          consider(i, 1);
+        }
+        for (let k = 1; k < 12; k++) {
+          consider(0, k / 12);
+          consider(BLOCK_S, k / 12);
+        }
+      }
+      return best;
     },
     handsOff: false,
     turnLeaves: (count) => (Math.abs(count) < 2 ? count !== 0 && launch(count > 0 ? 1 : -1) : takeBundle(count > 0 ? 1 : -1, Math.abs(count))),
