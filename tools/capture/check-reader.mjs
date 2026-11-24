@@ -16,7 +16,7 @@ if (!base) {
 const browser = await chromium.launch({ channel: process.env.RE_CHANNEL ?? 'msedge', headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
 let failed = 0;
 try {
-  const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })).newPage();
+  const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, permissions: ['clipboard-read', 'clipboard-write'] })).newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
   await page.goto(base.replace(/\/$/, '') + '/?midday', { waitUntil: 'load', timeout: 60000 });
@@ -225,6 +225,35 @@ try {
     await run(1);
   }
   say(taken.length === 3 && taken[0] >= 2 && taken[1] >= taken[0] && taken[2] > taken[0], `a press on the fore-edge turns a block of leaves, more the deeper it falls: ${taken.join(', ') || 'none'}`);
+  // The keys of the reader: J and K jump forty leaves, < and > turn one, X closes. The place is remembered,
+  // and the page numbers in the bar copy a link to the spread.
+  await page.mouse.move(c.x, 30);
+  await run(4);
+  await page.keyboard.press('j');
+  await run(3);
+  await expect('J jumps forty leaves on', { page: first + 80, inAir: 0 });
+  await page.keyboard.press('k');
+  await run(3);
+  await expect('K jumps forty back', { page: first, inAir: 0 });
+  await page.keyboard.press('>');
+  await run(4);
+  await expect('> turns one leaf', { page: first + 2 });
+  await page.click('#folio');
+  await page.waitForFunction(() => document.getElementById('folio').textContent.includes('copied'), null, { timeout: 5000 }).catch(() => {});
+  const link = await page.evaluate(async () => ({ said: document.getElementById('folio').textContent, clip: await navigator.clipboard.readText().catch(() => '') }));
+  say(link.said === 'Link copied' && link.clip.endsWith(`/page/${first + 2}`), `the page numbers copy a link to the spread: "${link.said}", ${link.clip.slice(link.clip.indexOf('#'))}`);
+  await page.keyboard.press('x');
+  await run(3);
+  await expect('X closes the book', { open: false });
+  await page.keyboard.press('Space');
+  await run(4);
+  await expect('opened again, the book is where it was left', { open: true, page: first + 2 });
+  await page.keyboard.press('<');
+  await run(4);
+  await expect('< turns one leaf back', { page: first });
+  // The turned leaf lies down at once; its angle creeps on for seconds before it is taken off the stack.
+  await run(12);
+
   // The pen: while it is in the hand a press marks the page and takes no leaf. Marks stay through a page turn.
   await page.evaluate(() => { casebound.marker.clear(); });
   await page.mouse.move(c.x, 30);
