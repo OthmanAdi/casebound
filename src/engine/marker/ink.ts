@@ -6,18 +6,21 @@
  * the reader lays it over the print (see `Reader.overlay`). The strokes themselves are plain data, so marks can
  * be saved, loaded and drawn again at another size.
  *
- * The nib is a chisel: a short straight edge that keeps its direction while the hand moves. Dragged across the
- * page it leaves a band as wide as the edge is long; dragged along its own direction it leaves a thin line. A
- * stroke is drawn as one shape, so it is no darker where its own segments overlap, and two strokes that cross are
- * darker there, as two layers of ink are.
+ * Two nibs. The round one is the reference's (SPEC S-RD-13): a line as wide as one line of print is high, with
+ * round ends, drawn through the points of the hand as a smooth curve. The chisel is ours: a short straight edge
+ * that keeps its direction while the hand moves, so a stroke across the page is a band and a stroke along the
+ * edge a thin line. Either way a stroke is drawn as one shape, no darker where it crosses itself, and two strokes
+ * that cross are darker there, as two layers of ink are.
  */
 import { clamp } from '../core/math';
 
 export interface Stroke {
   /** Ink colour as `#rrggbb`. */
   color: string;
-  /** Length of the nib's edge as a share of the page height. */
+  /** Width of the line, or the length of a chisel's edge, as a share of the height of the picture. */
   width: number;
+  /** How strongly this ink colours the paper, 0 to 1. Default: the tuning's `opacity`. */
+  strength?: number;
   /** The path of the middle of the nib: u, v, u, v ... */
   points: number[];
 }
@@ -31,22 +34,78 @@ export interface InkSurface {
   copy(from: InkSurface): void;
   /** Fills closed outlines as one shape. Each outline is x, y, x, y ... in pixels, all wound the same way. */
   fill(outlines: number[][], color: string, opacity: number): void;
+  /**
+   * Draws one line with round ends and joins through a curve: its start x, y, then for every step the two handles
+   * and the end of a cubic, six numbers. A curve of a start alone is a dot.
+   */
+  line(curve: number[], width: number, color: string, opacity: number): void;
   /** Called after painting, so a texture made from the surface can be sent to the GPU again. */
   touch(): void;
 }
 
 export interface InkTuning {
+  /** True: the round nib of the reference. False: the chisel. */
+  round: boolean;
+  /** A stroke of a single point, a press without a move, leaves nothing. */
+  dropTaps: boolean;
+  /** Round nib: the longest a curve's handle may be, as a share of its step. */
+  smooth: number;
+  /** Round nib: where the path turns by more than `cornerFrom` radians the handles are shortened, by up to `cornerCut` of their length. */
+  cornerFrom: number;
+  cornerCut: number;
   /** How strongly the ink colours the paper, 0 to 1. The print under it stays as dark as it was. */
   opacity: number;
   /** Direction of the nib's edge, radians from straight up the page, turning toward the right. */
   nibAngle: number;
   /** Thickness of the nib across its edge, as a share of its length: the width of a line drawn along the edge. */
   nibThin: number;
-  /** A new point nearer than this to the last one, as a share of the page height, is dropped. */
+  /** A new point nearer than this to the last one, as a share of the height of the picture, is dropped. Measured: half a pixel of 1024. */
   step: number;
 }
 
-export const INK_DEFAULT: InkTuning = { opacity: 0.6, nibAngle: 0.26, nibThin: 0.16, step: 0.0015 };
+export const INK_DEFAULT: InkTuning = { round: true, dropTaps: true, smooth: 0.45, cornerFrom: (36 * Math.PI) / 180, cornerCut: 0.65, opacity: 0.6, nibAngle: 0.26, nibThin: 0.16, step: 0.5 / 1024 };
+
+/**
+ * The curve a round nib draws through the points of a stroke, in pixels of a picture `width` by `height`: the
+ * start, then two handles and an end per step. Read on the reference: a handle points along the chord between
+ * the two neighbours of its point and is a sixth of it long, never longer than `smooth` of its own step, and
+ * shorter where the path turns sharply, so a corner stays a corner. Past the last point the path is taken to go
+ * straight on.
+ */
+export function strokeCurve(stroke: Stroke, width: number, height: number, t: InkTuning = INK_DEFAULT): number[] {
+  const p = stroke.points;
+  const n = p.length / 2;
+  const x = (i: number): number => p[i * 2]! * width;
+  const y = (i: number): number => (1 - p[i * 2 + 1]!) * height;
+  if (n < 1) return [];
+  const out = [x(0), y(0)];
+  // A point before the first and after the last, mirrored through the end.
+  const px = (i: number): number => (i < 0 ? 2 * x(0) - x(1) : i >= n ? 2 * x(n - 1) - x(n - 2) : x(i));
+  const py = (i: number): number => (i < 0 ? 2 * y(0) - y(1) : i >= n ? 2 * y(n - 1) - y(n - 2) : y(i));
+  /** How much of a handle is left at point i, by how sharply the path turns there. */
+  const kept = (i: number): number => {
+    if (i <= 0 || i >= n - 1) return 1;
+    const ax = x(i) - x(i - 1), ay = y(i) - y(i - 1);
+    const bx = x(i + 1) - x(i), by = y(i + 1) - y(i);
+    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    if (la < 1e-9 || lb < 1e-9) return 1;
+    const turn = Math.acos(clamp((ax * bx + ay * by) / (la * lb), -1, 1));
+    return 1 - t.cornerCut * clamp((turn - t.cornerFrom) / (Math.PI - t.cornerFrom), 0, 1);
+  };
+  for (let i = 0; i < n - 1; i++) {
+    const step = Math.hypot(x(i + 1) - x(i), y(i + 1) - y(i));
+    const limit = t.smooth * step;
+    const handle = (hx: number, hy: number, keep: number): [number, number] => {
+      const len = Math.hypot(hx, hy);
+      const k = (len > limit && len > 0 ? limit / len : 1) * keep;
+      return [hx * k, hy * k];
+    };
+    const [ax, ay] = handle((px(i + 1) - px(i - 1)) / 6, (py(i + 1) - py(i - 1)) / 6, kept(i));
+    const [bx, by] = handle((px(i + 2) - px(i)) / 6, (py(i + 2) - py(i)) / 6, kept(i + 1));
+    out.push(x(i) + ax, y(i) + ay, x(i + 1) - bx, y(i + 1) - by, x(i + 1), y(i + 1));
+  }
+  return out;
+}
 
 /** Twice the signed area of a closed outline. Positive: wound counter-clockwise in a frame with y up. */
 const area2 = (o: number[]): number => {
@@ -159,7 +218,9 @@ export class InkBook {
   }
 
   private paint(stroke: Stroke, onto: InkSurface): void {
-    onto.fill(strokeOutlines(stroke, onto.width, onto.height, this.tuning), stroke.color, this.tuning.opacity);
+    const strength = stroke.strength ?? this.tuning.opacity;
+    if (this.tuning.round) onto.line(strokeCurve(stroke, onto.width, onto.height, this.tuning), stroke.width * onto.height, stroke.color, strength);
+    else onto.fill(strokeOutlines(stroke, onto.width, onto.height, this.tuning), stroke.color, strength);
   }
 
   /** Paints the finished strokes of a page again, and the one being drawn over them. */
@@ -182,11 +243,11 @@ export class InkBook {
   }
 
   /** Puts the nib down on a page. Returns true when the page had no picture of marks before: its overlay is new. */
-  begin(page: number, u: number, v: number, color: string, width: number): boolean {
+  begin(page: number, u: number, v: number, color: string, width: number, strength?: number): boolean {
     this.end();
     const fresh = !this.pages.has(page);
     this.page(page);
-    this.live = { page, stroke: { color, width, points: [] } };
+    this.live = { page, stroke: strength === undefined ? { color, width, points: [] } : { color, width, strength, points: [] } };
     extendStroke(this.live.stroke, u, v, this.aspect, this.tuning);
     this.show(page);
     return fresh;
@@ -209,9 +270,12 @@ export class InkBook {
     const { page, stroke } = this.live;
     this.live = null;
     const ink = this.page(page);
-    ink.strokes.push(stroke);
-    this.paint(stroke, ink.base);
-    ink.base.touch();
+    // Measured: a press that did not move leaves nothing, so a stray click never dirties a page.
+    if (!(this.tuning.dropTaps && stroke.points.length < 4)) {
+      ink.strokes.push(stroke);
+      this.paint(stroke, ink.base);
+      ink.base.touch();
+    }
     this.show(page);
   }
 
@@ -236,7 +300,10 @@ export class InkBook {
 
   toJSON(): InkData {
     const data: InkData = {};
-    for (const [page, ink] of this.pages) if (ink.strokes.length) data[String(page)] = ink.strokes.map((s) => ({ color: s.color, width: s.width, points: s.points.map((n) => Math.round(n * 1e4) / 1e4) }));
+    for (const [page, ink] of this.pages) {
+      if (!ink.strokes.length) continue;
+      data[String(page)] = ink.strokes.map((s) => ({ color: s.color, width: s.width, ...(s.strength === undefined ? {} : { strength: s.strength }), points: s.points.map((n) => Math.round(n * 1e4) / 1e4) }));
+    }
     return data;
   }
 
@@ -252,7 +319,14 @@ export class InkBook {
           (s): s is Stroke =>
             !!s && typeof s === 'object' && typeof (s as Stroke).color === 'string' && /^#[0-9a-f]{6}$/i.test((s as Stroke).color) && Number.isFinite((s as Stroke).width) && Array.isArray((s as Stroke).points) && (s as Stroke).points.length >= 2 && (s as Stroke).points.length % 2 === 0 && (s as Stroke).points.every((n) => Number.isFinite(n)),
         );
-        if (strokes.length) this.page(page).strokes = strokes.map((s) => ({ color: s.color, width: clamp(s.width, 0.001, 0.2), points: s.points.map((n) => clamp(n, 0, 1)) }));
+        if (strokes.length) {
+          this.page(page).strokes = strokes.map((s) => ({
+            color: s.color,
+            width: clamp(s.width, 0.001, 0.2),
+            ...(Number.isFinite(s.strength) ? { strength: clamp(s.strength!, 0, 1) } : {}),
+            points: s.points.map((n) => clamp(n, 0, 1)),
+          }));
+        }
       }
     }
     for (const page of this.pages.keys()) this.redraw(page);
