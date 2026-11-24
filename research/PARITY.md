@@ -109,7 +109,21 @@ What the pen is, and what ours does now:
 
 Where ours goes further: marks also show on the page blocks and on a bundle in flight (the reference draws them on single leaves only), `Ctrl` + `Z` takes the last mark away, a chisel nib is a second way to draw, and the hooks the pens are built on are open to other tools.
 
-Not verified: the look of the pen (its colours under our lamps, the highlights, the width and darkness of its shadow) and the colour of the ink on paper and on print were set by eye against frames, not measured; a second comparison is running. The scratch was built from the logged audio calls of the reference and not listened to side by side. Touch was captured on the reference with an emulated finger and not on ours. Every reference number is one reading.
+The second comparison. The same scripted pointer was then run against ours, and the two captures were laid side by side, series against series and pixel against pixel. All motion agreed as built: lift, lean, roll, pitch, hover height, the fade of the footprint, the size of the pen, the frame in which a taken pen appears, the cursor, the wait on a page edge, the split of a stroke at the gutter, taps, keys, the magnifier, reload and closing with marks. Nine things did not, and were changed:
+
+| # | Difference | Reference | Ours before | Now |
+| --- | --- | --- | --- | --- |
+| 1 | Pink ink too pale: blank paper under it | 196, 140, 155 (from 194, 195, 189) | 199, 164, 159 | 208, 152, 159 against an aim of 207, 148, 164 |
+| 2 | Pen body darker and more saturated: mean difference over the barrel | reflects the stock room of three.js | 13.5 of 255, reflecting a nearly black box | 2.3 yellow, 3.9 pink, reflecting the same room |
+| 3 | A pen taken again stood where it was put away until the pointer moved | on the pointer, or the nearest page edge | where it was | on the nearest edge |
+| 4 | Footprint under the nib paler: blue of yellow against the paper | 0.127 | 0.364 | 0.133 |
+| 5 | Shadow faded toward the cap: how much the far end darkens the page | 36 % | 20 % | 33 % |
+| 6 | A press that started beside the pages painted once it was pulled onto one | no stroke | a stroke | no stroke |
+| 7 | Yellow ink a little orange: paper under it | 182, 166, 78 | orange cast | 184, 168, 77 |
+| 8 | The pen was gone after a finger lifted | stays where the finger left | gone | stays |
+| 9 | The two squares in the bar a fraction of a pixel off | 10.6 px with a line of 0.85 | 10 px with a line of 1 | 10.6 and 0.85 |
+
+Not verified: how the pen sinks when the paper falls away under it and the air it keeps over the paper were read in the reference's code and not captured. The scratch was compared call by call and not by ear. The reference's pink footprint and print under pink ink were not read. Compact layout, dense screens and a real touch screen were not compared. In the gutter the pen's shadow bends differently, which follows from the curve of our pages. Every reference number is one reading.
 
 ## 2026-11-24 · The bundle, second reading, and what was left of the lists
 
