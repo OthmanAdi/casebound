@@ -113,7 +113,7 @@ async function boot(): Promise<void> {
   };
   const slotPx = (): number => (panels.firstElementChild as HTMLElement).offsetHeight + 16;
 
-  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, fit: () => 1 - 0.5 * lift, row: true, layout: query.get('layout') === 'fan' ? fan : undefined });
+  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, fit: () => 1 - 0.5 * lift, row: true, peek: () => detailOpen, layout: query.get('layout') === 'fan' ? fan : undefined });
   /** Scales the open book down where the spread is wider than the room it has: beside the detail column, or on a narrow screen. */
   const fit = (): number => {
     const book = reader.book;

@@ -79,16 +79,26 @@ try {
   await check('keeps its turn and comes to rest with the covers shut', (s) => s.yaw >= held.yaw - 0.05 && s.front === 0 && s.back === 0);
   await shot('at rest turned');
 
-  // A pointer that rests on the book lifts its front cover a little.
+  // Measured: on the shelf a pointer that rests on a featured book does not lift its cover.
   await page.mouse.move(c.x, c.y);
   await run(1.5);
-  await check('the cover lifts under a resting pointer', (s) => Math.abs(s.front - 5 * Math.PI / 180) < 0.01);
-  await shot('peek');
+  await check('the cover stays shut under a resting pointer on the shelf', (s) => s.front === 0);
 
-  // A press that does not move opens the details.
+  // A press that does not move opens the details. There the cover lifts a little under the pointer.
   await page.mouse.click(c.x, c.y);
   await run(1.2);
   await check('a press opens the details', (s) => typeof s.view === 'string' && s.view.startsWith('/book/'));
+  const where = await page.evaluate(() => {
+    const { ctx } = casebound.engine;
+    const v = casebound.engine.books[casebound.engine.state.active].root.position.clone().project(ctx.camera);
+    const r = ctx.canvas.getBoundingClientRect();
+    return [r.left + (v.x * 0.5 + 0.5) * r.width, r.top + (0.5 - v.y * 0.5) * r.height];
+  });
+  await page.mouse.move(where[0] + 6, where[1] + 6);
+  await page.mouse.move(where[0], where[1]);
+  await run(1.5);
+  await check('in the details the cover lifts under a resting pointer', (s) => Math.abs(s.front - 5 * Math.PI / 180) < 0.01);
+  await shot('peek');
   await page.keyboard.press('Escape');
   await run(1.2);
   await check('Escape closes them', (s) => s.view === '/');

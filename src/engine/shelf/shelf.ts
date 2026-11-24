@@ -31,6 +31,12 @@ export interface ShelfOptions {
    * front. The chosen book turns its cover to the front.
    */
   row?: boolean;
+  /**
+   * Says whether the cover of the centred book may lift under a resting pointer (`shelf.spin.peek`). Measured:
+   * it lifts where a press would open the book, in a details view and in the row, and not on a featured book of
+   * the shelf itself. Default: never outside the row.
+   */
+  peek?: () => boolean;
 }
 
 /** The row of spines, when the shelf has one. */
@@ -141,7 +147,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
       levelSeconds: { value: SPIN_DEFAULT.levelSeconds, min: 0.1, max: 20, unit: 's' },
       dragPx: { value: 5, min: 0, max: 40, unit: 'px', help: 'Pointer travel before a press counts as a drag' },
       unwind: { value: 5, min: 0.1, max: 40, unit: '1/s', help: 'How fast a book that leaves the centre forgets its turn' },
-      peek: { value: 5, min: 0, max: 40, unit: 'deg', help: 'How far the front cover lifts while the pointer rests on the book. Measured: 5' },
+      peek: { value: 5, min: 0, max: 40, unit: 'deg', help: 'How far the front cover lifts while the pointer rests on the book, in the row and where the page allows it (its details view). Measured: 5, and 0 on a featured book of the shelf' },
       peekFollow: { value: 0.075, min: 0.005, max: 1, help: 'Share of the way the cover moves per 60 Hz frame' },
     },
     onChange: () => ctx.invalidate(),
@@ -629,7 +635,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           spin.coastPitch = spin.coastYaw = spin.front = spin.back = 0;
         } else if (stepSpin(spin, f.dt, spinTune)) moving = true;
         // The cover lifts a little under a resting pointer, as if a thumb were on its edge.
-        const resting = hovering && ctx.pointer !== null && !press && !book.held && !ctx.still && Math.abs(state.progress - Math.round(state.progress)) < 0.03;
+        const allowed = rowLive || (opts.peek?.() ?? false);
+        const resting = allowed && hovering && ctx.pointer !== null && !press && !book.held && !ctx.still && Math.abs(state.progress - Math.round(state.progress)) < 0.03;
         const goal = resting ? spinTune.peek * DEG : 0;
         peek += (goal - peek) * frameFactor(spinTune.peekFollow, f.dt);
         if (Math.abs(goal - peek) < 1e-4) peek = goal;
