@@ -35,6 +35,17 @@ try {
     });
     return { open: casebound.reader.isOpen, page: casebound.reader.page, inAir, lying };
   });
+  /** Sides of visible sheets and page blocks that show no print: their picture is the small blank one. */
+  const unprinted = () => page.evaluate(() => {
+    const bare = (m) => !m.map || !m.map.image || m.map.image.width < 200;
+    let n = 0;
+    casebound.engine.ctx.scene.traverse((o) => {
+      if ((o.name === 'leaf' || o.name === 'leaf.rest') && o.visible) n += o.material.filter(bare).length;
+    });
+    const book = casebound.reader.book;
+    if (book) n += [book.pageMaterials.left, book.pageMaterials.right].filter(bare).length;
+    return n;
+  });
   const spine = () => page.evaluate(() => {
     const { ctx } = casebound.engine;
     const v = casebound.reader.book.root.position.clone();
@@ -146,6 +157,28 @@ try {
   await page.keyboard.press('Escape');
   await run(3);
   await expect('closes', { open: false });
+
+  // A page taken the moment the opening has settled. The leaves of the opening are dressed on one side only
+  // while they settle; a hand that takes one must find both pages printed.
+  // The gap was one frame wide. At 30 frames a second, 2.4 s after the request, a press falls into it.
+  const run30 = (frames) => page.evaluate((n) => { for (let i = 0; i < n; i++) { window.__clock += 1000 / 30; casebound.engine.ctx.loop.tick(window.__clock); } }, frames);
+  await page.mouse.move(c.x + 260, c.y + 20);
+  await run30(9);
+  await page.keyboard.press('Space');
+  await run30(72);
+  await page.mouse.down();
+  for (let k = 1; k <= 24; k++) {
+    await page.mouse.move(c.x + 260 - 25 * k, c.y + 20);
+    await run30(1);
+  }
+  const held = await unprinted();
+  await page.mouse.up();
+  await run(3);
+  const after = await unprinted();
+  if (held || after) failed++;
+  console.log(`${held || after ? 'FAIL' : 'ok  '} a page taken as the opening settles shows print on both sides: ${held} bare in the hand, ${after} after it landed`);
+  await page.keyboard.press('Escape');
+  await run(3);
   for (const e of errors) { failed++; console.log('FAIL page error: ' + e); }
 } finally {
   await browser.close();

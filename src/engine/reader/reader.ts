@@ -397,9 +397,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     m.velocity = (m.angle - before) / Math.max(1e-3, frames);
     leaf.limp = riffle ? riffleDrop(riffle.drop, part.order, riffleTune) : 1;
     if (settled >= 1) {
-      // Down. From here it is a leaf like any other: the next frame finds it at rest.
+      // Down. From here it is a leaf like any other: the next frame finds it at rest. A leaf of the riffle was
+      // dressed only on the side it showed; a hand can take it in this very frame, so it gets both pages now.
       leaf.script = null;
       m.velocity = 0;
+      leaf.setPages(texture(leaf.index * 2 + 1), texture(leaf.index * 2 + 2));
     }
   };
 
@@ -526,6 +528,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const leaf = reach(half);
     if (!leaf || leaf.dragTarget !== null) return;
     unscript(leaf);
+    // Whatever the leaf was doing, in the hand it shows both its pages.
+    leaf.setPages(texture(leaf.index * 2 + 1), texture(leaf.index * 2 + 2));
     drag = { leaf, id: ev.pointerId, startX: ev.clientX, startAngle: leaf.motion.angle, remembered: leaf.side, half, travel: 0, dx: 0 };
     gripAt(ev.clientX, ev.clientY);
     leaf.dragTarget = leaf.motion.angle;
