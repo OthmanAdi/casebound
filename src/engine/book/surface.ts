@@ -10,7 +10,7 @@
  * The sheen distribution is the inverted-Gaussian form published by Estevez and Kulla (2017), with the
  * visibility term of Neubelt and Pettineo (2013). Bump uses Mikkelsen's unparametrised surface gradient.
  */
-import { Color, DoubleSide, FrontSide, MeshPhongMaterial, MeshStandardMaterial, NoColorSpace, ShaderChunk, Vector2, Vector4, type IUniform, type Side, type Texture } from 'three';
+import { Color, DoubleSide, FrontSide, MeshPhongMaterial, MeshStandardMaterial, NoColorSpace, ShaderChunk, Vector2, Vector4, type IUniform, type Side, type Texture, DataTexture } from 'three';
 
 /** Uniforms shared by every book surface, driven by the effects module. */
 export interface SurfaceFx {
@@ -234,6 +234,11 @@ export interface SurfaceOptions {
   gutter?: 0 | 1;
   /** A leaf in the air lets the print on its other side show through. Set `tBack` and `uTurn` (0..1) on the uniforms. */
   bleed?: boolean;
+  /**
+   * A page that can carry a second picture over its print, in the page's own picture space: the marks of a pen.
+   * Set `tOverlay` on the uniforms. Where the overlay is transparent the page shows as it is.
+   */
+  overlay?: boolean;
   /** A single sheet. Set `uAloft` on the uniforms: 0 while it lies on a stack, 1 in the air, where it takes shadows only on the side that faces the light. */
   sheet?: boolean;
   /**
@@ -328,6 +333,7 @@ uniform vec3 uBounceColor;
 uniform float uGutterShade;
 uniform float uStamp;
 uniform sampler2D tBack;
+uniform sampler2D tOverlay;
 uniform float uBleed;
 uniform float uTurn;
 uniform float uTransmit;
@@ -481,6 +487,12 @@ const ALBEDO = /* glsl */ `
 	#ifdef CASEBOUND_BLEED
 		vec3 behind = texture2D( tBack, vec2( 1.0 - vMapUv.x, vMapUv.y ) ).rgb;
 		diffuseColor.rgb *= mix( vec3( 1.0 ), behind, uBleed * sin( PI * uTurn ) );
+	#endif
+
+	#ifdef CASEBOUND_OVERLAY
+		// Marks on the page. Ink is a dye: it takes light away from the paper and leaves the print as dark as it was.
+		vec4 mark = texture2D( tOverlay, vMapUv );
+		diffuseColor.rgb *= mix( vec3( 1.0 ), mark.rgb, mark.a );
 	#endif
 
 	float grain = texture2D( tGrain, gUv ).r;
@@ -646,6 +658,16 @@ if ( uRadio > 0.001 ) {
 `;
 
 /** A cover or page surface. Returns a Phong material with the cloth model patched in. */
+/** An overlay with nothing on it: one clear pixel. */
+export const BLANK_OVERLAY = new DataTexture(new Uint8Array(4), 1, 1);
+BLANK_OVERLAY.needsUpdate = true;
+
+/** Puts an overlay on a page material made with `overlay: true`, or takes it off with null. */
+export function setOverlay(mat: MeshPhongMaterial, overlay: Texture | null): void {
+  const slot = (mat.userData.uniforms as Record<string, IUniform> | undefined)?.tOverlay;
+  if (slot) slot.value = overlay ?? BLANK_OVERLAY;
+}
+
 export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
   o.map.colorSpace = NoColorSpace;
   const mat = new MeshPhongMaterial({
@@ -685,6 +707,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     uFoilSpecular: { value: o.foilSpecular ?? 0 },
     uFoilDetail: { value: o.foilDetail ?? 2.6 },
     tBack: { value: null },
+    tOverlay: { value: BLANK_OVERLAY },
     uBleed: { value: 0.3 },
     uTurn: { value: 0 },
     uTransmit: { value: o.transmit ?? 0 },
@@ -707,6 +730,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
   if (o.emboss) mat.defines.CASEBOUND_EMBOSS = '';
   if (o.finish) mat.defines.CASEBOUND_FINISH = '';
   if (o.bleed) mat.defines.CASEBOUND_BLEED = '';
+  if (o.overlay) mat.defines.CASEBOUND_OVERLAY = '';
   if (o.turnIn) mat.defines.CASEBOUND_TURNIN = '';
   liveMaterials.add(mat);
   mat.addEventListener('dispose', () => liveMaterials.delete(mat));
@@ -727,7 +751,7 @@ export function createSurfaceMaterial(o: SurfaceOptions): MeshPhongMaterial {
     if (o.sheet) shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', SHEET_LIGHTS);
     shader.vertexShader = shader.vertexShader.replace('#include <uv_pars_vertex>', VERTEX_PARS).replace('#include <begin_vertex>', VERTEX_DISPLACE);
   };
-  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}${o.sheet ? 's' : ''}${o.joint ? 'j' : ''}${o.turnIn ? 't' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
+  mat.customProgramCacheKey = () => `casebound-surface-${o.emboss ? 'e' : ''}${o.finish ? 'f' : ''}${o.bleed ? 'b' : ''}${o.overlay ? 'o' : ''}${o.sheet ? 's' : ''}${o.joint ? 'j' : ''}${o.turnIn ? 't' : ''}-${surfaceEffects.map((e) => e.name).join('+')}`;
   return mat;
 }
 

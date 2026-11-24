@@ -12,7 +12,7 @@ import { DEG } from '../core/math';
 import type { ParamSpec, Registry } from '../core/registry';
 import { makeDims, type BookDims } from './dims';
 import { COVER_RELIEF, DEFAULT_FACES, GRAIN_PER_UNIT, edgeTexture, endpaperTexture, grainTexture, paintCover, paintPage, type CoverDesign, type CoverRelief, type CoverTextures, type PageContent, type Typefaces } from './painter';
-import { CLOTH, PAGE_PAPER, createEdgeMaterial, createSurfaceMaterial, type ClothParams, type SurfaceFx } from './surface';
+import { CLOTH, PAGE_PAPER, createEdgeMaterial, createSurfaceMaterial, setOverlay, type ClothParams, type SurfaceFx } from './surface';
 import { Volume, type ChunkPose } from './volume';
 import { hashString } from '../core/math';
 
@@ -125,6 +125,11 @@ export class Book {
   readonly home = { position: new Vector3(), quaternion: new Quaternion(), scale: 1 };
   /** True while a view such as the reader places the root itself. */
   held = false;
+  /**
+   * Says which overlay lies on a page, given the page's own picture: the marks of a pen, say. Null for none. Set by
+   * the view that paints the pages; the turning leaves ask it too.
+   */
+  overlayFor: ((map: Texture) => Texture | null) | null = null;
   /** Held by the reader, but its cover has not started to move yet: on the shelf it still follows the pointer. */
   poised = false;
   /**
@@ -171,6 +176,7 @@ export class Book {
         shininess: 12.5,
         reflectiveness: 0.39 * 0.6,
         bumpGrain: 0.05,
+        overlay: true,
         fx,
       });
     // The left page is drawn mirrored along the stack, so its spine edge is on the right of its picture.
@@ -261,9 +267,15 @@ export class Book {
   /** Replaces the texture on one of the two visible pages, or on a face of a bundle in the air. */
   setPage(side: 'left' | 'right' | 'bundleTop' | 'bundleUnder', map: Texture): void {
     const m = this.pageMaterials[side];
+    setOverlay(m, this.overlayFor?.(map) ?? null);
     if (m.map === map) return;
     m.map = map;
     m.needsUpdate = true;
+  }
+
+  /** Looks the overlays of the pages on show up again, after a page got one or lost it. */
+  refreshOverlays(): void {
+    for (const m of Object.values(this.pageMaterials)) setOverlay(m, (m.map && this.overlayFor?.(m.map)) || null);
   }
 
   /** Re-applies the pose after `push` or `presentYaw` changed. */

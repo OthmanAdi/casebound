@@ -8,7 +8,7 @@ import type { Book } from '../book/book';
 import { LEAF_THICKNESS } from '../book/dims';
 import { GRAIN_PER_UNIT, grainTexture } from '../book/painter';
 import { PROFILE_STRIDE, sampleDistance, sampleIndex, sampleLeaf } from '../book/profile';
-import { CLOTH, PAGE_PAPER, createSurfaceMaterial, type SurfaceFx } from '../book/surface';
+import { CLOTH, PAGE_PAPER, createSurfaceMaterial, setOverlay, type SurfaceFx } from '../book/surface';
 import { BLOCK_S, Surface } from '../book/volume';
 import { clamp, lerp, smoothstep } from '../core/math';
 import { ROLL_STRIDE, createCurl, createFlop, fillRoll, type CurlState, type FlopState } from './curl';
@@ -90,6 +90,7 @@ export class Leaf {
         fx,
         polygonOffset: -1.5,
         bleed: true,
+        overlay: true,
         transmit: TRANSMIT,
         sheet: true,
       });
@@ -110,8 +111,14 @@ export class Leaf {
     book.volume.group.add(this.mesh);
   }
 
+  /** Looks the overlays of its two pages up again. */
+  refreshOverlays(): void {
+    for (const mat of [this.front, this.back]) setOverlay(mat, (mat.map && this.book.overlayFor?.(mat.map)) || null);
+  }
+
   setPages(front: Texture, back: Texture): void {
     for (const [mat, own, other] of [[this.front, front, back], [this.back, back, front]] as const) {
+      setOverlay(mat, this.book.overlayFor?.(own) ?? null);
       const behind = (mat.userData.uniforms as Record<string, { value: unknown }>).tBack!;
       if (mat.map === own && behind.value === other) continue;
       mat.map = own;
