@@ -66,6 +66,13 @@ try {
     if (!ok) failed++;
     console.log(`${ok ? 'ok  ' : 'FAIL'} the theme control stands at the right end of the label row and goes round the themes`);
   }
+  {
+    // The titles fade in after the load, 1.6 s from 1.2 s, and are there by now.
+    const a = await page.evaluate(() => { const cs = getComputedStyle(document.querySelector('.marquee-track')); return { name: cs.animationName, duration: cs.animationDuration, delay: cs.animationDelay, opacity: +cs.opacity }; });
+    const ok = a.name === 'strip-in' && a.duration === '1.6s' && a.delay === '1.2s';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the titles fade in after the load: ${a.duration} from ${a.delay}`);
+  }
 
   // Turn the book to the right by 240 px, quickly enough for the cover to lift.
   await page.mouse.move(c.x, c.y);

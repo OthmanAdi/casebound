@@ -126,7 +126,9 @@ html[data-aside] .marquee { clip-path: inset(0 40% 0 0); transition: clip-path 0
 html[data-aside] .marquee::after { right: 40%; opacity: 1; transition: right 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0s; }
 /* The titles are placed by the page: 72 px apart, the current one upright and centred. Measured: the row glides to a
    new current title in 0.5 s, ease in and out, and every title moves with it. */
-.marquee-track { position: relative; height: 100%; will-change: transform; transition: transform 0.5s ease-in-out; }
+.marquee-track { position: relative; height: 100%; will-change: transform; transition: transform 0.5s ease-in-out; animation: strip-in 1.6s ease 1.2s both; }
+/* Measured: after the page has loaded the titles fade in over 1.6 s, 1.2 s after the start, while the first book rises. */
+@keyframes strip-in { from { opacity: 0; } to { opacity: 1; } }
 /* Measured: beside the details the row comes to rest over the picture in 1.5 s, quick at first. */
 html[data-aside] .marquee-track { transition-duration: 1.5s; transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
 .marquee-track.snap, .marquee-track.snap .m-title { transition: none; }
@@ -509,5 +511,5 @@ html[data-reading] .dpage { visibility: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   html, .pictures, .lens-frame, .card::after, .bar, .marquee-track, .m-title, .t-it, .t-up, .menu-lists, .menu-strip, .band, .band-card, .foot, .top-fade { transition: none; }
-  .toolbar, .dp-col, .dpage { animation: none !important; }
+  .toolbar, .dp-col, .dpage, .marquee-track { animation: none !important; }
 }
