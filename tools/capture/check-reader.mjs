@@ -207,6 +207,7 @@ try {
   await expect('and twelve back', { page: first, inAir: 0 });
   // The fore-edge of the right stack lies beyond the page. A press there takes more leaves the deeper it falls.
   const taken = [];
+  let edgeX = 0;
   for (let x = right[0]; x < right[0] + 420 && taken.length < 3; x += 5) {
     await page.mouse.move(x, right[1]);
     await run(0.1);
@@ -217,12 +218,33 @@ try {
     await run(3);
     const got = (await state()).page - first;
     if (got > 2) taken.push(got / 2);
+    if (got > 2) edgeX = x;
     if (got > 2 && taken.length === 1) say(held.page === first && !held.grabbing, 'a press on the fore-edge takes no leaf into the hand');
     await page.evaluate((p) => casebound.reader.goTo(p), first);
     await page.mouse.move(c.x, 30);
     await run(1);
   }
   say(taken.length === 3 && taken[0] >= 2 && taken[1] >= taken[0] && taken[2] > taken[0], `a press on the fore-edge turns a block of leaves, more the deeper it falls: ${taken.join(', ') || 'none'}`);
+  // Under a resting pointer the block lifts off its stack and waits. It sinks back when the pointer leaves.
+  const lift = () => page.evaluate(() => { const b = casebound.reader.book.bundle; return b ? { leaves: Math.round(b.share * casebound.reader.book.dims.leaves), lift: (b.lift * 180) / Math.PI, turn: b.turn } : null; });
+  await page.mouse.move(edgeX, right[1]);
+  await run(0.5);
+  const up = await lift();
+  say(!!up && up.lift > 12 && up.turn === 0 && (await state()).page === first, `a pointer resting on the fore-edge lifts a block and turns nothing: ${up ? `${up.leaves} leaves, ${up.lift.toFixed(1)} degrees` : 'no block'}`);
+  await page.mouse.down();
+  await run(0.05);
+  await page.mouse.up();
+  await run(0.15);
+  const going = await lift();
+  say(!!going && !!up && going.leaves === up.leaves && going.turn > 0.5, `let go, the block that stood lifted is half over in 150 ms: ${going ? `${going.leaves} leaves, turn ${going.turn.toFixed(2)}` : 'no block'}`);
+  await run(2);
+  await expect('and its leaves have turned', { page: first + 2 * (up ? up.leaves : 0) });
+  await page.evaluate((p) => casebound.reader.goTo(p), first);
+  await page.mouse.move(edgeX - 1, right[1]);
+  await run(0.5);
+  await page.mouse.move(c.x, 30);
+  await run(1);
+  say((await lift()) === null && (await state()).page === first, 'a pointer that leaves lets the block sink back');
   await page.mouse.move(c.x, 30);
   await run(2);
   await expect('back at the start', { page: first, inAir: 0, lying: 0 });
