@@ -29,15 +29,15 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | Do this | To see |
 | --- | --- |
 | Scroll, `↓` and `↑`, or a click on a title | Books ride up with the page, hold at the centre, and turn away as they leave. Left alone, the shelf shows its books one after another |
-| Move the pointer | The book tilts and a spot of light follows |
+| Move the pointer | The book tilts and a spot of light follows. Over an open book its weight shifts to the page under the pointer |
 | Drag the book | It turns in your hand, coasts on, and its trailing cover lifts |
 | Scroll to the end | Every book of the library stands in a row, spine to the front. `←` and `→`, a press on a spine, or a pull on the row choose one, and it turns its cover forward |
-| `Space`, or **Open book** | The cover swings open, then the pages part |
+| `Space`, or **Open book** | The cover swings open, then the pages before your place turn over in one wad |
 | `→` and `←`, or a tap on a page | A leaf turns |
 | Rest the pointer on a page | The corner under it lifts |
 | Drag a page | The leaf follows your hand and its corner rolls over. Let go to turn it, or bring it back and it falls |
 | `m`, or the lens button | A round magnifier follows the pointer |
-| Press the book, or **View details**, then hover **E-book** or **Audiobook** | Scanlines, or rings, run over the whole book |
+| Press the book, or **View details**, then hover **E-book** or **Audiobook** | The print shears under scanlines and splits its colours, or rings ripple the pages |
 | The theme button | Morning, Noon and Night light |
 | `Esc` | One step back: out of the book, then out of the details |
 
