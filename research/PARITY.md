@@ -47,6 +47,26 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, 14 corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758; a far press glides in 0.4 s | close: the three later corrections were built to the measured numbers and not captured again |
 
+## 2026-11-24 · The hand, second round
+
+Two differences of the seventh pass were left open. Both are built now, from the capture of that pass and the rules read beside it.
+
+A sheet in a hand. Ours drew a held leaf with the rule of a flying one: late off its stack, fastest near upright, and bowed back against the air at full strength however slowly it moved. The reference's held sheet is off its stack late too, but from a third of the turn on it stands where the hand has it, and it is nearly straight. Ours now has that rule for a leaf in a hand, blends to the rule of flight over a tenth of a second when it is let go, and bows by the square of its speed. Swing of the sheet in a full pull of 600 px in one second, degrees from rest:
+
+| ms after the press | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 1000 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Reference | 12.3 | 25.0 | 42.5 | 59.1 | 66.4 | 67.6 | 74.7 | 93.6 | 112.2 |
+| Ours before | 11.6 | 18.7 | 25.8 | 32.0 | 38.7 | 49.4 | 66.3 | 90.9 | 113.8 |
+| Ours now | 15.1 | 29.2 | 43.7 | 52.8 | 56.3 | 61.9 | 72.2 | 88.9 | 103.4 |
+
+The sum of the nine differences fell from 109 to 46 degrees. A page turned by the button is unchanged: 81.4 against 79.9 degrees at 300 ms, 135.2 against 131.9 at 500 ms.
+
+A press held still on a leaf in the air. The reference does not catch the leaf at once. For 200 ms the push toward its stack fades and it loses more speed. If the hand has moved 5 px by then it has the leaf. If not, the leaf is thrown on, the page turns, and the hand holds the next page of the stack. Ours caught the leaf at once, so a press and a pull back undid the turn. Now: a leaf sent forward, pressed at 250 ms, held still for 300 ms and pulled back ends on the next page, as on the reference.
+
+One fault of the bundle turned up on the way: after a page had turned, no block could be taken for seconds, because the angle of a landed leaf creeps on unseen. A block can now be taken once every sheet is down: 1.6 s after a turn in the check.
+
+Not verified: the reference rows are the capture of the seventh pass, read at one window size with a mouse; ours were read with a probe of our own that measures the line from the binding to the free edge, which may differ by a degree or two from the reading of that pass. The brake was checked by its outcome, not frame by frame against the capture (a turn of 0.282 to 0.414 in 200 ms).
+
 ## 2026-11-24 · No book skipped after a jump
 
 Not a comparison with the reference: a fault of ours, found by scrolling from the bottom of the page to the top in one go.
@@ -101,10 +121,10 @@ What already agreed: the angle of a held leaf frame for frame, the choice betwee
 | 2 | The outer fifth of a page takes a bundle of leaves | a press at 0.85 of the page width turns 7 to 10 leaves as a block, a tap 23 | always one leaf | built in the eighth pass: a press on the fore-edge turns 2 to 85 leaves of a stack of 90 |
 | 3 | A leaf let go by hand is thrown on | 10 and 50 % at 61 and 204 ms | 110 and 341 ms | 46 and 189 ms |
 | 4 | Trailing cover of a turned book | lifts 14.5 to 15.0 degrees at 3 rad/s | 4.5 to 4.7 degrees | 15.1 to 15.6 degrees |
-| 5 | A press held still on a leaf in the air | slows it for 200 ms, then it goes on and the page turns | stops it | open |
+| 5 | A press held still on a leaf in the air | slows it for 200 ms, then it goes on and the page turns | stops it | built in the second round: the leaf is braked for 200 ms and goes on, the page turns |
 | 6 | Corner under a resting pointer | 44, 185, 609 ms | 95, 284, 707 ms | 27, 185, 609 ms |
 | 7 | Fold of a leaf let go with the pointer moving on | 1.6 rad within 50 ms | 8.2 rad after 200 ms | 2.0 rad after 200 ms |
-| 8 | The sheet rises later in the first half of a held pull | 59 degrees after 500 ms | 36.6 degrees | 28.8 degrees: worse by the landing fix, open |
+| 8 | The sheet rises later in the first half of a held pull | 59 degrees after 500 ms | 36.6 degrees | 52.8 degrees in the second round: a held sheet has its own rule |
 | 9 | Front cover of a featured book under a resting pointer | does not lift | lifts 5 degrees | open |
 
 Ours draws one frame ahead of the reference throughout, so a number about 16 ms early is the best match there is.
