@@ -15,7 +15,8 @@ export interface EngineEvents {
   'book-focus': { slug: string; index: number };
   /** A press on the centred book that did not turn it. */
   'book-click': { slug: string };
-  'page-turn': { slug: string; leaf: number; direction: 1 | -1 };
+  /** `leaf` is the leaf that turned, or the first of `leaves` that turned as one block. */
+  'page-turn': { slug: string; leaf: number; direction: 1 | -1; leaves?: number };
 }
 
 type Handler<T> = (payload: T) => void;

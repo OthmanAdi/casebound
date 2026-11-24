@@ -2,11 +2,14 @@
  * The reader: opens a book from the shelf, lays it open toward the camera, turns its leaves and closes it again.
  * SPEC section 9.
  */
-import { Euler, Quaternion, Vector3, type Texture } from 'three';
+import { Euler, Quaternion, Raycaster, Vector2, Vector3, type Texture } from 'three';
 import type { Book } from '../book/book';
+import { LEAF_THICKNESS } from '../book/dims';
+import { EDGE_TEXTURE_LEAVES } from '../book/volume';
 import type { Engine } from '../index';
 import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/math';
 import { tunable } from '../core/tune';
+import { BUNDLE_DEFAULT, bundleCount, bundleLift, bundleTurn } from './bundle';
 import { CURL_DEFAULT, curlFlat, resetCurl, resetFlop, stepCurl, stepFlop } from './curl';
 import { Leaf } from './leaf';
 import { LEAF_DEFAULT, sendLeaf, stepLeaf, throwLeaf } from './leaf-physics';
@@ -40,6 +43,11 @@ export interface Reader {
   close(): void;
   next(): boolean;
   previous(): boolean;
+  /**
+   * Turns several leaves as one block: a positive count forward, a negative one back. No more than lie on that
+   * side. Fewer than two turn as a single page. False when nothing turned: a leaf is in the air, or a block is.
+   */
+  turnLeaves(count: number): boolean;
   goTo(page: number): void;
   dispose(): void;
 }
@@ -140,6 +148,27 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     },
     onChange: () => ctx.invalidate(),
   });
+  const bundleTune = tunable(ctx.registry, {
+    id: 'reader.bundle',
+    label: 'Bundle of leaves',
+    kind: 'animation',
+    tags: ['animation', 'paper', 'interaction'],
+    describe: 'A press on the fore-edge of a page stack takes every leaf from the top down to that place. Let go, they lift off the stack and turn over as one block. Not shown under reduced motion.',
+    source: 'src/engine/reader/bundle.ts',
+    params: {
+      min: { value: BUNDLE_DEFAULT.min, min: 2, max: 50, step: 1, help: 'Fewest leaves that turn as a block. Measured: 2' },
+      hold: { value: BUNDLE_DEFAULT.hold, min: 0, max: 1, unit: 's', help: 'Wait between letting go and the turn, while the block lifts. Measured: 120 ms' },
+      base: { value: BUNDLE_DEFAULT.base, min: 0.1, max: 3, unit: 's', help: 'Time the smallest block takes to turn. Measured: 700 ms' },
+      perDoubling: { value: BUNDLE_DEFAULT.perDoubling, min: 0, max: 0.5, unit: 's', help: 'Time added for every doubling of the leaves. Measured: 45 ms' },
+      longest: { value: BUNDLE_DEFAULT.longest, min: 0.1, max: 5, unit: 's', help: 'The longest a turn takes. Measured: 1.1 s' },
+      lift: { value: BUNDLE_DEFAULT.lift, min: 0, max: 0.8, unit: 'rad', help: 'How far the block lifts off its stack. Measured: 7 degrees' },
+      liftSeconds: { value: BUNDLE_DEFAULT.liftSeconds, min: 0.01, max: 1, unit: 's', help: 'Time for the lift to build up. Measured: 150 ms' },
+      liftFade: { value: BUNDLE_DEFAULT.liftFade, min: 0, max: 0.99, help: 'Share of the turn from which the lift goes again' },
+      twist: { value: BUNDLE_DEFAULT.twist, min: 0, max: 1, help: 'How far the foot of the page leads the lift and the head trails it, as a share of the lift' },
+      bow: { value: BUNDLE_DEFAULT.bow, min: 0, max: 1, help: 'How far the block bows against the air, as a share of the bow of a single sheet' },
+    },
+    onChange: () => ctx.invalidate(),
+  });
   const riffleTune = tunable(ctx.registry, {
     id: 'reader.riffle',
     label: 'Opening riffle',
@@ -178,6 +207,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   let pagesFrom = 0;
   let release: (() => void) | null = null;
   let leaves: Leaf[] = [];
+  /**
+   * A bundle of leaves turning as one block: the leaves `lo` up to `hi`. `turn` runs from 0, lying right, to 1.
+   * `spread` already counts them where they are going.
+   */
+  let bundle: { lo: number; hi: number; forward: boolean; elapsed: number; turn: number; lift: number; landed: boolean } | null = null;
+  /** A press that started on the fore-edge of a stack: the side and the leaves it would take. */
+  let edgePress: { id: number; side: 1 | -1; count: number } | null = null;
   let blank: Texture | null = null;
   const cache = new Map<number, Texture>();
   const pitch = { v: 0 };
@@ -213,6 +249,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const keep = new Set<number>();
     for (let p = spread * 2 - 3; p <= spread * 2 + 4; p++) keep.add(p);
     for (const leaf of leaves) if (leaf.active) keep.add(leaf.index * 2).add(leaf.index * 2 + 1).add(leaf.index * 2 + 2).add(leaf.index * 2 + 3);
+    if (bundle) keep.add(bundle.lo * 2).add(bundle.lo * 2 + 1).add(bundle.hi * 2).add(bundle.hi * 2 + 1);
     for (const [page, tex] of cache) {
       if (cache.size <= TEXTURE_BUDGET) break;
       if (keep.has(page)) continue;
@@ -231,6 +268,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       // A leaf in the air came from one stack and has not reached the other.
       left = Math.min(left, leaf.index);
       right = Math.max(right, leaf.index + 1);
+    }
+    if (bundle) {
+      // The stacks show what lies under the bundle, and the bundle its own two outer pages.
+      left = bundle.lo;
+      right = bundle.hi;
+      book.setPage('bundleTop', soon(bundle.lo * 2 + 1));
+      book.setPage('bundleUnder', soon(bundle.hi * 2));
     }
     book.setPage('left', soon(left * 2));
     book.setPage('right', soon(right * 2 + 1));
@@ -266,7 +310,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
    * With none free, `steal` allows taking the one that has all but landed.
    */
   const take = (direction: 1 | -1, steal = true): Leaf | null => {
-    if (!book || !opening || pages < 0.9) return null;
+    // While a bundle turns, the stacks give no single leaf.
+    if (!book || !opening || pages < 0.9 || bundle) return null;
     // The pool also holds the leaves of the opening riffle. They do not count toward the leaves in the air.
     const busy = leaves.reduce((n, l) => n + (l.active && !l.script ? 1 : 0), 0);
     let leaf = busy < LIVE_LEAVES ? leaves.find((l) => !l.active) : undefined;
@@ -329,6 +374,68 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const leaf = flying ?? take(direction);
     if (!leaf) return false;
     aim(leaf, direction === 1 ? 1 : 0, leafTune.kick);
+    return true;
+  };
+
+  // ---------------------------------------------------------------- a bundle of leaves (SPEC S-RD-12)
+  const ray = new Raycaster();
+  const ndc = new Vector2();
+
+  /** True when a block can be taken: the pages have parted, nothing is in the air and the case has come to rest. */
+  const calm = (): boolean =>
+    !!book &&
+    opening &&
+    pages >= 0.985 &&
+    !bundle &&
+    !ctx.still &&
+    Math.abs(readingShown * book.dims.leaves - spread) < 1e-3 &&
+    !leaves.some((l) => l.active && (l.script || l.dragTarget !== null || Math.abs(l.motion.shown - l.side * Math.PI) > 0.02));
+
+  /**
+   * A press on the fore-edge of a page stack: the side (1 = right) and the leaves from the top of the stack down
+   * to that place. Null anywhere else, and where that is fewer than a block.
+   */
+  const pickEdge = (x: number, y: number): { side: 1 | -1; count: number } | null => {
+    if (!book || !calm()) return null;
+    const rect = ctx.canvas.getBoundingClientRect();
+    ndc.set(((x - rect.left) / Math.max(1, rect.width)) * 2 - 1, 1 - ((y - rect.top) / Math.max(1, rect.height)) * 2);
+    ray.setFromCamera(ndc, ctx.camera);
+    let best: { side: 1 | -1; count: number; distance: number } | null = null;
+    for (const side of [1, -1] as const) {
+      const which = side === 1 ? 1 : 0;
+      const mesh = side === 1 ? book.volume.rightBlock : book.volume.leftBlock;
+      if (!mesh.visible) continue;
+      // The vertices are rewritten in place whenever the book moves.
+      mesh.geometry.computeBoundingSphere();
+      const hit = ray.intersectObject(mesh, false)[0];
+      if (!hit || !hit.face || !hit.uv || (best && best.distance <= hit.distance)) continue;
+      // The page edges share one material: the fore-edge is the face that does not look up or down the page.
+      const fore = hit.face.materialIndex === 1 && Math.abs(hit.face.normal.y) < 0.5;
+      const here = side === 1 ? book.dims.leaves - spread : spread;
+      const top = book.volume.stackThickness(which) / LEAF_THICKNESS / EDGE_TEXTURE_LEAVES;
+      best = { side, count: fore && top > 0 ? bundleCount(hit.uv.x / top, here, bundleTune) : 0, distance: hit.distance };
+    }
+    return best && best.count ? { side: best.side, count: best.count } : null;
+  };
+
+  /** Sends the top `count` leaves of a stack across as one block: 1 = off the right stack, -1 = off the left. */
+  const takeBundle = (side: 1 | -1, count: number): boolean => {
+    if (!book || !calm()) return false;
+    const n = Math.min(Math.floor(count), side === 1 ? book.dims.leaves - spread : spread);
+    if (n < 2) return n === 1 && launch(side);
+    // Sheets that lay on the stacks for the corner curl go: the block takes their place.
+    for (const leaf of leaves) retire(leaf);
+    hovered = null;
+    const lo = side === 1 ? spread : spread - n;
+    const hi = lo + n;
+    bundle = { lo, hi, forward: side === 1, elapsed: 0, turn: side === 1 ? 0 : 1, lift: 0, landed: false };
+    spread = side === 1 ? hi : lo;
+    // The page that comes into view under the block first, then the face of the block that turns up.
+    const want = side === 1 ? [hi * 2 + 1, hi * 2, lo * 2 + 1, lo * 2] : [lo * 2, lo * 2 + 1, hi * 2, hi * 2 + 1];
+    pending = want.filter((page) => page >= 1 && page <= book!.dims.leaves * 2 && !cache.has(page));
+    ctx.events.emit('page-turn', { slug: book.record.slug, leaf: lo, direction: side, leaves: n });
+    paintSpread();
+    emitView();
     return true;
   };
 
@@ -529,8 +636,15 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const pull = (px: number): number => Math.min(1, 0.08 * (1 - Math.exp(-px / 12)) + (0.92 * px) / Math.max(1, window.innerWidth * t.dragWidth * (ctx.compact ? 2 : 1)));
 
   const onDown = (ev: PointerEvent): void => {
-    if (drag || ev.button !== 0 || !ev.isPrimary) return;
+    if (drag || edgePress || ev.button !== 0 || !ev.isPrimary) return;
     if (ev.target instanceof Element && ev.target.closest(ignore)) return;
+    const edge = pickEdge(ev.clientX, ev.clientY);
+    if (edge) {
+      // Measured: a press on the fore-edge takes no leaf into the hand. The block goes when the hand lets go.
+      edgePress = { id: ev.pointerId, ...edge };
+      ev.preventDefault();
+      return;
+    }
     const half = halfAt(ev.clientX, ev.clientY);
     if (!half) return;
     // Catch a leaf that is in the air over this half, whichever way it was going. Otherwise lift the top one.
@@ -570,6 +684,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   };
 
   const onUp = (ev: PointerEvent): void => {
+    if (edgePress && ev.pointerId === edgePress.id) {
+      const press = edgePress;
+      edgePress = null;
+      if (ev.type !== 'pointercancel') takeBundle(press.side, press.count);
+      ctx.invalidate();
+      return;
+    }
     if (!drag || ev.pointerId !== drag.id) return;
     const { leaf, travel, dx, startAngle, remembered, half } = drag;
     drag = null;
@@ -659,10 +780,14 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     },
     next: () => launch(1),
     previous: () => launch(-1),
+    turnLeaves: (count) => (Math.abs(count) < 2 ? count !== 0 && launch(count > 0 ? 1 : -1) : takeBundle(count > 0 ? 1 : -1, Math.abs(count))),
     goTo: (page) => {
       if (!book) return;
       spread = clamp(Math.round(page / 2), 0, book.dims.leaves);
       for (const leaf of leaves) retire(leaf);
+      bundle = null;
+      edgePress = null;
+      book.bundle = null;
       riffle = null;
       pending = [];
       drag = null;
@@ -682,6 +807,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       ctx.registry.remove('reader.leaf');
       ctx.registry.remove('reader.curl');
       ctx.registry.remove('reader.riffle');
+      ctx.registry.remove('reader.bundle');
     },
   };
 
@@ -693,6 +819,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     pending = [];
     drag = null;
     hovered = null;
+    bundle = null;
+    edgePress = null;
+    book.bundle = null;
     document.documentElement.style.cursor = '';
     for (const tex of cache.values()) tex.dispose();
     cache.clear();
@@ -779,9 +908,37 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     // boards move with it instead of jumping when it starts.
     let onLeft = spread;
     for (const leaf of leaves) if (leaf.active && !leaf.script) onLeft += clamp(leaf.motion.shown / Math.PI, 0, 1) - leaf.side;
+    // A bundle turns on a clock. Like a leaf it counts by how far it has come.
+    if (bundle) {
+      const n = bundle.hi - bundle.lo;
+      bundle.elapsed += f.dt;
+      const turned = ctx.still ? 1 : bundleTurn(bundle.elapsed, n, bundleTune);
+      bundle.turn = bundle.forward ? turned : 1 - turned;
+      bundle.lift = ctx.still ? 0 : bundleLift(bundle.elapsed, turned, bundleTune);
+      bundle.landed = turned >= 1;
+      onLeft += n * (bundle.turn - (bundle.forward ? 1 : 0));
+    }
     const reading = book.dims.leaves ? clamp(onLeft / book.dims.leaves, 0, 1) : 0.5;
     readingShown = readingShown < 0 || ctx.still ? reading : readingShown + (reading - readingShown) * (1 - Math.pow(1 - t.readingFollow, frames));
     if (Math.abs(reading - readingShown) < 5e-4) readingShown = reading;
+    if (bundle && bundle.landed && readingShown === reading) {
+      // Down, and the case has caught up: from here on its leaves are part of the stack.
+      bundle = null;
+      paintSpread();
+      emitView();
+    }
+    book.bundle =
+      bundle && book.dims.leaves
+        ? {
+            under: bundle.lo / book.dims.leaves,
+            share: (bundle.hi - bundle.lo) / book.dims.leaves,
+            turn: bundle.turn,
+            lift: bundle.lift * bundleTune.lift,
+            twist: bundleTune.twist,
+            // Like a sheet it bows back against the air, the way it came from.
+            bow: -0.42 * bundleTune.bow * (bundle.forward ? 1 : -1),
+          }
+        : null;
 
     // The weight of the book follows the pointer across the spread; its pitch follows the pointer's height.
     const offset = opts.centreOffsetPx?.() ?? { x: 0, y: 0 };
