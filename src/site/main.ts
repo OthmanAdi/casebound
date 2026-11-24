@@ -189,7 +189,23 @@ async function boot(): Promise<void> {
   };
   const slotPx = (): number => (panels.firstElementChild as HTMLElement).offsetHeight + 16;
 
-  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: offset, fit: () => 1 - 0.5 * lift, row: true, peek: () => detailOpen, layout: query.get('layout') === 'fan' ? fan : undefined });
+  /** How far the page has been scrolled past the row, in slots. */
+  const pastRow = (): number => scrollY / Math.max(1, slotPx()) - library.featured.length;
+  /**
+   * The row goes up with the page when the page is scrolled on toward its foot. Measured: it lags at first and
+   * then moves a little faster than the page, 1.15 px a pixel: up 109, 334 and 597 px after 230, 460 and 690 px of
+   * scroll, settled. Eased like the stack, so a quick scroll does not jerk it.
+   */
+  let rowLift = 0;
+  const rowLiftGoal = (): number => {
+    const d = Math.max(0, pastRow() * slotPx()) * (900 / Math.max(1, innerHeight));
+    return (1.15 * d - 196 * (1 - Math.exp(-d / 147))) * (innerHeight / 900);
+  };
+  const shelfOffset = (): { x: number; y: number } => {
+    const o = offset();
+    return { x: o.x, y: o.y - rowLift };
+  };
+  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: shelfOffset, fit: () => 1 - 0.5 * lift, row: true, peek: () => detailOpen, layout: query.get('layout') === 'fan' ? fan : undefined });
   /** Scales the open book down where the spread is wider than the room it has: beside the detail column, or on a narrow screen. */
   const fit = (): number => {
     const book = reader.book;
@@ -509,7 +525,7 @@ async function boot(): Promise<void> {
     } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && reader.isOpen) {
       e.preventDefault();
       if (!e.repeat) leaf(e.key === 'ArrowRight' ? 1 : -1, e.key);
-    } else if ((e.key === 'f' || e.key === 'a') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !reader.isOpen) {
+    } else if ((e.key === 'f' || e.key === 'a' || e.key === 'u') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !reader.isOpen) {
       // The keys of the page's sections, as the menu shows them.
       pageSections().find((s) => s.key === e.key)?.run();
     } else if (e.key === 'm' && !e.repeat) setLens(!magnifier.on);
@@ -524,11 +540,67 @@ async function boot(): Promise<void> {
   });
   addEventListener('blur', () => stopLeafing());
 
+  // ---------------------------------------------------------------- the foot of the page
+  // Measured: after the row a dark band holds a row of wide cards, each with a title, a line of who made it, a few
+  // sentences and a line of facts below a rule; the card in front is lit, the others stand at 0.55. Ours shows what
+  // a visitor can do with the books, each card painted like the pictures of the shelf.
+  const howTo = [
+    { title: 'The shelf', body: 'Scroll, or press the arrow keys up and down. Each book holds at the centre for a moment, tilts toward the pointer and turns away as it leaves.', meta: 'Keys [ \u2193 \u2191 ]' },
+    { title: 'A book in your hand', body: 'Drag the book. It follows through a spring, coasts on when you let go, and the cover that trails the turn lifts off the pages.', meta: 'Pointer [ drag ]' },
+    { title: 'The whole library', body: 'Scroll to the end of the shelf and every book stands in a row, spine to the front. The arrow keys, a press on a spine or a pull on the row choose one.', meta: 'Keys [ \u2190 \u2192 ]' },
+    { title: 'Reading', body: 'Space or Open book opens it. The arrow keys or a tap turn a leaf; Shift with an arrow, or Page Down and Page Up, turn ten as one block.', meta: 'Keys [ Space \u2190 \u2192 ]' },
+    { title: 'The lens', body: 'Press m, or the lens button, and a round magnifier follows the pointer over the print.', meta: 'Key [ M ]' },
+    { title: 'Light on the print', body: 'In the details of a book, hover E-book or Audiobook: the print shears under scanlines and splits its colours, or rings ripple the pages.', meta: 'Pointer [ hover ]' },
+  ];
+  const bandRow = $('band-cards');
+  const bandCards: HTMLElement[] = howTo.map((item, k) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'band-card';
+    card.setAttribute('aria-label', item.title);
+    const book = library.books[k % library.books.length]!;
+    card.style.backgroundImage = `url(${paintBackdrop(book.background ?? '#77808a', `${book.slug} card`, 864, 486)})`;
+    card.addEventListener('click', () => showCard(k, true));
+    bandRow.append(card);
+    return card;
+  });
+  let cardShown = -1;
+  function showCard(k: number, bring: boolean): void {
+    if (k !== cardShown) {
+      cardShown = k;
+      for (const [j, c] of bandCards.entries()) c.classList.toggle('is-current', j === k);
+      $('band-card-title').textContent = howTo[k]!.title;
+      $('band-card-body').textContent = howTo[k]!.body;
+      $('band-card-meta').textContent = howTo[k]!.meta;
+    }
+    if (bring) bandRow.scrollTo({ left: bandCards[k]!.offsetLeft - bandRow.offsetLeft, behavior: ctx.still ? 'auto' : 'smooth' });
+  }
+  showCard(0, false);
+  bandRow.addEventListener(
+    'scroll',
+    () => {
+      const at = (c: HTMLElement): number => Math.abs(c.offsetLeft - bandRow.offsetLeft - bandRow.scrollLeft);
+      showCard(bandCards.reduce((best, c, j) => (at(c) < at(bandCards[best]!) ? j : best), 0), false);
+    },
+    { passive: true },
+  );
+  $('foot-copy').addEventListener('click', () => {
+    const button = $('foot-copy');
+    void navigator.clipboard?.writeText($('foot-command').textContent ?? '').then(
+      () => {
+        button.textContent = '+ Copied +';
+        setTimeout(() => (button.textContent = '+ Copy +'), 1500);
+      },
+      () => undefined,
+    );
+  });
+
   // ---------------------------------------------------------------- the menu of the bar
   /** Sections of the page, each with a key that brings it from anywhere on the shelf. */
   const pageSections = (): MenuItem[] => [
     { word: 'Featured', key: 'f', run: () => leaveTo(() => stepTo(0)) },
     { word: 'All books', key: 'a', run: () => leaveTo(() => stepTo(library.featured.length)) },
+    { word: 'How to use it', key: 'u', run: () => leaveTo(() => glideTo($('band').getBoundingClientRect().top + scrollY, 900)) },
   ];
   /** Out of a book and the details first, then on. */
   const leaveTo = (then: () => void): void => {
@@ -621,7 +693,27 @@ async function boot(): Promise<void> {
     const fresh = list !== strip.list;
     if (fresh) buildStrip(list);
     layoutStrip(current().slug, fresh);
-    const label = Math.round(p) >= library.featured.length ? 'All books' : 'Featured';
+    // The foot of the page. The row goes up with the page; the title row fades from 0.2 of a slot past the row
+    // and is gone at 0.45; past 0.24 the menu's strip and the bar's buttons go.
+    const liftGoal = rowLiftGoal();
+    const rowLiftBefore = rowLift;
+    rowLift = ctx.still ? liftGoal : rowLift + (liftGoal - rowLift) * (1 - Math.exp(-f.dt / 0.066));
+    if (Math.abs(rowLift - liftGoal) < 0.05) rowLift = liftGoal;
+    if (rowLift !== rowLiftBefore) ctx.invalidate();
+    const past = pastRow();
+    const fade = Math.max(0, Math.min(1, (past - 0.2) / 0.3));
+    const stripOpacity = String(Math.max(0, 1 - 2 * fade));
+    if (marquee.style.opacity !== stripOpacity) marquee.style.opacity = stripOpacity;
+    const inFoot = past > 0.24 && !detailOpen && !reader.isOpen;
+    if (inFoot !== html.hasAttribute('data-foot')) {
+      html.toggleAttribute('data-foot', inFoot);
+      if (inFoot) menu.set(false);
+    }
+    const band = $('band').getBoundingClientRect();
+    const darkTop = band.top <= 44 && band.bottom > 44;
+    if (darkTop !== html.hasAttribute('data-dark-top')) html.toggleAttribute('data-dark-top', darkTop);
+    // The section label names the section that has passed 40 px below the top of the window.
+    const label = $('foot').getBoundingClientRect().top <= 40 ? 'Footer' : band.top <= 40 ? 'How to use it' : Math.round(p) >= library.featured.length ? 'All books' : 'Featured';
     if (sectionLabel.textContent !== label) sectionLabel.textContent = label;
   });
 

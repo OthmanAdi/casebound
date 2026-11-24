@@ -250,6 +250,38 @@ try {
     if (shown) failed++;
     console.log(`${shown ? 'FAIL' : 'ok  '} the row stands on the bare page: ${shown} picture(s) in the window`);
   }
+  {
+    // The foot of the page: the row goes up with the page, the title row and the bar go, the band and the footer follow.
+    // The title row's fade runs on the browser's clock; the step reads the opacity it is sent to.
+    const foot = () => page.evaluate(() => {
+      const { ctx } = casebound.engine;
+      const v = casebound.engine.books[casebound.engine.state.active].root.position.clone().project(ctx.camera);
+      const q = (s) => document.querySelector(s);
+      return { bookY: (0.5 - v.y * 0.5) * innerHeight, strip: +(q('#marquee').style.opacity || 1), foot: document.documentElement.hasAttribute('data-foot'), menu: getComputedStyle(q('#menu')).visibility, label: q('#section-label').textContent, band: q('#band').getBoundingClientRect().top, cards: document.querySelectorAll('.band-card').length, links: [...document.querySelectorAll('.foot-links a')].map((a) => a.getAttribute('href')), end: document.documentElement.scrollHeight - innerHeight };
+    });
+    const rowY = (await page.evaluate(() => document.querySelector('.panel').offsetHeight + 16)) * (await page.evaluate(() => casebound.shelf.order.length));
+    const atRow = await foot();
+    await page.evaluate((y) => scrollTo(0, y), rowY + 460);
+    await run(2);
+    await page.waitForTimeout(500);
+    const on = await foot();
+    let ok = atRow.bookY - on.bookY > 250 && on.strip === 0 && on.foot && on.menu === 'hidden';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} 460 px past the row the row has gone up ${(atRow.bookY - on.bookY).toFixed(0)} px, the title row and the menu are gone`);
+    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+    await run(1);
+    const end = await foot();
+    ok = end.label === 'Footer' && end.cards >= 5 && end.links.length === 3 && end.links.every((h) => h.startsWith('https://github.com/OthmanAdi/casebound')) && end.end - rowY > 1500;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the page goes on ${(end.end - rowY).toFixed(0)} px past the row: a band of ${end.cards} cards, then the footer with links to the source, the skill and the licence ("${end.label}")`);
+    await page.evaluate((y) => scrollTo(0, y), rowY);
+    await run(2.5);
+    await page.waitForTimeout(500);
+    const back = await foot();
+    ok = Math.abs(back.bookY - atRow.bookY) < 2 && back.strip === 1 && !back.foot;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} back at the row it stands where it stood (${(back.bookY - atRow.bookY).toFixed(1)} px), with its title row`);
+  }
   await shot('row');
   await page.keyboard.press('ArrowRight');
   await run(1.6);

@@ -106,7 +106,7 @@ html[data-aside] #home-link {
   /* Measured: beside the details the row is cut off where the picture ends, 40 percent from the right, in 0.6 s,
      quick at first; on the way back it opens again from 0.1 s to 0.4 s. */
   clip-path: inset(0 0 0 0);
-  transition: clip-path 0.3s cubic-bezier(0.32, 0, 0.67, 0) 0.1s, opacity 0.3s ease;
+  transition: clip-path 0.3s cubic-bezier(0.32, 0, 0.67, 0) 0.1s, opacity 0.35s ease;
 }
 .marquee::after {
   /* The titles fade out toward the cut, over the last 70 px. */
@@ -150,7 +150,72 @@ html[data-aside] .marquee-track { transition-duration: 1.5s; transition-timing-f
 .m-title.is-current .t-up { opacity: 1; transform: none; transition-duration: 0.448s; }
 .m-title sup { position: absolute; right: 0; top: 0; transform: translate(calc(100% + 8px), 9px); font: 400 11px/1 var(--display); font-style: normal; letter-spacing: 0; opacity: 0.78; }
 
-#panels { padding: var(--nav) var(--gutter) 40px; }
+#panels { padding: var(--nav) var(--gutter) 0; }
+
+/* The foot of the page. Measured: the band begins 106 percent of the window's height after the row has come to
+   rest, so the row has gone up and out of the way before it covers the screen. */
+.band {
+  position: relative;
+  margin-top: calc(6vh + 28px - var(--nav));
+  padding: 21px var(--gutter) 144px;
+  background: var(--ink);
+  color: var(--bg);
+  transition: background-color 0.6s ease, color 0.6s ease;
+}
+.band .label { color: inherit; }
+.band-label { margin: 0; }
+.band-label::before { content: '[ '; }
+.band-label::after { content: ' ]'; }
+/* Measured: the title is 9.55 percent of the width, light, set solid and drawn together by 3 percent. */
+.band-title { margin: 24px 0 0; font: 300 max(52px, 9.55vw)/1 var(--display); font-variation-settings: 'opsz' 72; letter-spacing: -0.03em; }
+.band-copy { margin: 4px 0 0; max-width: max(320px, 36.5vw); font: 400 17px/1.5 var(--display); }
+/* A row of wide cards, 60 percent of the width and 16 by 9, 16 px apart; the one in front is lit. */
+.band-cards { display: flex; gap: var(--gutter); margin: 36px calc(-1 * var(--gutter)) 0 0; padding-right: var(--gutter); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.band-cards::-webkit-scrollbar { display: none; }
+.band-card { flex: 0 0 60vw; aspect-ratio: 16 / 9; border: 0; padding: 0; border-radius: 0; background-size: cover; background-position: center; scroll-snap-align: start; cursor: pointer; opacity: 0.55; transition: opacity 0.56s ease; }
+.band-card.is-current { opacity: 1; transition-duration: 0.2s; }
+.band-card:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.band-text { position: relative; display: grid; grid-template-columns: 29.4vw minmax(0, 39vw) 1fr; align-items: start; margin-top: var(--gutter); border-top: 1px solid currentColor; padding-top: 15px; min-height: 153px; }
+.band-card-title { margin: 1px 0 0; max-width: 25vw; font: 400 30px/1.1 var(--display); }
+.band-by { margin: 12px 0 0; font: italic 400 12px/1 var(--display); }
+.band-by .label { font-style: normal; margin-left: 4px; }
+.band-body p { margin: 12px 0 0; font: 400 14px/1.5 var(--display); }
+.band-meta { margin-top: 20px; }
+.pill { justify-self: end; display: inline-flex; align-items: center; padding: 10px 26px; border: 1px solid currentColor; border-radius: 40px; background: none; color: inherit; font: 400 16px/1 var(--display); text-decoration: none; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease; }
+.pill:hover, .pill:focus-visible { background: currentColor; }
+.band .pill:hover, .band .pill:focus-visible { color: var(--ink); background: var(--bg); }
+
+/* The footer. Measured: 144 px of air above its rule, the label 7 px below the rule, a statement at 35 px over
+   78 percent of the width, then a block of half the width, and a dotted rule over the fine print. */
+.foot { position: relative; padding: 144px var(--gutter) 6px; background: var(--bg); color: var(--ink); transition: background-color 0.6s ease; }
+.foot-rule { border-top: 1px solid var(--ink); }
+.foot-label { margin: 7px 0 0; }
+.foot-label::before { content: '[ '; }
+.foot-label::after { content: ' ]'; }
+.foot-manifesto { margin: 40px 0 0; max-width: 78.2%; font: 400 35px/1.12 var(--display); letter-spacing: -0.03em; }
+.foot-use { margin-top: 96px; max-width: 48%; }
+.foot-copy { margin: 14px 0 0; font: 400 18px/1.45 var(--display); }
+.foot-command { display: flex; align-items: center; gap: 24px; margin-top: 16px; }
+.foot-command code { flex: 0 1 460px; padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 52%, transparent); font: 400 13px/1.5 var(--mono); overflow-x: auto; white-space: nowrap; }
+.foot-command .pill { font-size: 15px; padding: 9px 16px; }
+.foot .pill:hover, .foot .pill:focus-visible { color: var(--bg); background: var(--ink); }
+.foot-fine { margin: 12px 0 0; font: 400 14px/1.45 var(--display); }
+.foot a { color: inherit; }
+.foot-bottom { display: grid; grid-template-columns: 1fr auto; row-gap: 60px; margin-top: 126px; padding-top: 16px; border-top: 1px dotted var(--ink); }
+.foot-bottom .foot-fine { margin: 0; max-width: 452px; }
+.foot-mono { margin: 0; font: 400 13px/1.55 var(--mono); letter-spacing: -0.02em; }
+.foot-links, .foot-right { justify-self: end; text-align: right; }
+.foot-links a { text-decoration: none; }
+.foot-links a:hover { text-decoration: underline; }
+
+/* Past the row: a fade under the header in the colour of what passes beneath, the header in the band's colours
+   while the band is under it, and no strip, bar buttons or lens. */
+.top-fade { position: fixed; inset: 0 0 auto 0; height: 125px; z-index: 39; pointer-events: none; opacity: 0; background: linear-gradient(var(--fade, var(--bg)) 55%, transparent); transition: opacity 0.3s ease; }
+html[data-foot] .top-fade { opacity: 1; }
+html[data-dark-top] .top-fade { --fade: var(--ink); }
+html[data-dark-top] :is(.nav, .section-label) { --ink: var(--bg); --rule: color-mix(in srgb, var(--bg) 80%, transparent); color: var(--bg); }
+html[data-foot] .menu, html[data-foot] .lens-frame { visibility: hidden; }
+html[data-foot] .bar { background: transparent; }
 /* A stretch of the page for each book: it gives the scroll its length and names the book. Nothing is drawn in it. */
 .panel { height: var(--panel); margin-bottom: var(--gutter); }
 
@@ -274,7 +339,7 @@ html[data-aside] .pictures, html[data-aside] .lens-frame { width: calc(60vw - 19
 /* Measured: once the picture has narrowed for the details, the buttons at the right of the bar sink out of the
    window (54 px in 0.5 s, quick at first) and come back at once when the details close. */
 .bar-actions { display: flex; gap: 0; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s; }
-html[data-detail] .bar-actions { transform: translateY(54px); visibility: hidden; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.585s, visibility 0s 1.085s; }
+html[data-detail] .bar-actions, html[data-foot] .bar-actions { transform: translateY(54px); visibility: hidden; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.585s, visibility 0s 1.085s; }
 .bar-actions button + button { margin-left: 16px; padding-left: 16px; border-left: 1px dotted var(--rule); }
 
 .toolbar {
@@ -370,6 +435,17 @@ html[data-reading] .detail { display: none; }
 }
 
 @media (max-width: 899px) {
+  /* The foot on a phone: one column. */
+  .band-copy { max-width: none; }
+  .band-card { flex-basis: calc(100vw - var(--gutter) * 2); }
+  .band-text { grid-template-columns: 1fr; row-gap: 4px; }
+  .band-card-title { max-width: none; }
+  .band-text .pill { justify-self: start; margin-top: 16px; }
+  .foot { padding-top: 92px; padding-bottom: 12px; }
+  .foot-manifesto { max-width: none; font-size: 26px; }
+  .foot-use { max-width: none; margin-top: 64px; }
+  .foot-bottom { grid-template-columns: 1fr; row-gap: 16px; margin-top: 64px; }
+  .foot-links, .foot-right { justify-self: start; text-align: left; }
   :root { --nav: 140px; }
   .m-title { font-size: 34px; }
   /* Measured on a phone: no lean and no dates; the other titles stand at 0.6 opacity, 30 px apart. */
@@ -404,6 +480,6 @@ html[data-reading] .detail { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html, .pictures, .lens-frame, .card::after, .bar, .marquee-track, .m-title, .t-it, .t-up, .menu-lists, .menu-strip { transition: none; }
+  html, .pictures, .lens-frame, .card::after, .bar, .marquee-track, .m-title, .t-it, .t-up, .menu-lists, .menu-strip, .band, .band-card, .foot, .top-fade { transition: none; }
   .toolbar, .detail { animation: none; }
 }

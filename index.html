@@ -31,6 +31,45 @@
     <div class="marquee" id="marquee" aria-hidden="true"></div>
 
     <main id="panels"></main>
+
+    <section class="band" id="band" aria-labelledby="band-title">
+      <p class="label band-label">How to use it</p>
+      <h2 class="band-title" id="band-title">In your hands:</h2>
+      <p class="band-copy" id="band-copy">Every book on this page is drawn by three.js from a few lines of data, and every light and motion in it has a name and a range. This is what you can do with them.</p>
+      <div class="band-cards" id="band-cards"></div>
+      <div class="band-text" id="band-text" aria-live="polite">
+        <div class="band-head">
+          <h3 class="band-card-title" id="band-card-title"></h3>
+          <p class="band-by"><em>by</em> <span class="label">Casebound</span></p>
+        </div>
+        <div class="band-body">
+          <p id="band-card-body"></p>
+          <p class="label band-meta" id="band-card-meta"></p>
+        </div>
+        <a class="pill" id="band-more" href="https://github.com/OthmanAdi/casebound#what-you-get" target="_blank" rel="noopener">+ More +</a>
+      </div>
+    </section>
+
+    <footer class="foot" id="foot">
+      <div class="foot-rule"></div>
+      <p class="label foot-label">Footer</p>
+      <p class="foot-manifesto" id="foot-manifesto">Casebound draws hardcover books with three.js and WebGL and puts an ordinary web page around them. It loads no model files and no pictures: the case, the pages and the cover of every book here are made from a few lines of data, and its light and motion were measured against a reference site, frame by frame.</p>
+      <div class="foot-use">
+        <p class="label foot-label">Use it</p>
+        <p class="foot-copy">Give the skill to a coding agent, or clone the repository and run the demo yourself.</p>
+        <div class="foot-command">
+          <code id="foot-command">npx skills add OthmanAdi/casebound --skill casebound</code>
+          <button class="pill" type="button" id="foot-copy">+ Copy +</button>
+        </div>
+        <p class="foot-fine">It needs Node 22 or newer and a browser with WebGL 2. Read the <a href="https://github.com/OthmanAdi/casebound#readme" target="_blank" rel="noopener">README</a> for the rest.</p>
+      </div>
+      <div class="foot-bottom">
+        <p class="foot-fine">The six books on this page are public-domain texts from <a href="https://www.gutenberg.org/" target="_blank" rel="noopener">Project Gutenberg</a>.</p>
+        <p class="foot-mono foot-links"><a href="https://github.com/OthmanAdi/casebound" target="_blank" rel="noopener">Source</a> | <a href="https://github.com/OthmanAdi/casebound/tree/main/.agents/skills/casebound" target="_blank" rel="noopener">Skill</a> | <a href="https://github.com/OthmanAdi/casebound/blob/main/LICENSE" target="_blank" rel="noopener">Licence</a></p>
+        <p class="foot-mono">&copy; 2026 Ahmad Othman Ammar Adi (OthmanAdi)</p>
+        <p class="foot-mono foot-right">Apache License, Version 2.0</p>
+      </div>
+    </footer>
     <div class="pictures" id="pictures" aria-hidden="true"></div>
     <div class="lens-frame">
       <button class="panel-lens" id="panel-lens" type="button" aria-label="Turn on magnifier" aria-pressed="false">&#x2315;</button>
@@ -58,6 +97,8 @@
         <span class="label" id="bar-title"></span>
       </div>
     </nav>
+
+    <div class="top-fade" aria-hidden="true"></div>
 
     <footer class="bar">
       <span class="bar-actions">
