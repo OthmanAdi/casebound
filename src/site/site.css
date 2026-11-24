@@ -361,7 +361,7 @@ html[data-detail] .bar-actions, html[data-foot] .bar-actions { transform: transl
   animation: rise 0.13s ease both;
 }
 .toolbar[hidden] { display: none; }
-#folio { min-width: 92px; text-align: center; }
+#folio { min-width: 92px; text-align: center; white-space: nowrap; }
 /* The pens in their holder: two squares side by side in the reader's bar. A pen that is out leaves its place
    empty, with a red line across it. */
 .pens { display: inline-flex; align-items: center; }

@@ -323,13 +323,42 @@ async function boot(): Promise<void> {
     if (a) glideTo(a.offsetTop, 900);
   }
 
+  // Measured: a book opens where it was last read. The place is kept per book in the browser.
+  const places = {
+    all: (): Record<string, number> => {
+      try {
+        const raw = JSON.parse(localStorage.getItem('casebound.place') ?? '{}') as unknown;
+        return raw && typeof raw === 'object' ? (raw as Record<string, number>) : {};
+      } catch {
+        return {};
+      }
+    },
+    of: (slug: string): number | undefined => {
+      const page = places.all()[slug];
+      return Number.isFinite(page) && page! >= 0 ? page : undefined;
+    },
+    keep: (slug: string, page: number): void => {
+      try {
+        const all = places.all();
+        if (all[slug] === page) return;
+        all[slug] = page;
+        localStorage.setItem('casebound.place', JSON.stringify(all));
+      } catch {
+        // Private windows and full storage: the book opens in its middle next time.
+      }
+    },
+  };
+
+  /** While the readout says that the link was copied, the page numbers wait. */
+  let copied = 0;
+
   function setReading(on: boolean, page?: number): void {
     if (on) {
       // Measured: a book opened from the row comes forward and grows a little; a featured book stays where it is.
       const fromRow = shelf.row?.settled ?? false;
       ctx.registry.set('reader', 'forward', fromRow ? 18 : 0);
       ctx.registry.set('reader', 'scale', fromRow ? 1.1 : 1);
-      reader.open(current().slug, page);
+      reader.open(current().slug, page ?? places.of(current().slug));
     } else {
       marker.set(false);
       reader.close();
@@ -359,7 +388,8 @@ async function boot(): Promise<void> {
     html.toggleAttribute('data-reading', reading);
     $('bar-title').textContent = `[▸] ${current().title}`;
     refreshMenu();
-    if (reading) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
+    if (reading && !copied) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
+    if (reading && reader.book) places.keep(reader.book.record.slug, reader.page);
     const slug = current().slug;
     const view = reading ? `/book/${slug}/page/${Math.max(1, reader.page)}` : detailOpen ? `/book/${slug}` : '/';
     html.dataset.caseboundView = view;
@@ -411,6 +441,19 @@ async function boot(): Promise<void> {
       setDetail(false);
       setTimeout(() => stepTo(library.featured.length), ctx.still ? 0 : 320);
     }
+  });
+  // Measured: the page numbers in the bar are a button that copies the address of the spread.
+  $('folio').addEventListener('click', () => {
+    const done = (text: string): void => {
+      clearTimeout(copied);
+      $('folio').textContent = text;
+      copied = window.setTimeout(() => {
+        copied = 0;
+        sync();
+      }, 1400);
+    };
+    if (!navigator.clipboard) return done('No clipboard');
+    navigator.clipboard.writeText(location.href).then(() => done('Link copied'), () => done('Not copied'));
   });
   $('prev').addEventListener('click', () => reader.previous());
   $('next').addEventListener('click', () => reader.next());
@@ -571,6 +614,14 @@ async function boot(): Promise<void> {
     } else if ((e.key === 'f' || e.key === 'a' || e.key === 'u') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !reader.isOpen) {
       // The keys of the page's sections, as the menu shows them.
       pageSections().find((s) => s.key === e.key)?.run();
+    } else if (reader.isOpen && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'j' || e.key === 'k')) {
+      // Measured: J and K jump forty leaves on and back, as one block.
+      if (!e.repeat) reader.turnLeaves(e.key === 'j' ? 40 : -40);
+    } else if (reader.isOpen && (e.key === '>' || e.key === '<')) {
+      if (!e.repeat) leaf(e.key === '>' ? 1 : -1, e.key);
+    } else if (reader.isOpen && e.key === 'x' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      setLens(false);
+      setReading(false);
     } else if (e.key === 'm' && !e.repeat) setLens(!magnifier.on);
     else if (e.key === 'h' && !e.repeat && reader.isOpen) marker.toggle();
     else if (e.key === 'z' && (e.ctrlKey || e.metaKey) && marker.on) {
