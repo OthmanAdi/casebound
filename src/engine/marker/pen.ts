@@ -16,12 +16,14 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  MeshDepthMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
   MultiplyBlending,
   PlaneGeometry,
   PMREMGenerator,
   Quaternion,
+  RGBADepthPacking,
   Scene,
   Vector3,
   type Texture,
@@ -142,6 +144,8 @@ export function createPenObject(engine: Engine, reader: Reader, hand: () => PenH
       exposure: { value: 1.1, min: 0.1, max: 3, help: 'Brightness of the pen under the lamps of the scene, before its filmic curve. Set by eye against frames of the reference' },
       gloss: { value: 0.3, min: 0, max: 2, help: 'How much of its own small room the lacquer reflects. Measured: 0.3 on the barrel' },
       shadow: { value: 1, min: 0, max: 1, step: 1, help: '1: the pen throws a shadow on the pages. 0: none' },
+      shadowSpread: { value: 0.374, min: 0, max: 2, help: 'How much wider than the pen its shadow is at the cap, in model units of a pen 5.62 long. Measured: 0.374' },
+      shadowThin: { value: 0.6, min: 0, max: 1, help: 'How much of the shadow is left at the cap, where the pen is furthest from the paper. Measured: 0.6' },
     },
     onChange: () => {
       paint();
@@ -162,6 +166,45 @@ export function createPenObject(engine: Engine, reader: Reader, hand: () => PenH
     };
     m.customProgramCacheKey = () => 'casebound-pen-filmic';
   }
+  // The shadow, as read on the reference: where the nib meets the paper it is as narrow and as dark as the pen;
+  // toward the cap, further from the paper, it is wider and thinner. In the shadow pass the pen is swollen along
+  // its normals and let through in part, more so toward the cap and toward its outline as the lamp sees it.
+  const cast = { uSwell: { value: 0.374 }, uThin: { value: 0.6 }, uPivot: { value: shape.pivot }, uLength: { value: shape.length } };
+  const shadowMat = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+  shadowMat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, cast);
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', `uniform float uSwell;
+uniform float uPivot;
+uniform float uLength;
+varying float vPenHigh;
+varying float vPenFace;
+void main() {`)
+      .replace(
+        '#include <begin_vertex>',
+        [
+          '#include <begin_vertex>',
+          'vPenHigh = smoothstep( 0.1, 1.0, ( position.y + uPivot ) / uLength );',
+          'transformed += normalize( normal ) * uSwell * vPenHigh;',
+          'vPenFace = abs( normalize( normalMatrix * normal ).z );',
+        ].join(String.fromCharCode(10)),
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', `uniform float uThin;
+varying float vPenHigh;
+varying float vPenFace;
+void main() {`)
+      .replace(
+        '#include <clipping_planes_fragment>',
+        [
+          '#include <clipping_planes_fragment>',
+          'float penEdge = smoothstep( 0.0, 1.0, vPenFace );',
+          'float penCover = mix( 1.0, uThin * penEdge * penEdge, vPenHigh );',
+          'if ( fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ) > penCover ) discard;',
+        ].join(String.fromCharCode(10)),
+      );
+  };
+  shadowMat.customProgramCacheKey = () => 'casebound-pen-shadow';
   const group = new Group();
   group.name = 'marker.pen';
   group.visible = false;
@@ -174,6 +217,7 @@ export function createPenObject(engine: Engine, reader: Reader, hand: () => PenH
   for (const m of parts) {
     m.castShadow = true;
     m.receiveShadow = false;
+    m.customDepthMaterial = shadowMat;
     m.frustumCulled = false;
     group.add(m);
   }
@@ -200,6 +244,8 @@ export function createPenObject(engine: Engine, reader: Reader, hand: () => PenH
     bodyMat.envMapIntensity = t.gloss;
     body.set(color.body);
     for (const m of parts) m.castShadow = t.shadow >= 0.5;
+    cast.uSwell.value = t.shadowSpread;
+    cast.uThin.value = t.shadowThin;
   };
 
   const state = createPen();
@@ -329,6 +375,7 @@ export function createPenObject(engine: Engine, reader: Reader, hand: () => PenH
       foot.removeFromParent();
       for (const m of parts) m.geometry.dispose();
       foot.geometry.dispose();
+      shadowMat.dispose();
       nibMat.dispose();
       collarMat.dispose();
       bodyMat.dispose();
