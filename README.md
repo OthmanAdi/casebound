@@ -34,6 +34,7 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | Scroll to the end | Every book of the library stands in a row, spine to the front. `←` and `→`, a press on a spine, or a pull on the row choose one, and it turns its cover forward |
 | `Space`, or **Open book** | The cover swings open, then the pages before your place turn over in one wad |
 | `→` and `←`, or a tap on a page | A leaf turns |
+| `Shift` with `→` or `←`, `Page Down` and `Page Up`, or `[ » ]` and `[ « ]` in the bar | Ten leaves turn as one block |
 | Rest the pointer on a page | The corner under it lifts |
 | Drag a page | The leaf follows your hand and its corner rolls over. Let go to turn it, or bring it back and it falls |
 | Rest the pointer on the edge of a page stack, beside the page | The leaves above that place lift as one block. Click and they turn over. The deeper the place, the more leaves |
