@@ -453,6 +453,35 @@ try {
     await run(3);
   }
 
+  // On a phone: a counter under the row with the place of the chosen book, and arrows that step the row.
+  {
+    const phone = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })).newPage();
+    phone.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
+    await phone.goto(base.replace(/\/$/, '') + '/?midday', { waitUntil: 'load', timeout: 60000 });
+    await phone.waitForSelector('html[data-casebound-ready="true"]', { state: 'attached', timeout: 30000 });
+    await phone.evaluate(() => scrollTo(0, (document.querySelector('.panel').offsetHeight + 16) * casebound.shelf.order.length));
+    await phone.waitForTimeout(3500);
+    const pager = () => phone.evaluate(() => {
+      const p = document.getElementById('pager');
+      const r = p.getBoundingClientRect();
+      const { ctx } = casebound.engine;
+      const book = casebound.engine.books.find((b) => b.record.slug === casebound.shelf.row.selected);
+      const v = book.root.position.clone().project(ctx.camera);
+      return { shown: p.hasAttribute('data-shown'), text: document.getElementById('pager-readout').textContent, top: r.top, width: r.width, centre: r.left + r.width / 2, bookY: (0.5 - v.y * 0.5) * innerHeight, selected: casebound.shelf.row.selected, order: casebound.shelf.row.order, w: innerWidth };
+    });
+    const p1 = await pager();
+    let ok = p1.shown && p1.text === `${p1.order.indexOf(p1.selected) + 1} / ${p1.order.length}` && p1.top > p1.bookY && Math.abs(p1.centre - p1.w / 2) < 1;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} on a phone a counter stands under the row: "${p1.text}"`);
+    await phone.tap('#pager-next');
+    await phone.waitForTimeout(1500);
+    const p2 = await pager();
+    ok = p2.selected !== p1.selected && p2.text === `${p2.order.indexOf(p2.selected) + 1} / ${p2.order.length}` && p2.shown;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} its arrow steps the row: "${p2.text}"`);
+    await phone.close();
+  }
+
   for (const e of errors) { failed++; console.log('FAIL page error: ' + e); }
 } finally {
   await browser.close();

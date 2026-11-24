@@ -444,7 +444,17 @@ html[data-reading] .dpage { visibility: hidden; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.235 0 0 0 -0.1175 0 1.235 0 0 -0.1175 0 0 1.235 0 -0.1175 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* The counter under the row, on a phone. Measured: 42 px below the chosen cover and 18 px wider than it, two
+   arrows and the place of the chosen book in the row; it fades in in 0.24 s once the cover has turned to the
+   front and goes at once when it no longer applies. */
+.pager { position: fixed; top: 0; left: 50%; transform: translateX(-50%); display: none; align-items: center; justify-content: space-between; z-index: 46; color: var(--ink); opacity: 0; pointer-events: none; transition: none; }
+.pager[data-shown] { opacity: 1; pointer-events: auto; transition: opacity 0.24s ease-out; }
+.pager-arrow { display: inline-flex; padding: 5px 9px 7px; border: 0; background: none; color: inherit; font: 400 12.3px/1 var(--mono); letter-spacing: 0.02em; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.15s ease; }
+.pager-arrow:disabled { opacity: 0.3; cursor: default; }
+.pager-readout { padding: 0 2px; font: 400 11.2px/1 var(--mono); letter-spacing: 0.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 @media (max-width: 899px) {
+  .pager { display: flex; }
   /* The foot on a phone: one column. */
   .band-copy { max-width: none; }
   .band-card { flex-basis: calc(100vw - var(--gutter) * 2); }

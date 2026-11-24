@@ -638,6 +638,54 @@ async function boot(): Promise<void> {
     );
   });
 
+  // ---------------------------------------------------------------- the counter under the row, on a phone
+  const pager = $('pager');
+  let pagerChoice = '';
+  let pagerSince = 0;
+  $('pager-prev').addEventListener('click', (e) => {
+    e.stopPropagation();
+    shelf.row?.step(-1);
+  });
+  $('pager-next').addEventListener('click', (e) => {
+    e.stopPropagation();
+    shelf.row?.step(1);
+  });
+  for (const b of [$('pager-prev'), $('pager-next')]) b.addEventListener('pointerdown', (e) => e.stopPropagation());
+  /** Places the counter under the chosen cover and shows it once the row stands still with that cover in front. */
+  function placePager(time: number): void {
+    const row = shelf.row;
+    const live = !!row && row.settled && ctx.compact && !detailOpen && !reader.isOpen && !html.hasAttribute('data-foot');
+    if (!live || !row) {
+      if (pager.hasAttribute('data-shown')) pager.toggleAttribute('data-shown', false);
+      pagerChoice = '';
+      return;
+    }
+    if (row.selected !== pagerChoice) {
+      pagerChoice = row.selected;
+      pagerSince = time;
+      pager.toggleAttribute('data-shown', false);
+    }
+    const book = engine.books.find((b) => b.record.slug === row.selected)!;
+    const at = book.root.position.clone().project(ctx.camera);
+    const perPx = ctx.size.y / ctx.visibleHeightAt(book.root.position.z);
+    const scale = book.root.scale.x * perPx;
+    const bottom = (0.5 - at.y * 0.5) * innerHeight + (book.dims.coverH * scale) / 2;
+    pager.style.top = `${Math.round(bottom + 42)}px`;
+    pager.style.width = `${Math.round(book.dims.coverW * scale + 18)}px`;
+    const n = row.order.indexOf(row.selected) + 1;
+    const readout = `${n} / ${row.order.length}`;
+    if ($('pager-readout').textContent !== readout) $('pager-readout').textContent = readout;
+    ($('pager-prev') as HTMLButtonElement).disabled = n <= 1;
+    ($('pager-next') as HTMLButtonElement).disabled = n >= row.order.length;
+    // The cover turns to the front in about 0.35 s after a choice.
+    const shown = time - pagerSince > 0.35;
+    if (shown !== pager.hasAttribute('data-shown')) {
+      pager.toggleAttribute('data-shown', shown);
+      pager.setAttribute('aria-hidden', String(!shown));
+      for (const b of [$('pager-prev'), $('pager-next')]) b.tabIndex = shown ? 0 : -1;
+    }
+  }
+
   // ---------------------------------------------------------------- the menu of the bar
   /** Sections of the page, each with a key that brings it from anywhere on the shelf. */
   const pageSections = (): MenuItem[] => [
@@ -802,6 +850,7 @@ async function boot(): Promise<void> {
     const band = $('band').getBoundingClientRect();
     const darkTop = band.top <= 44 && band.bottom > 44;
     if (darkTop !== html.hasAttribute('data-dark-top')) html.toggleAttribute('data-dark-top', darkTop);
+    placePager(f.time);
     // The section label names the section that has passed 40 px below the top of the window.
     const label = detailPage ? (library.featured.includes(current().slug) ? 'Featured' : 'All books') : $('foot').getBoundingClientRect().top <= 40 ? 'Footer' : band.top <= 40 ? 'How to use it' : Math.round(p) >= library.featured.length ? 'All books' : 'Featured';
     if (sectionLabel.textContent !== label) sectionLabel.textContent = label;
