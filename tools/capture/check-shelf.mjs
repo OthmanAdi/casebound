@@ -254,6 +254,21 @@ try {
     if (!ok) failed++;
     console.log(`${ok ? 'ok  ' : 'FAIL'} past the turn of the current book the row glides to "${t2.title}" (${(t2.x - t0.x).toFixed(1)} px, in ${t2.glide})`);
   }
+  {
+    // The section label turns to the row's section 0.41 of the way from the last featured book to the row, by the
+    // scroll bar itself: one frame after the scroll, whatever the books are still doing.
+    const label = () => page.evaluate(() => document.getElementById('section-label').textContent);
+    const last = slot * ((await page.evaluate(() => casebound.shelf.order.length)) - 1);
+    await page.evaluate((y) => scrollTo(0, y), Math.round(last + 0.38 * slot));
+    await run(2);
+    const before = await label();
+    await page.evaluate((y) => scrollTo(0, y), Math.round(last + 0.44 * slot));
+    await run(1 / 60);
+    const after = await label();
+    const ok = before === 'Featured' && after === 'All books';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the section label turns between 0.38 and 0.44 of the way into the row, at once: "${before}", then "${after}"`);
+  }
   // The row: past the last featured book every book of the library stands spine to the front.
   const row = () => page.evaluate(() => {
     const { engine, shelf, reader } = casebound;

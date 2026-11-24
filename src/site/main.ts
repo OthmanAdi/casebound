@@ -851,8 +851,11 @@ async function boot(): Promise<void> {
     const darkTop = band.top <= 44 && band.bottom > 44;
     if (darkTop !== html.hasAttribute('data-dark-top')) html.toggleAttribute('data-dark-top', darkTop);
     placePager(f.time);
-    // The section label names the section that has passed 40 px below the top of the window.
-    const label = detailPage ? (library.featured.includes(current().slug) ? 'Featured' : 'All books') : $('foot').getBoundingClientRect().top <= 40 ? 'Footer' : band.top <= 40 ? 'How to use it' : Math.round(p) >= library.featured.length ? 'All books' : 'Featured';
+    // The section label names the section that has passed 40 px below the top of the window. Measured: the row's
+    // section begins 0.41 of the way from the last featured book to the row (0.47 on a phone), read from the scroll
+    // bar itself, not from the eased progress of the books.
+    const rowSection = (library.featured.length - 1 + (ctx.compact ? 0.47 : 0.41)) * slotPx();
+    const label = detailPage ? (library.featured.includes(current().slug) ? 'Featured' : 'All books') : $('foot').getBoundingClientRect().top <= 40 ? 'Footer' : band.top <= 40 ? 'How to use it' : scrollY >= rowSection ? 'All books' : 'Featured';
     if (sectionLabel.textContent !== label) sectionLabel.textContent = label;
   });
 
