@@ -311,6 +311,8 @@ html[data-detail] .bar-actions { transform: translateY(54px); visibility: hidden
   /* Measured on a phone: the bar holds only the title; the details take the place of the title row, and the way
      back takes the place of the section label. */
   .bar-actions { display: none; }
+  /* Measured on a phone: no lens over the picture; the reader's own lens is the only one. */
+  .lens-frame { display: none; }
   html[data-detail] .marquee { opacity: 0; clip-path: inset(0 0 0 0); }
   html[data-detail] .marquee::after { opacity: 0; }
   html[data-detail] .section-label { opacity: 0; transform: translateX(-10px); }
