@@ -36,8 +36,30 @@
       <button class="panel-lens" id="panel-lens" type="button" aria-label="Turn on magnifier" aria-pressed="false">&#x2315;</button>
     </div>
 
+    <nav class="menu" id="menu" aria-label="Site menu">
+      <div class="menu-lists" id="menu-lists">
+        <div class="menu-body">
+          <section class="menu-col">
+            <h2 class="menu-head">Library</h2>
+            <div class="menu-titles" id="menu-books" role="list" aria-label="Library"></div>
+          </section>
+          <section class="menu-col">
+            <h2 class="menu-head">Sections</h2>
+            <div id="menu-sections"></div>
+            <div class="menu-sub" id="menu-book-head" hidden>This book</div>
+            <div id="menu-book-sections"></div>
+            <div class="menu-sub">Links</div>
+            <div id="menu-links"></div>
+          </section>
+        </div>
+      </div>
+      <div class="menu-strip" id="menu-strip">
+        <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-lists" aria-label="Site menu: every book and the sections of the page"></button>
+        <span class="label" id="bar-title"></span>
+      </div>
+    </nav>
+
     <footer class="bar">
-      <span class="label" id="bar-title"></span>
       <span class="bar-actions">
         <button class="label" id="open" type="button">Open book [+]</button>
         <button class="label" id="details" type="button">View details [+]</button>

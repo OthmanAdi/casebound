@@ -18,6 +18,7 @@ import { createShelf } from '../engine/shelf/shelf';
 import { themeForHour, type ThemeName } from '../engine/stage/presets';
 import { paintBackdrop } from './backdrop';
 import { loadLibrary } from './library';
+import { createMenu, type MenuItem } from './menu';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const html = document.documentElement;
@@ -144,11 +145,11 @@ async function boot(): Promise<void> {
     strip.centre = centre;
   };
   /** Brings a book to the front: a featured one to the centre, any other into the row. */
-  const bring = (slug: string): void => {
+  const bring = (slug: string, done?: () => void): void => {
     const slot = library.featured.indexOf(slug);
-    if (slot >= 0) stepTo(slot);
+    if (slot >= 0) stepTo(slot, undefined, done);
     else {
-      stepTo(library.featured.length);
+      stepTo(library.featured.length, undefined, done);
       shelf.row?.select(slug);
     }
   };
@@ -231,6 +232,9 @@ async function boot(): Promise<void> {
     for (const slot of $('pens').children) slot.setAttribute('aria-pressed', String(marker.on && (slot as HTMLElement).dataset.pen === marker.color));
   }
 
+  /** Brings the menu of the bar in line with the page; set once the menu exists. */
+  let refreshMenu = (): void => undefined;
+
   /** The details column fades out before it goes. */
   let leaving = 0;
   function setDetail(on: boolean): void {
@@ -303,6 +307,7 @@ async function boot(): Promise<void> {
     html.toggleAttribute('data-lock', reading || detailOpen);
     html.toggleAttribute('data-reading', reading);
     $('bar-title').textContent = `[▸] ${current().title}`;
+    refreshMenu();
     if (reading) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
     const slug = current().slug;
     const view = reading ? `/book/${slug}/page/${Math.max(1, reader.page)}` : detailOpen ? `/book/${slug}` : '/';
@@ -416,9 +421,11 @@ async function boot(): Promise<void> {
   // ---------------------------------------------------------------- along the shelf without the wheel
   /** A scroll the page makes by itself. A wheel, a touch, a press or a scroll of the reader's own takes it back. */
   let glide: { from: number; to: number; start: number; ms: number; wrote: number } | null = null;
-  const glideTo = (to: number, ms: number): void => {
+  /** `done` runs when the glide arrives, not when something took it back. */
+  const glideTo = (to: number, ms: number, done?: () => void): void => {
     if (ctx.still || ms <= 0) {
       scrollTo(0, to);
+      done?.();
       return;
     }
     const mine = (glide = { from: scrollY, to, start: performance.now(), ms, wrote: scrollY });
@@ -431,14 +438,17 @@ async function boot(): Promise<void> {
       scrollTo(0, mine.from + (mine.to - mine.from) * (0.5 - 0.5 * Math.cos(Math.PI * k)));
       mine.wrote = scrollY;
       if (k < 1) requestAnimationFrame(step);
-      else glide = null;
+      else {
+        glide = null;
+        done?.();
+      }
     };
     requestAnimationFrame(step);
   };
   /** Brings a featured book to the centre. Measured: one second per screen height under a square root, 0.4 to 1.8 s. */
-  function stepTo(slot: number, ms?: number): void {
+  function stepTo(slot: number, ms?: number, done?: () => void): void {
     const to = Math.max(0, Math.min(library.featured.length, slot)) * slotPx();
-    glideTo(to, ms ?? Math.max(400, Math.min(1800, 1000 * Math.sqrt(Math.abs(to - scrollY) / Math.max(1, innerHeight)))));
+    glideTo(to, ms ?? Math.max(400, Math.min(1800, 1000 * Math.sqrt(Math.abs(to - scrollY) / Math.max(1, innerHeight)))), done);
   }
   const letGo = (): void => {
     glide = null;
@@ -499,6 +509,9 @@ async function boot(): Promise<void> {
     } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && reader.isOpen) {
       e.preventDefault();
       if (!e.repeat) leaf(e.key === 'ArrowRight' ? 1 : -1, e.key);
+    } else if ((e.key === 'f' || e.key === 'a') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !reader.isOpen) {
+      // The keys of the page's sections, as the menu shows them.
+      pageSections().find((s) => s.key === e.key)?.run();
     } else if (e.key === 'm' && !e.repeat) setLens(!magnifier.on);
     else if (e.key === 'h' && !e.repeat && reader.isOpen) marker.toggle();
     else if (e.key === 'z' && (e.ctrlKey || e.metaKey) && marker.on) {
@@ -510,6 +523,50 @@ async function boot(): Promise<void> {
     if (e.key === held.key) stopLeafing();
   });
   addEventListener('blur', () => stopLeafing());
+
+  // ---------------------------------------------------------------- the menu of the bar
+  /** Sections of the page, each with a key that brings it from anywhere on the shelf. */
+  const pageSections = (): MenuItem[] => [
+    { word: 'Featured', key: 'f', run: () => leaveTo(() => stepTo(0)) },
+    { word: 'All books', key: 'a', run: () => leaveTo(() => stepTo(library.featured.length)) },
+  ];
+  /** Out of a book and the details first, then on. */
+  const leaveTo = (then: () => void): void => {
+    if (reader.isOpen) setReading(false);
+    if (detailOpen) setDetail(false);
+    then();
+  };
+  const menu = createMenu({
+    books: library.books.map((b) => ({ slug: b.slug, title: b.title })),
+    current: () => current().slug,
+    sections: pageSections,
+    // The sections of the details of the open book, as the details name them.
+    bookSections: () =>
+      detailOpen
+        ? [...document.querySelectorAll<HTMLElement>('#detail .d-sec')].map((sec) => ({
+            word: sec.querySelector('.label')?.textContent ?? '',
+            run: () => sec.scrollIntoView({ block: 'start', behavior: ctx.still ? 'auto' : 'smooth' }),
+          }))
+        : [],
+    links: [
+      { word: 'Source', href: 'https://github.com/OthmanAdi/casebound' },
+      { word: 'The skill', href: 'https://github.com/OthmanAdi/casebound/tree/main/.agents/skills/casebound' },
+      { word: 'Licence', href: 'https://github.com/OthmanAdi/casebound/blob/main/LICENSE' },
+    ],
+    // Measured: a press on a book brings it to the centre and then opens its details.
+    onBook: (slug) => {
+      if (reader.isOpen) setReading(false);
+      if (detailOpen) bring(slug);
+      else bring(slug, () => setDetail(true));
+    },
+    // Not over the reader's own bar.
+    blockedFrom: () => {
+      const bar = $('toolbar');
+      return bar.hidden ? Infinity : bar.getBoundingClientRect().left;
+    },
+  });
+
+  refreshMenu = () => menu.refresh();
 
   ctx.events.on('view', () => sync());
   // A press on the centred book that did not turn it opens its details.

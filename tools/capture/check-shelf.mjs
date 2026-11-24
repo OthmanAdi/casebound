@@ -337,6 +337,64 @@ try {
   console.log(`${okUp ? 'ok  ' : 'FAIL'} a jump back to the top passes every book: frames at the centre of the stack ${up.join(', ')}`);
   await run(3);
   await rowCheck('and the row is gone again', (r) => !r.settled && r.visible < r.books);
+
+  // The menu of the bar: a mouse on the strip opens it, the keyboard reaches it through one button, and a press on a
+  // book brings that book and opens its details. Its rise runs on the browser's clock, so the steps wait in real time.
+  {
+    const menu = () => page.evaluate(() => {
+      const m = document.getElementById('menu');
+      const lists = document.getElementById('menu-lists').getBoundingClientRect();
+      const a = document.activeElement;
+      return { open: m.hasAttribute('data-open'), expanded: document.getElementById('menu-toggle').getAttribute('aria-expanded'), listsTop: lists.top, stripTop: document.getElementById('menu-strip').getBoundingClientRect().top, titles: [...document.querySelectorAll('#menu-books .menu-book')].map((e) => e.textContent), current: document.querySelector('#menu-books [aria-current="true"]')?.textContent ?? null, focus: a ? (a.id || a.textContent.trim()) : null, book: casebound.engine.books[casebound.engine.state.active].record.title };
+    });
+    await page.mouse.move(30, 300);
+    await run(1);
+    const closed = await menu();
+    await page.mouse.move(120, 888);
+    await page.waitForTimeout(700);
+    const opened = await menu();
+    const bare = (t) => t.replace(/^(the|an|a)\s+/i, '');
+    const sorted = opened.titles.every((t, k) => k === 0 || bare(opened.titles[k - 1]).localeCompare(bare(t), 'en', { sensitivity: 'base' }) <= 0);
+    let ok = !closed.open && opened.open && opened.expanded === 'true' && Math.abs(opened.listsTop + (opened.stripTop - opened.listsTop) - opened.stripTop) < 1 && opened.listsTop < opened.stripTop - 100 && sorted && opened.titles.length === (await page.evaluate(() => casebound.engine.books.length)) && opened.current === opened.book;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a mouse on the strip opens the menu: ${opened.titles.length} books by title, "${opened.current}" marked as the current one`);
+    await page.mouse.move(800, 300);
+    await page.waitForTimeout(700);
+    ok = !(await menu()).open;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} and closes it when it leaves`);
+    // The keyboard.
+    await page.focus('#menu-toggle');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    const k1 = await menu();
+    for (let n = 0; n < 12; n++) await page.keyboard.press('Tab');
+    const k2 = await page.evaluate(() => document.getElementById('menu').contains(document.activeElement));
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
+    const k3 = await menu();
+    ok = k1.open && k1.focus === k1.current && k2 && !k3.open && k3.focus === 'menu-toggle' && (await state()).view === '/';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} from the keyboard: Enter opens it on "${k1.focus}", Tab stays inside, Escape closes it and gives the focus back to the strip`);
+    await page.evaluate(() => document.activeElement?.blur());
+    // A book of the library.
+    await page.mouse.move(120, 888);
+    await page.waitForTimeout(700);
+    const target = await page.evaluate(() => { const l = [...document.querySelectorAll('#menu-books .menu-book')].find((e) => !e.hasAttribute('aria-current') && casebound.library.featured.includes(e.getAttribute('href').split('/').pop())); const r = l.getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2, slug: l.getAttribute('href').split('/').pop() }; });
+    await page.mouse.click(target.x, target.y);
+    await page.waitForTimeout(2200);
+    await run(1.5);
+    const after = await state();
+    ok = after.view === `/book/${target.slug}` && !(await menu()).open;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a press on a book in the menu brings it and opens its details: ${after.view}`);
+    await page.mouse.move(30, 300);
+    await page.keyboard.press('Escape');
+    await run(1.2);
+    await page.evaluate(() => scrollTo(0, 0));
+    await run(3);
+  }
+
   for (const e of errors) { failed++; console.log('FAIL page error: ' + e); }
 } finally {
   await browser.close();

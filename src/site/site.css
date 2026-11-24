@@ -194,11 +194,83 @@ html[data-aside] .pictures, html[data-aside] .lens-frame { width: calc(60vw - 19
   padding: 0 var(--gutter);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   background: var(--bg);
   transition: background-color 0.6s ease;
   z-index: 40;
 }
+
+/* The menu of the bar. Measured: a frame 9 px from the left edge and 6 px past the foot of the window, 720 px wide at
+   most and 71 px plus 25 px a row tall; a strip 30 px tall holds the title of the current book, and the lists rise out of it in 0.38 s, quick at
+   first. Two columns, 1.35 to 1: every book of the library, and the sections of the page with their keys. Rows are
+   25 px tall with a dotted rule; a row under the pointer or the focus is drawn in reverse. */
+.menu {
+  --menu-rule: color-mix(in srgb, var(--ink) 52%, transparent);
+  position: fixed;
+  left: 9px;
+  bottom: -6px;
+  width: min(720px, calc(94vw - 9px));
+  height: min(calc(71px + var(--menu-rows, 6) * 25px), 78vh);
+  display: flex;
+  flex-direction: column;
+  z-index: 41;
+  pointer-events: none;
+  color: var(--ink);
+  font: 500 11px/1.18 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.menu[data-open] { z-index: 47; }
+.menu-lists {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  transform: translateY(100%);
+  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.6s ease;
+  will-change: transform;
+}
+.menu[data-open] .menu-lists { transform: none; pointer-events: auto; }
+.menu-body { flex: 1 1 auto; display: grid; grid-template-columns: 1.35fr 1fr; grid-template-rows: minmax(0, 1fr); min-height: 0; }
+.menu-col { min-width: 0; padding: 8px 0 10px; border-right: 1px solid var(--menu-rule); display: flex; flex-direction: column; min-height: 0; }
+.menu-col:last-child { border-right: 0; }
+.menu-head { margin: 0 0 5px; padding: 0 6px 4px; border-bottom: 1px solid var(--menu-rule); font: inherit; opacity: 0.7; }
+.menu-titles { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.menu-band, .menu-row { box-sizing: border-box; width: 100%; padding: 6px 6px 5px; border-bottom: 1px dotted var(--menu-rule); color: inherit; text-decoration: none; cursor: pointer; }
+.menu-band { display: flex; align-items: center; gap: 6px; }
+.menu-row { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-band:hover, .menu-band:focus-within, .menu-row:hover, .menu-row:focus-visible { background: var(--ink); color: var(--bg); outline: 0; }
+.menu-mark { flex: 0 0 auto; opacity: 0.4; transition: opacity 0.14s ease; }
+.menu-mark.is-current { opacity: 1; }
+.menu-book { flex: 1 1 auto; min-width: 0; color: inherit; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-book:focus-visible { outline: 0; }
+.menu-link { opacity: 0.78; }
+.menu-sub { margin: 7px 0 3px; padding: 0 6px; opacity: 0.5; }
+.menu-sub[hidden] { display: none; }
+/* The strip: its rule appears and its corners square off while the lists stand above it. */
+.menu-strip {
+  flex: 0 0 30px;
+  height: 30px;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  padding: 0 10px 8px 7px;
+  background: var(--bg);
+  border-top: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  transition: border-radius 0.2s ease, border-top-color 0.5s ease-out, background-color 0.6s ease;
+}
+.menu[data-open] .menu-strip { border-top-color: var(--menu-rule); border-radius: 0; }
+.menu-toggle { position: absolute; inset: 0; z-index: 2; margin: 0; padding: 0; border: 0; background: none; color: inherit; pointer-events: none; }
+.menu-toggle:focus-visible { outline: 1px solid currentColor; outline-offset: -2px; }
+.menu-strip #bar-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* Measured: once the picture has narrowed for the details, the buttons at the right of the bar sink out of the
    window (54 px in 0.5 s, quick at first) and come back at once when the details close. */
 .bar-actions { display: flex; gap: 0; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s; }
@@ -313,6 +385,9 @@ html[data-reading] .detail { display: none; }
   /* Measured on a phone: the bar holds only the title; the details take the place of the title row, and the way
      back takes the place of the section label. */
   .bar-actions { display: none; }
+  /* Measured on a phone: the menu takes the whole width and its strip is 33 px tall. */
+  .menu { left: 0; bottom: 0; width: 100vw; height: min(calc(74px + var(--menu-rows, 6) * 25px), calc(100dvh - 140px)); }
+  .menu-strip { flex-basis: 33px; height: 33px; padding: 0 10px 4px var(--gutter); }
   /* Measured on a phone: no lens over the picture; the reader's own lens is the only one. */
   .lens-frame { display: none; }
   html[data-aside] .marquee { opacity: 0; clip-path: inset(0 0 0 0); }
@@ -329,6 +404,6 @@ html[data-reading] .detail { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html, .pictures, .lens-frame, .card::after, .bar, .marquee-track, .m-title, .t-it, .t-up { transition: none; }
+  html, .pictures, .lens-frame, .card::after, .bar, .marquee-track, .m-title, .t-it, .t-up, .menu-lists, .menu-strip { transition: none; }
   .toolbar, .detail { animation: none; }
 }
