@@ -19,6 +19,7 @@ import { themeForHour, type ThemeName } from '../engine/stage/presets';
 import { paintBackdrop } from './backdrop';
 import { loadLibrary } from './library';
 import { createMenu, type MenuItem } from './menu';
+import { bookArticle } from './details';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const html = document.documentElement;
@@ -157,19 +158,6 @@ async function boot(): Promise<void> {
   const goToBook = (slug: string): void => {
     if (!reader.isOpen && !detailOpen) bring(slug);
   };
-  /** The colophon of a book, in our own words, from what its record says. */
-  const facts = (book: BookRecord): string[] => {
-    const out: string[] = [];
-    if (book.year) out.push(`First published ${book.year}`);
-    if (book.pages) out.push(`${book.pages} pages`);
-    const grain = book.cover.grain ?? 'buckram';
-    out.push(grain === 'buckram' ? 'Bound in buckram cloth' : grain === 'paper' ? 'Bound in paper over boards' : 'Bound in board');
-    out.push(book.cover.foil && book.cover.foil !== 'none' ? 'Title stamped in foil' : 'Title printed in ink');
-    out.push(book.paper ? 'Printed on cream paper' : 'Printed on white paper');
-    if (book.source) out.push(`Text from ${book.source.name}${book.source.note ? `, ${book.source.note.replace(/\.$/, '').toLowerCase()}` : ''}`);
-    return out;
-  };
-
   // ---------------------------------------------------------------- views
   /** How far the canvas content is shifted left to make room for the detail column, 0..1. */
   let shift = 0;
@@ -178,6 +166,13 @@ async function boot(): Promise<void> {
   /** On a narrow screen the details take the lower half: how far the book has moved up into the rest, 0..1. */
   let lift = 0;
   let detailOpen = false;
+  /** The long page of the details is in the document: from opening until its fade has finished. */
+  let detailPage = false;
+  /** Which book of the catalogue the details stand at, and where the shelf is held while they are open. */
+  let stage = -1;
+  let detailY = 0;
+  /** How far the book and its picture ride with the top of their part of the details, CSS px. */
+  let attach = 0;
   /** The details stand beside the picture: open, and no book open over them. */
   let asideShown = false;
   const offset = (): { x: number; y: number } => {
@@ -187,7 +182,13 @@ async function boot(): Promise<void> {
     const upper = nav + (innerHeight * 0.46 - nav) / 2;
     return { x: -0.2 * innerWidth * shift, y: whole + (upper - whole) * lift - innerHeight / 2 };
   };
-  const slotPx = (): number => (panels.firstElementChild as HTMLElement).offsetHeight + 16;
+  /** The pitch of the stretches of the shelf. Kept while the details hide them. */
+  let slotSeen = 0;
+  const slotPx = (): number => {
+    const h = (panels.firstElementChild as HTMLElement).offsetHeight;
+    if (h > 0) slotSeen = h + 16;
+    return slotSeen || innerHeight - 28;
+  };
 
   /** How far the page has been scrolled past the row, in slots. */
   const pastRow = (): number => scrollY / Math.max(1, slotPx()) - library.featured.length;
@@ -198,14 +199,21 @@ async function boot(): Promise<void> {
    */
   let rowLift = 0;
   const rowLiftGoal = (): number => {
-    const d = Math.max(0, pastRow() * slotPx()) * (900 / Math.max(1, innerHeight));
+    const d = detailPage ? 0 : Math.max(0, pastRow() * slotPx()) * (900 / Math.max(1, innerHeight));
     return (1.15 * d - 196 * (1 - Math.exp(-d / 147))) * (innerHeight / 900);
   };
   const shelfOffset = (): { x: number; y: number } => {
     const o = offset();
-    return { x: o.x, y: o.y - rowLift };
+    return { x: o.x, y: o.y - rowLift + (detailPage ? attach : 0) };
   };
-  const shelf = createShelf(engine, { featured: library.featured, slotPx, centreOffsetPx: shelfOffset, fit: () => 1 - 0.5 * lift, row: true, peek: () => detailOpen, layout: query.get('layout') === 'fan' ? fan : undefined });
+  /** Where the shelf would be scrolled to show a book: its slot, or the row. */
+  const slotY = (slug: string): number => Math.max(0, library.featured.indexOf(slug) < 0 ? library.featured.length : library.featured.indexOf(slug)) * slotPx();
+  const shelf = createShelf(engine, { featured: library.featured, slotPx, scrollY: () => (detailPage ? detailY : scrollY), centreOffsetPx: shelfOffset, fit: () => 1 - 0.5 * lift, row: true, peek: () => detailOpen, layout: (book, pose) => {
+    if (query.get('layout') === 'fan') fan(book, pose);
+    // In the details only the book of the part on the stage stands in the window; the stack around it would ride
+    // up and down with the page.
+    if (detailPage && book.slug !== catalogue[stage]) pose.visible = false;
+  } });
   /** Scales the open book down where the spread is wider than the room it has: beside the detail column, or on a narrow screen. */
   const fit = (): number => {
     const book = reader.book;
@@ -251,41 +259,68 @@ async function boot(): Promise<void> {
   /** Brings the menu of the bar in line with the page; set once the menu exists. */
   let refreshMenu = (): void => undefined;
 
-  /** The details column fades out before it goes. */
+  /**
+   * The details are a page of their own. Opening them puts that page in the place of the shelf, at the book the
+   * shelf stood at, and holds the shelf there; closing them fades the page out (0.3 s, measured) and puts the shelf
+   * back at the book the details had come to.
+   */
   let leaving = 0;
-  function setDetail(on: boolean): void {
+  function setDetail(on: boolean, slug = current().slug): void {
     const was = detailOpen;
     detailOpen = on;
     const d = $('detail');
     clearTimeout(leaving);
     d.classList.remove('leaving');
-    if (!on && was && !ctx.still) {
-      // Measured: the column slides back out and fades in 0.3 s, quicker toward the end.
-      d.classList.add('leaving');
-      leaving = window.setTimeout(() => {
+    if (on && !was) {
+      stage = catalogue.indexOf(slug);
+      detailY = slotY(slug);
+      detailPage = true;
+      d.hidden = false;
+      html.toggleAttribute('data-detail', true);
+      markStage();
+      scrollTo(0, articles[stage]!.offsetTop);
+      d.classList.toggle('arriving', !ctx.still);
+      setTimeout(() => d.classList.remove('arriving'), 1300);
+    } else if (!on && was) {
+      const back = (): void => {
         d.classList.remove('leaving');
         d.hidden = true;
-      }, 300);
+        detailPage = false;
+        attach = 0;
+        html.toggleAttribute('data-detail', false);
+        scrollTo(0, slotY(current().slug));
+        ctx.invalidate();
+      };
+      if (ctx.still) back();
+      else {
+        d.classList.add('leaving');
+        leaving = window.setTimeout(back, 300);
+      }
     }
-    if (on) {
-      const book = current();
-      $('detail-title').textContent = book.title;
-      $('detail-author').textContent = `by ${book.author}${book.year ? `, ${book.year}` : ''}`;
-      $('detail-blurb').textContent = book.blurb ?? '';
-      const ebook = $<HTMLAnchorElement>('row-ebook');
-      const audio = $<HTMLAnchorElement>('row-audio');
-      ebook.href = book.source?.id ? `https://www.gutenberg.org/ebooks/${book.source.id}` : 'https://www.gutenberg.org/';
-      ebook.setAttribute('aria-label', `E-book of ${book.title} at Project Gutenberg`);
-      audio.href = `https://librivox.org/search?q=${encodeURIComponent(book.title)}&search_form=advanced`;
-      audio.setAttribute('aria-label', `Audiobook of ${book.title} at LibriVox`);
-      $('detail-facts').replaceChildren(...facts(book).map((fact) => Object.assign(document.createElement('li'), { textContent: fact })));
-      const next = bySlug.get(catalogue[(catalogue.indexOf(book.slug) + 1) % catalogue.length]!)!;
-      $('detail-next').setAttribute('aria-label', `Next book: ${next.title}`);
-    }
-    if (on || !d.classList.contains('leaving')) d.hidden = !on;
-    html.toggleAttribute('data-detail', on);
     $('details').textContent = on ? 'Close details [-]' : 'View details [+]';
     sync();
+  }
+  /** Gives the rows of the book the details stand at the names tools and keys look for. */
+  function markStage(): void {
+    for (const [k, a] of articles.entries()) {
+      const mine = k === stage;
+      a.classList.toggle('is-current', mine);
+      const set = (sel: string, id: string): void => {
+        const e = a.querySelector<HTMLElement>(sel);
+        if (!e) return;
+        if (mine) e.id = id;
+        else if (e.id === id) e.removeAttribute('id');
+      };
+      set('.row-read', 'row-read');
+      set('.row-ebook', 'row-ebook');
+      set('.row-audio', 'row-audio');
+      set('.dp-next', 'detail-next');
+    }
+  }
+  /** Brings the part of the details of a book to the top of the window. */
+  function toArticle(slug: string): void {
+    const a = articles[catalogue.indexOf(slug)];
+    if (a) glideTo(a.offsetTop, 900);
   }
 
   function setReading(on: boolean, page?: number): void {
@@ -320,7 +355,7 @@ async function boot(): Promise<void> {
       asideShown = aside;
     }
     html.toggleAttribute('data-aside', aside);
-    html.toggleAttribute('data-lock', reading || detailOpen);
+    html.toggleAttribute('data-lock', reading);
     html.toggleAttribute('data-reading', reading);
     $('bar-title').textContent = `[▸] ${current().title}`;
     refreshMenu();
@@ -363,12 +398,19 @@ async function boot(): Promise<void> {
   const BLOCK = 10;
   $('open').addEventListener('click', () => setReading(!reader.isOpen));
   $('details').addEventListener('click', () => setDetail(!detailOpen));
-  $('row-read').addEventListener('click', () => setReading(true));
-  // Measured: the details end with a way on to the next book and a way to the whole library.
-  $('detail-next').addEventListener('click', () => bring(catalogue[(catalogue.indexOf(current().slug) + 1) % catalogue.length]!));
-  $('detail-all').addEventListener('click', () => {
-    setDetail(false);
-    stepTo(library.featured.length);
+  // The long page of the details: one article for every book, in the order of the catalogue.
+  const articles = catalogue.map((slug, k) => bookArticle(bySlug.get(slug)!, k + 1 < catalogue.length ? bySlug.get(catalogue[k + 1]!) : undefined));
+  $('detail').append(...articles);
+  $('detail').addEventListener('click', (e) => {
+    const t = e.target as Element;
+    const article = t.closest<HTMLElement>('.dp-book');
+    if (t.closest('.row-read')) setReading(true);
+    // Measured: each book's part ends with a way on to the next book and a way to the whole library.
+    else if (t.closest('.dp-next') && article) toArticle(catalogue[catalogue.indexOf(article.dataset.slug!) + 1]!);
+    else if (t.closest('.dp-all')) {
+      setDetail(false);
+      setTimeout(() => stepTo(library.featured.length), ctx.still ? 0 : 320);
+    }
   });
   $('prev').addEventListener('click', () => reader.previous());
   $('next').addEventListener('click', () => reader.next());
@@ -405,13 +447,14 @@ async function boot(): Promise<void> {
     effects.hologram(on);
     effects.radio(on);
   };
-  for (const [id, fn] of [['row-ebook', effects.hologram], ['row-audio', both]] as const) {
-    const row = $(id);
-    row.addEventListener('pointerenter', () => fn(true));
-    row.addEventListener('pointerleave', () => fn(false));
-    row.addEventListener('focus', () => fn(true));
-    row.addEventListener('blur', () => fn(false));
-  }
+  const effectOf = (t: EventTarget | null): ((on: boolean) => void) | null =>
+    t instanceof Element ? (t.closest('.row-ebook') ? effects.hologram : t.closest('.row-audio') ? both : null) : null;
+  for (const [type, on] of [['pointerover', true], ['pointerout', false], ['focusin', true], ['focusout', false]] as const)
+    $('detail').addEventListener(type, (e) => {
+      const fn = effectOf(e.target);
+      // Moving within one row is not leaving it.
+      if (fn && effectOf((e as PointerEvent | FocusEvent).relatedTarget) !== fn) fn(on);
+    });
 
   // ---------------------------------------------------------------- leafing with a key held down
   // Measured: the first repeat comes after 300 ms, and over a hold of 3 s the pause shrinks to 50 ms.
@@ -615,9 +658,9 @@ async function boot(): Promise<void> {
     // The sections of the details of the open book, as the details name them.
     bookSections: () =>
       detailOpen
-        ? [...document.querySelectorAll<HTMLElement>('#detail .d-sec')].map((sec) => ({
-            word: sec.querySelector('.label')?.textContent ?? '',
-            run: () => sec.scrollIntoView({ block: 'start', behavior: ctx.still ? 'auto' : 'smooth' }),
+        ? [...(articles[stage]?.querySelectorAll<HTMLElement>('[data-section]') ?? [])].map((sec) => ({
+            word: sec.dataset.section!,
+            run: () => glideTo(sec.getBoundingClientRect().top + scrollY - (parseFloat(getComputedStyle(html).getPropertyValue('--nav')) || 162), 700),
           }))
         : [],
     links: [
@@ -628,8 +671,8 @@ async function boot(): Promise<void> {
     // Measured: a press on a book brings it to the centre and then opens its details.
     onBook: (slug) => {
       if (reader.isOpen) setReading(false);
-      if (detailOpen) bring(slug);
-      else bring(slug, () => setDetail(true));
+      if (detailOpen) toArticle(slug);
+      else bring(slug, () => setDetail(true, slug));
     },
     // Not over the reader's own bar.
     blockedFrom: () => {
@@ -647,9 +690,7 @@ async function boot(): Promise<void> {
   });
   ctx.events.on('book-focus', () => {
     applyTheme();
-    // The details follow the choice in the row.
-    if (detailOpen) setDetail(true);
-    else sync();
+    sync();
   });
 
   // ---------------------------------------------------------------- per frame
@@ -668,12 +709,58 @@ async function boot(): Promise<void> {
     if (Math.abs(shift - before) > 1e-4 || shiftClock < 1) ctx.invalidate();
     html.style.setProperty('--shift', `${offset().x}px`);
 
+    // The details as a page: the book of the part whose top has come into the window is the one on the stage. Its
+    // picture and the book stay at the top of the window while its column scrolls past, and go up with the page
+    // when its part ends. Measured: the next picture comes up with the page from below and stays at the top.
+    const nav = parseFloat(getComputedStyle(html).getPropertyValue('--nav')) || 162;
+    const windowH = pictures.clientHeight;
+    const heroAt = (a: HTMLElement): { top: number; bottom: number } => {
+      const hero = a.firstElementChild as HTMLElement;
+      const top = a.offsetTop - scrollY;
+      return { top, bottom: top + hero.offsetHeight };
+    };
+    /** Where the picture of a part stands, measured from the top of the window of pictures. */
+    const cardAt = (a: HTMLElement): number => {
+      const h = heroAt(a);
+      return ctx.compact ? h.top : Math.min(Math.max(h.top, 0), h.bottom - 24 - nav - windowH);
+    };
+    if (detailPage) {
+      let k = 0;
+      for (const [j, a] of articles.entries()) if (a.offsetTop - scrollY < innerHeight) k = j;
+      if (k !== stage) {
+        stage = k;
+        const slug = catalogue[k]!;
+        detailY = slotY(slug);
+        if (library.featured.indexOf(slug) < 0) shelf.row?.select(slug);
+        markStage();
+        refreshMenu();
+      }
+      const before = attach;
+      attach = cardAt(articles[stage]!);
+      if (attach !== before) ctx.invalidate();
+    }
+
     // The pictures ride on the same progress as the books, a card's height and the gap below it apart.
     // Measured: the art inside a card moves at 0.3 of the card's pace (it is shifted back by 0.7 of the card's
     // offset), and it is drawn up to 6.3 percent larger as the card leaves the middle, eased over 40 ms.
     const p = shelf.state.progress;
     const pitch = pictures.clientHeight + 24;
     for (const [k, c] of cards.entries()) {
+      if (detailPage) {
+        // In the details each picture belongs to its book's part of the page.
+        const y = cardAt(articles[catalogue.indexOf(featured[k]!.slug)]!);
+        const show = y > -windowH - 40 && y < innerHeight;
+        if (show !== c.shown) {
+          c.el.style.visibility = show ? '' : 'hidden';
+          c.shown = show;
+        }
+        if (show) {
+          c.zoom = 1;
+          c.el.style.transform = `translate3d(0,${y.toFixed(1)}px,0)`;
+          c.art.style.transform = `translate3d(0,${(-0.7 * Math.min(0, y)).toFixed(1)}px,0)`;
+        }
+        continue;
+      }
       const away = k - p;
       const show = Math.abs(away) < 1.2;
       if (show !== c.shown) {
@@ -700,9 +787,12 @@ async function boot(): Promise<void> {
     rowLift = ctx.still ? liftGoal : rowLift + (liftGoal - rowLift) * (1 - Math.exp(-f.dt / 0.066));
     if (Math.abs(rowLift - liftGoal) < 0.05) rowLift = liftGoal;
     if (rowLift !== rowLiftBefore) ctx.invalidate();
-    const past = pastRow();
+    const past = detailPage ? -1 : pastRow();
     const fade = Math.max(0, Math.min(1, (past - 0.2) / 0.3));
-    const stripOpacity = String(Math.max(0, 1 - 2 * fade));
+    // In the details the title row shows while a picture stands at the top of the window.
+    // On a phone it gives way to the details altogether (measured).
+    const held = !detailPage || (!ctx.compact && Math.abs(attach) < 1);
+    const stripOpacity = String(held ? Math.max(0, 1 - 2 * fade) : 0);
     if (marquee.style.opacity !== stripOpacity) marquee.style.opacity = stripOpacity;
     const inFoot = past > 0.24 && !detailOpen && !reader.isOpen;
     if (inFoot !== html.hasAttribute('data-foot')) {
@@ -713,7 +803,7 @@ async function boot(): Promise<void> {
     const darkTop = band.top <= 44 && band.bottom > 44;
     if (darkTop !== html.hasAttribute('data-dark-top')) html.toggleAttribute('data-dark-top', darkTop);
     // The section label names the section that has passed 40 px below the top of the window.
-    const label = $('foot').getBoundingClientRect().top <= 40 ? 'Footer' : band.top <= 40 ? 'How to use it' : Math.round(p) >= library.featured.length ? 'All books' : 'Featured';
+    const label = detailPage ? (library.featured.includes(current().slug) ? 'Featured' : 'All books') : $('foot').getBoundingClientRect().top <= 40 ? 'Footer' : band.top <= 40 ? 'How to use it' : Math.round(p) >= library.featured.length ? 'All books' : 'Featured';
     if (sectionLabel.textContent !== label) sectionLabel.textContent = label;
   });
 

@@ -104,7 +104,8 @@ try {
     const r = (id) => document.getElementById(id).getBoundingClientRect();
     const cs = (el) => getComputedStyle(el);
     const bar = document.querySelector('.bar-actions');
-    return { column: r('detail').left, picture: r('pictures').right, back: { left: r('home-link').left, top: r('home-link').top, opacity: +cs(document.getElementById('home-link')).opacity }, clip: cs(document.getElementById('marquee')).clipPath, bar: cs(bar).visibility, hidden: document.getElementById('detail').hidden, w: innerWidth };
+    const col = document.querySelector('.dp-book.is-current .dp-col');
+    return { column: col ? col.getBoundingClientRect().left : -1, picture: r('pictures').right, back: { left: r('home-link').left, top: r('home-link').top, opacity: +cs(document.getElementById('home-link')).opacity }, clip: cs(document.getElementById('marquee')).clipPath, bar: cs(bar).visibility, hidden: document.getElementById('detail').hidden, w: innerWidth };
   });
   await page.waitForTimeout(1800);
   {
@@ -118,24 +119,49 @@ try {
     await page.click('#row-read');
     await run(3.4);
     await page.waitForTimeout(1200);
-    const r = await page.evaluate(() => ({ view: document.documentElement.dataset.caseboundView, aside: document.documentElement.hasAttribute('data-aside'), column: getComputedStyle(document.getElementById('detail')).display, picture: document.getElementById('pictures').getBoundingClientRect().right }));
+    const r = await page.evaluate(() => ({ view: document.documentElement.dataset.caseboundView, aside: document.documentElement.hasAttribute('data-aside'), column: getComputedStyle(document.getElementById('detail')).visibility, picture: document.getElementById('pictures').getBoundingClientRect().right }));
     await page.keyboard.press('Escape');
     await run(2.6);
     await page.waitForTimeout(1600);
     const b = await around();
     const back = (await state()).view;
-    const ok = /\/page\//.test(r.view) && !r.aside && r.column === 'none' && Math.abs(r.picture - (b.w - 16)) < 1 && /^\/book\/[^/]+$/.test(back) && Math.abs(b.column - (0.6 * b.w + 24)) < 1;
+    const ok = /\/page\//.test(r.view) && !r.aside && r.column === 'hidden' && Math.abs(r.picture - (b.w - 16)) < 1 && /^\/book\/[^/]+$/.test(back) && Math.abs(b.column - (0.6 * b.w + 24)) < 1;
     if (!ok) failed++;
     console.log(`${ok ? 'ok  ' : 'FAIL'} a book opened from the details has the whole picture (to ${r.picture.toFixed(0)} px, column ${r.column}); Escape brings the details back (${back})`);
   }
   {
     // Sections with a rule each, a colophon, and a way on to the next book that keeps the details open.
-    const d = await page.evaluate(() => ({ sections: [...document.querySelectorAll('#detail .d-sec')].filter((s) => parseFloat(getComputedStyle(s).borderTopWidth) >= 1).length, facts: document.querySelectorAll('#detail-facts li').length, next: document.getElementById('detail-next').getAttribute('aria-label') }));
-    const ok = d.sections >= 3 && d.facts >= 4 && /^Next book: /.test(d.next);
+    const d = await page.evaluate(() => ({ books: document.querySelectorAll('#detail .dp-book').length, all: casebound.engine.books.length, sections: [...document.querySelectorAll('#detail .dp-book.is-current .d-sec')].filter((s) => parseFloat(getComputedStyle(s).borderTopWidth) >= 1).map((s) => s.dataset.section), facts: document.querySelectorAll('#detail .dp-book.is-current .facts li').length, next: document.getElementById('detail-next').getAttribute('aria-label') }));
+    let ok = d.books === d.all && d.sections.length >= 4 && d.sections.includes('Excerpt') && d.facts >= 4 && /^Next book: /.test(d.next);
     if (!ok) failed++;
-    console.log(`${ok ? 'ok  ' : 'FAIL'} the details hold ${d.sections} ruled sections, ${d.facts} lines of colophon and "${d.next}"`);
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the details are one page of ${d.books} books; this one holds ${d.sections.join(', ')}, ${d.facts} lines of colophon and "${d.next}"`);
+    // As one page: the picture and the book stay at the top while the column scrolls past, go up with the page
+    // when the book's part ends, and the next book comes up from below with its picture.
+    const part = () => page.evaluate(() => {
+      const a = document.querySelector('.dp-book.is-current');
+      const cards = [...document.querySelectorAll('#pictures .card')].map((c) => ({ y: new DOMMatrix(c.style.transform).f, shown: getComputedStyle(c).visibility !== 'hidden' }));
+      const { ctx } = casebound.engine;
+      const v = casebound.engine.books[casebound.engine.state.active].root.position.clone().project(ctx.camera);
+      return { slug: a.dataset.slug, top: a.offsetTop, hero: a.firstElementChild.offsetHeight, sy: scrollY, card: cards[casebound.library.featured.indexOf(a.dataset.slug)], bookY: (0.5 - v.y * 0.5) * innerHeight, strip: +(document.getElementById('marquee').style.opacity || 1), view: document.documentElement.dataset.caseboundView };
+    });
+    const p0 = await part();
+    await page.evaluate((y) => scrollTo(0, y), p0.top + 150);
+    await run(1.5);
+    const p1 = await part();
+    await page.evaluate((y) => scrollTo(0, y), p0.top + p0.hero - 900 + 450);
+    await run(1.5);
+    const p2 = await part();
+    const nextTop = await page.evaluate(() => document.querySelectorAll('#detail .dp-book')[1].offsetTop);
+    await page.evaluate((y) => scrollTo(0, y), nextTop + 60);
+    await run(2.5);
+    const p3 = await part();
+    ok = Math.abs(p1.card.y) < 1 && Math.abs(p1.bookY - p0.bookY) < 2 && p1.strip === 1 && p2.card.y < -300 && p0.bookY - p2.bookY > 300 && p2.strip === 0 && p3.slug !== p0.slug && p3.view === `/book/${p3.slug}` && Math.abs(p3.card.y) < 1 && p3.strip === 1;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} as one page: 150 px down the picture holds (${p1.card.y.toFixed(1)}), past its part it has gone up ${(-p2.card.y).toFixed(0)} px with the book, and the next book, ${p3.slug}, stands at the top`);
+    await page.evaluate((y) => scrollTo(0, y), p0.top);
+    await run(2.5);
     const before = (await state()).view;
-    await page.click('#detail-next');
+    await page.click('#detail-next', { force: true });
     await page.waitForTimeout(1600);
     await run(2);
     const after = await state();
