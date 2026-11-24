@@ -39,6 +39,7 @@ A value set this way lasts until reload. To keep it, change the default in the f
 | `reader` | Pause before opening, cover and page times, height of the open book, scale, pitch, how the weight of the book follows the pointer (`push`, `pushEdge`, `pushRate`, `pushSwap`; `push` 0 keeps the book still), how fast the case follows a turning leaf (`readingFollow`), and the page drag (`dragWidth`, `dragFollow`, `tapPx`) | `src/engine/reader/reader.ts` |
 | `reader.leaf` | Page turn physics: push, damping, landing brake, launch speed | `src/engine/reader/leaf-physics.ts` |
 | `reader.curl` | Corner curl: strength under the pointer, in the hand and in the air, the fold line, the rates, and the flop of a held leaf. `amount` 0 turns the curl off, `hover` 0 mounts no sheet under the pointer, `flop` 0 turns the flop off | `src/engine/reader/curl.ts` |
+| `reader.bundle` | A bundle of leaves turned as one block: the fewest leaves that count as one (`min`), the wait after letting go, the length of the turn and what every doubling of the leaves adds, the lift off the stack and its twist, the bow in the air | `src/engine/reader/bundle.ts` |
 | `reader.riffle` | Opening riffle: live leaves per side, when and how fast they settle and go limp, how far they fan out. `leaves` 0 turns it off | `src/engine/reader/riffle.ts` |
 | `effect.magnifier` | Magnification, radius, edge, barrel bend, rim, follow speed | `src/engine/effects/magnifier.ts` |
 | `effect.surface` | Waits and fade rates of hologram and radio | `src/engine/effects/surface-effects.ts` |

@@ -15,7 +15,7 @@ Two checks run the site in a real browser and act on it with the pointer and the
 
 ```sh
 npm run build && npx vite preview --port 5185 &
-node tools/capture/check-reader.mjs http://127.0.0.1:5185   # keys, a page pulled over, one let go, taps, a leaf caught in the air
+node tools/capture/check-reader.mjs http://127.0.0.1:5185   # keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves
 node tools/capture/check-shelf.mjs http://127.0.0.1:5185    # a book turned by hand, its coasting, a press that opens the details
 ```
 

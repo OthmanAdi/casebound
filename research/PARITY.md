@@ -47,6 +47,33 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Paper | brightness and colour of the pages | the reference prints titles on different paper: white (matched earlier, blue about 8 of 255 short) and cream, 188, 181, 160 lit. A book can now name its paper | open: the cream is ours, not sampled |
 | Row of spines | 17 differences found against a capture, 14 corrected | cover turn of the arriving book 20.8, 59.5, 79.5 degrees against 21.3, 57.8, 77.9; slide 31, 171, 480, 888 ms against 32, 172, 481, 887; covers span 165 to 760 px against 167 to 758; a far press glides in 0.4 s | close: the three later corrections were built to the measured numbers and not captured again |
 
+## 2026-11-24 · Eighth pass: the bundle of leaves
+
+The seventh pass left one feature unbuilt: on the reference a press on the edge of a page stack turns many leaves as one block. It is built now.
+
+The rule, read in the reference's code: a press on the fore-edge face of a page block picks the leaf at that depth. With two or more leaves from there to the top of the stack, they go as one block when the press is let go. The block waits 120 ms, then turns on a cosine ease over 700 ms plus 45 ms for every doubling of its leaves, 1.1 s at most. It lifts 7 degrees off its stack, built up over 150 ms. The capture of the seventh pass agrees with what it shows: nothing follows the hand, and 50 ms after letting go a block rises at its lower corner and turns.
+
+Ours: a third page block between the two stacks. Lying on either stack, each of its layers has the shape that stack has at the same height, so the block leaves and joins a stack without a seam. It shows a printed page on both faces and the stack under it shows the page that comes into view. The case rolls with it as it does with a single leaf.
+
+| Check | Result |
+| --- | --- |
+| A press on the fore-edge takes no leaf into the hand | passes |
+| Presses 5 px apart across the edge of a stack of 90 leaves | 2, 10 and 18 leaves, and up to 85 at the board |
+| Twelve leaves by `reader.turnLeaves(12)`: block in the air, printed on both faces, the page count at its goal | passes |
+| No single page turns while a block is in the air | passes |
+| The block lands and is part of its stack, nothing unprinted | passes |
+
+Differences that remain:
+
+| # | Difference | Reference | Ours |
+| --- | --- | --- | --- |
+| 1 | Leaves taken at a place on the edge | read off a table of leaf positions along the edge | in proportion to the depth of the press |
+| 2 | Lift at the landing | 2 degrees are left when the block lands and go in one frame | fades to nothing over the last fifth of the turn |
+| 3 | A block followed by a gesture | a second path with a lift of 16 degrees, 26 with a twist, that follows the hand | not built: every block turns on the clock |
+| 4 | Twist of the lift | seen in the capture as a lower corner that rises first; its amount was not measured | the foot leads the lift by 0.6 of it and the head trails by as much |
+
+Not verified: the turn of ours was not laid beside a capture frame by frame, so the timing rests on the constants read in the code. Mouse only. The number of leaves the reference takes at a given place was seen with four presses and not measured.
+
 ## 2026-11-24 · Seventh pass: the hand
 
 Three things a hand does were built from constants read in the reference's code and had never been set beside a capture: a page pulled across the book, the corner that lifts under the pointer, and a closed book turned on the shelf. A second session captured both sides with the same scripted pointer: a full pull, a half pull, a pull brought back, taps, a press on a leaf in the air, the pointer resting low and high on a page, a slow pull by the corner, a quick and a slow turn of the closed book and a turn that leaves it tilted.
@@ -56,7 +83,7 @@ What already agreed: the angle of a held leaf frame for frame, the choice betwee
 | # | Difference | Reference | Ours before | Now |
 | --- | --- | --- | --- | --- |
 | 1 | A turned leaf kept sinking onto its stack | down 951 ms after a tap | 2781 ms | 978 ms |
-| 2 | The outer fifth of a page takes a bundle of leaves | a press at 0.85 of the page width turns 7 to 10 leaves as a block, a tap 23 | always one leaf | open: a feature ours does not have |
+| 2 | The outer fifth of a page takes a bundle of leaves | a press at 0.85 of the page width turns 7 to 10 leaves as a block, a tap 23 | always one leaf | built in the eighth pass: a press on the fore-edge turns 2 to 85 leaves of a stack of 90 |
 | 3 | A leaf let go by hand is thrown on | 10 and 50 % at 61 and 204 ms | 110 and 341 ms | 46 and 189 ms |
 | 4 | Trailing cover of a turned book | lifts 14.5 to 15.0 degrees at 3 rad/s | 4.5 to 4.7 degrees | 15.1 to 15.6 degrees |
 | 5 | A press held still on a leaf in the air | slows it for 200 ms, then it goes on and the page turns | stops it | open |
