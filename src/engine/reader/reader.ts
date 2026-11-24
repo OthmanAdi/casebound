@@ -875,7 +875,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       if (brake) return;
       if (opening && ev.pointerType === 'mouse') {
         const over = !blocked && halfAt(ev.clientX, ev.clientY) !== 0;
-        document.documentElement.style.cursor = over ? 'grab' : '';
+        // Over a block that stands lifted the cursor says that a click sends it.
+        document.documentElement.style.cursor = lifted() ? 'pointer' : over ? 'grab' : '';
       }
       return;
     }
