@@ -166,7 +166,7 @@ async function boot(): Promise<void> {
     out.push(book.cover.foil && book.cover.foil !== 'none' ? 'Title stamped in foil' : 'Title printed in ink');
     out.push(book.paper ? 'Printed on cream paper' : 'Printed on white paper');
     if (book.source) out.push(`Text from ${book.source.name}${book.source.note ? `, ${book.source.note.replace(/\.$/, '').toLowerCase()}` : ''}`);
-    return out.map((fact) => `– ${fact}`);
+    return out;
   };
 
   // ---------------------------------------------------------------- views
