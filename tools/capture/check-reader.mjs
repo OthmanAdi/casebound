@@ -1,5 +1,5 @@
-// Checks the reader in a real browser: keys, a page pulled over by hand, a page let go, taps, and a leaf
-// sent back while it is still in the air. The engine's clock is driven by hand, so the result does not
+// Checks the reader in a real browser: keys, a page pulled over by hand, a page let go, taps, a leaf
+// sent back while it is still in the air, and a bundle of leaves turned as one block. The engine's clock is driven by hand, so the result does not
 // depend on the machine's speed.
 //
 //   node tools/capture/check-reader.mjs <base url>
@@ -153,6 +153,51 @@ try {
   await page.mouse.move(c.x, 30);
   await run(12);
   await expect('and back, with the pointer away', { page: first, lying: 0, inAir: (n) => n <= 1 });
+
+  // A bundle of leaves: several turned as one block, by a call and by a press on the fore-edge of a stack.
+  const block = () => page.evaluate(() => {
+    const book = casebound.reader.book;
+    const bare = (m) => !m.map || !m.map.image || m.map.image.width < 200;
+    return { there: book.volume.chunkBlock.visible, bare: [book.pageMaterials.bundleTop, book.pageMaterials.bundleUnder].filter(bare).length };
+  });
+  const say = (ok, text) => {
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${text}`);
+  };
+  await run(4);
+  await page.evaluate(() => casebound.reader.turnLeaves(12));
+  await run(0.5);
+  const flying = await block();
+  say(flying.there && flying.bare === 0, `twelve leaves turn as one block, printed on both faces: block ${flying.there ? 'in the air' : 'missing'}, bare faces ${flying.bare}`);
+  await expect('and count where they are going, with no single leaf in the air', { page: first + 24, inAir: 0 });
+  say((await page.evaluate(() => casebound.reader.next())) === false, 'no single page turns while the block is in the air');
+  await run(2);
+  say(!(await block()).there && (await unprinted()) === 0, 'the block has landed and is part of its stack');
+  await expect('twelve leaves on', { page: first + 24, inAir: 0 });
+  await page.evaluate(() => casebound.reader.turnLeaves(-12));
+  await run(3);
+  await expect('and twelve back', { page: first, inAir: 0 });
+  // The fore-edge of the right stack lies beyond the page. A press there takes more leaves the deeper it falls.
+  const taken = [];
+  for (let x = right[0]; x < right[0] + 420 && taken.length < 3; x += 5) {
+    await page.mouse.move(x, right[1]);
+    await run(0.1);
+    await page.mouse.down();
+    await run(0.05);
+    const held = await page.evaluate(() => ({ page: casebound.reader.page, grabbing: document.documentElement.style.cursor === 'grabbing' }));
+    await page.mouse.up();
+    await run(3);
+    const got = (await state()).page - first;
+    if (got > 2) taken.push(got / 2);
+    if (got > 2 && taken.length === 1) say(held.page === first && !held.grabbing, 'a press on the fore-edge takes no leaf into the hand');
+    await page.evaluate((p) => casebound.reader.goTo(p), first);
+    await page.mouse.move(c.x, 30);
+    await run(1);
+  }
+  say(taken.length === 3 && taken[0] >= 2 && taken[1] >= taken[0] && taken[2] > taken[0], `a press on the fore-edge turns a block of leaves, more the deeper it falls: ${taken.join(', ') || 'none'}`);
+  await page.mouse.move(c.x, 30);
+  await run(2);
+  await expect('back at the start', { page: first, inAir: 0, lying: 0 });
 
   await page.keyboard.press('Escape');
   await run(3);
