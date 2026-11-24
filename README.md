@@ -37,6 +37,8 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | `Space`, or **Open book** | The cover swings open, then the pages before your place turn over in one wad |
 | `→` and `←`, or a tap on a page | A leaf turns |
 | `Shift` with `→` or `←`, `Page Down` and `Page Up`, or `[ » ]` and `[ « ]` in the bar | Ten leaves turn as one block |
+| `j` and `k` | Forty leaves on and back as one block. `<` and `>` turn one leaf, `x` closes the book |
+| The page numbers in the bar | Copy a link to the two pages on show. A book opens again where you stopped reading |
 | Rest the pointer on a page | The corner under it lifts |
 | Drag a page | The leaf follows your hand and its corner rolls over. Let go to turn it, or bring it back and it falls |
 | `h`, or one of the two pens in the bar | A highlighter stands on the pointer. Press and pull to mark a line. Marks stay on their page, in the book, for the next visit. `Ctrl` + `Z` takes the last one away |
