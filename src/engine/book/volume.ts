@@ -210,6 +210,7 @@ export class Volume {
   private readonly nz = new Float32Array(COLS);
   private readonly cs = new Float32Array(COLS);
   private readonly layer = new Float32Array((BLOCK_K + 1) * (BLOCK_S + 1) * PROFILE_STRIDE);
+  private readonly scratch = new Float32Array((BLOCK_S + 1) * PROFILE_STRIDE);
   /** The layers of a bundle at the head of the page. `layer` holds them at the foot. */
   private readonly layerHead = new Float32Array((BLOCK_K + 1) * (BLOCK_S + 1) * PROFILE_STRIDE);
 
@@ -382,6 +383,17 @@ export class Volume {
   /** Shape of layer k (0 = on the board, 1 = top of the stack) of one page block. */
   layerShape(which: 0 | 1, k: number, pose: VolumePose = this.pose): LeafShape {
     return this.shapeAt(which === 0, k * this.stackThickness(which, pose), pose);
+  }
+
+  /**
+   * Where the free edge of a leaf is that lies `h` above a board, front (0) or back (1), in the frame of `group`.
+   * Run over the height of a stack it traces that stack's fore-edge as it lies, whether or not a bundle has been
+   * lifted off it.
+   */
+  edgeAt(which: 0 | 1, h: number, pose: VolumePose = this.pose): { x: number; z: number } {
+    sampleLeaf(this.shapeAt(which === 0, h, pose), BLOCK_S, this.scratch);
+    const o = BLOCK_S * PROFILE_STRIDE;
+    return { x: this.scratch[o]!, z: this.scratch[o + 1]! };
   }
 
   /** Shape of a leaf that lies `h` above a board, on the front (left) or the back one. */

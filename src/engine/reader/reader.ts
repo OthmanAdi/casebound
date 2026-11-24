@@ -2,14 +2,12 @@
  * The reader: opens a book from the shelf, lays it open toward the camera, turns its leaves and closes it again.
  * SPEC section 9.
  */
-import { Euler, Quaternion, Raycaster, Vector2, Vector3, type Texture } from 'three';
+import { Euler, Quaternion, Vector3, type Texture } from 'three';
 import type { Book } from '../book/book';
-import { LEAF_THICKNESS } from '../book/dims';
-import { EDGE_TEXTURE_LEAVES } from '../book/volume';
 import type { Engine } from '../index';
 import { DEG, approach, clamp, easeOutCubic, lerp, powerSigmoid } from '../core/math';
 import { tunable } from '../core/tune';
-import { BUNDLE_DEFAULT, bundleCount, bundleLift, bundleTurn } from './bundle';
+import { BUNDLE_DEFAULT, bundleCount, bundleLift, bundleShown, bundleTurn, releaseLift, stepRelease } from './bundle';
 import { CURL_DEFAULT, curlFlat, resetCurl, resetFlop, stepCurl, stepFlop } from './curl';
 import { Leaf } from './leaf';
 import { BRAKE_HOLD, LEAF_DEFAULT, braked, sendLeaf, sheetTurn, stepLeaf, throwLeaf, windOf } from './leaf-physics';
@@ -153,7 +151,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     label: 'Bundle of leaves',
     kind: 'animation',
     tags: ['animation', 'paper', 'interaction'],
-    describe: 'A press on the fore-edge of a page stack takes every leaf from the top down to that place. Let go, they lift off the stack and turn over as one block. Not shown under reduced motion.',
+    describe: 'The fore-edge of a page stack takes every leaf from the top down to the place under the pointer. Under a resting pointer they lift off the stack as one block; a press let go, or a flick, turns them over. `reader.turnLeaves` turns a block on a clock. Not shown under reduced motion.',
     source: 'src/engine/reader/bundle.ts',
     params: {
       min: { value: BUNDLE_DEFAULT.min, min: 2, max: 50, step: 1, help: 'Fewest leaves that turn as a block. Measured: 2' },
@@ -166,6 +164,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       liftFade: { value: BUNDLE_DEFAULT.liftFade, min: 0, max: 0.99, help: 'Share of the turn from which the lift goes again' },
       twist: { value: BUNDLE_DEFAULT.twist, min: 0, max: 1, help: 'How far the foot of the page leads the lift and the head trails it, as a share of the lift' },
       bow: { value: BUNDLE_DEFAULT.bow, min: 0, max: 1, help: 'How far the block bows against the air, as a share of the bow of a single sheet' },
+      handLift: { value: BUNDLE_DEFAULT.handLift, min: 0, max: 0.8, unit: 'rad', help: 'How far a block lifts under the pointer or in a hand. 0: nothing lifts under a resting pointer. Measured: 16 degrees' },
+      liftRate: { value: BUNDLE_DEFAULT.liftRate, min: 0.5, max: 60, unit: '1/s', help: 'How fast that lift builds up. Measured: 12' },
+      dropRate: { value: BUNDLE_DEFAULT.dropRate, min: 0.5, max: 60, unit: '1/s', help: 'How fast it goes. Measured: 10' },
+      turnRate: { value: BUNDLE_DEFAULT.turnRate, min: 0.5, max: 40, unit: '1/s', help: 'A block let go by hand covers this share of the way that is left per second. Measured: 7' },
+      turnLeast: { value: BUNDLE_DEFAULT.turnLeast, min: 0.05, max: 10, unit: '1/s', help: 'And never less than this share of the whole turn per second. Measured: 0.9' },
+      flick: { value: BUNDLE_DEFAULT.flick, min: 0.05, max: 10, help: 'Pointer speed in px per ms above which a held block is sent over at once. Measured: 0.7' },
+      leave: { value: BUNDLE_DEFAULT.leave, min: 0, max: 2, unit: 's', help: 'How long a lifted block waits for a pointer that has left its edge. Measured: 90 ms' },
     },
     onChange: () => ctx.invalidate(),
   });
@@ -211,9 +216,33 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
    * A bundle of leaves turning as one block: the leaves `lo` up to `hi`. `turn` runs from 0, lying right, to 1.
    * `spread` already counts them where they are going.
    */
-  let bundle: { lo: number; hi: number; forward: boolean; elapsed: number; turn: number; lift: number; landed: boolean } | null = null;
-  /** A press that started on the fore-edge of a stack: the side and the leaves it would take. */
-  let edgePress: { id: number; side: 1 | -1; count: number } | null = null;
+  let bundle: {
+    lo: number;
+    hi: number;
+    forward: boolean;
+    /** Turned by itself on a clock, or taken by a pointer. */
+    source: 'auto' | 'hand';
+    /** In a hand: lifted and waiting, or let go. By itself: turning. */
+    phase: 'gather' | 'release' | 'turn';
+    /** A block in a hand: how far it is on its way, 0 to 1, and where it is going: over (1) or back (0). */
+    progress: number;
+    goal: 0 | 1;
+    /** True once `spread` counts its leaves where they are going. A block that only lifts is not counted yet. */
+    counted: boolean;
+    elapsed: number;
+    turn: number;
+    /** Radians off the stack it lies on. */
+    lift: number;
+    landed: boolean;
+    /** Lifted by a resting pointer, not by a press: it sinks back when the pointer leaves its edge. */
+    hover: boolean;
+    missing: boolean;
+    lost: number;
+    /** Frames since the number of its leaves last changed. Its pages are painted once it holds still. */
+    steady: number;
+  } | null = null;
+  /** A press that started on the fore-edge of a stack. `spent` once a flick has sent the block. */
+  let edgePress: { id: number; x: number; y: number; startX: number; startY: number; time: number; speed: number; moved: number; spent: boolean } | null = null;
   let blank: Texture | null = null;
   const cache = new Map<number, Texture>();
   const pitch = { v: 0 };
@@ -270,14 +299,17 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       right = Math.max(right, leaf.index + 1);
     }
     if (bundle) {
-      // The stacks show what lies under the bundle, and the bundle its own two outer pages.
-      left = bundle.lo;
-      right = bundle.hi;
-      book.setPage('bundleTop', soon(bundle.lo * 2 + 1));
-      book.setPage('bundleUnder', soon(bundle.hi * 2));
+      // The stacks show what lies under the bundle, and the bundle its own two outer pages. None of them is
+      // painted here: a block under a moving pointer changes its leaves from frame to frame (see `queuePages`).
+      const have = (page: number): Texture => (cache.has(page) ? texture(page) : blank!);
+      book.setPage('bundleTop', have(bundle.lo * 2 + 1));
+      book.setPage('bundleUnder', have(bundle.hi * 2));
+      book.setPage('left', have(bundle.lo * 2));
+      book.setPage('right', have(bundle.hi * 2 + 1));
+    } else {
+      book.setPage('left', soon(left * 2));
+      book.setPage('right', soon(right * 2 + 1));
     }
-    book.setPage('left', soon(left * 2));
-    book.setPage('right', soon(right * 2 + 1));
     trim();
     ctx.invalidate();
   };
@@ -382,8 +414,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   };
 
   // ---------------------------------------------------------------- a bundle of leaves (SPEC S-RD-12)
-  const ray = new Raycaster();
-  const ndc = new Vector2();
+  const edgeA = new Vector3();
+  const edgeB = new Vector3();
+  /** Depths at which the fore-edge of a stack is projected to find the pointer on it. */
+  const EDGE_STEPS = 16;
+
+  /** A block in a hand that has not been sent: it only lifts, and may still sink back. */
+  const lifted = (): boolean => !!bundle && bundle.source === 'hand' && !bundle.counted;
 
   /**
    * True when a block can be taken: the pages have parted, no sheet is off its stack and the case has come to
@@ -398,48 +435,135 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     Math.abs(readingShown * book.dims.leaves - spread) < 0.5 &&
     !leaves.some((l) => l.active && (l.script || l.dragTarget !== null || Math.abs(sheetTurn(l.motion.shown / Math.PI) - l.side) > 0.002));
 
-  /**
-   * A press on the fore-edge of a page stack: the side (1 = right) and the leaves from the top of the stack down
-   * to that place. Null anywhere else, and where that is fewer than a block.
-   */
-  const pickEdge = (x: number, y: number): { side: 1 | -1; count: number } | null => {
-    if (!book || !calm()) return null;
-    const rect = ctx.canvas.getBoundingClientRect();
-    ndc.set(((x - rect.left) / Math.max(1, rect.width)) * 2 - 1, 1 - ((y - rect.top) / Math.max(1, rect.height)) * 2);
-    ray.setFromCamera(ndc, ctx.camera);
-    let best: { side: 1 | -1; count: number; distance: number } | null = null;
-    for (const side of [1, -1] as const) {
-      const which = side === 1 ? 1 : 0;
-      const mesh = side === 1 ? book.volume.rightBlock : book.volume.leftBlock;
-      if (!mesh.visible) continue;
-      // The vertices are rewritten in place whenever the book moves.
-      mesh.geometry.computeBoundingSphere();
-      const hit = ray.intersectObject(mesh, false)[0];
-      if (!hit || !hit.face || !hit.uv || (best && best.distance <= hit.distance)) continue;
-      // The page edges share one material: the fore-edge is the face that does not look up or down the page.
-      const fore = hit.face.materialIndex === 1 && Math.abs(hit.face.normal.y) < 0.5;
-      const here = side === 1 ? book.dims.leaves - spread : spread;
-      const top = book.volume.stackThickness(which) / LEAF_THICKNESS / EDGE_TEXTURE_LEAVES;
-      best = { side, count: fore && top > 0 ? bundleCount(hit.uv.x / top, here, bundleTune) : 0, distance: hit.distance };
-    }
-    return best && best.count ? { side: best.side, count: best.count } : null;
+  /** Has the pages of the block painted, one per frame: what comes into view under it first, then its face that turns up. */
+  const queuePages = (): void => {
+    if (!book || !bundle) return;
+    const { lo, hi, forward } = bundle;
+    const want = forward ? [hi * 2 + 1, hi * 2, lo * 2 + 1, lo * 2] : [lo * 2, lo * 2 + 1, hi * 2, hi * 2 + 1];
+    pending = want.filter((page) => page >= 1 && page <= book!.dims.leaves * 2 && !cache.has(page));
   };
 
-  /** Sends the top `count` leaves of a stack across as one block: 1 = off the right stack, -1 = off the left. */
+  /**
+   * The fore-edge of a page stack under a point of the window: the side (1 = right) and the leaves from the top
+   * of that stack down to the place. Null anywhere else, and where that is fewer than a block.
+   *
+   * The edge is the one the stack has as it lies. A block that is lifted counts as lying, so the place under a
+   * pointer does not move away when the block rises.
+   */
+  const pickEdge = (x: number, y: number): { side: 1 | -1; count: number } | null => {
+    if (!book || !(calm() || (lifted() && bundle!.progress === 0))) return null;
+    const v = book.volume;
+    const rect = ctx.canvas.getBoundingClientRect();
+    const up = lifted() ? bundle : null;
+    for (const side of [1, -1] as const) {
+      const which = side === 1 ? 1 : 0;
+      const own = up && (up.forward ? 1 : -1) === side ? up.hi - up.lo : 0;
+      const here = (side === 1 ? book.dims.leaves - (up ? up.hi : spread) : up ? up.lo : spread) + own;
+      if (here < 2) continue;
+      const thick = v.stackThickness(which) + (own / book.dims.leaves) * v.dims.blockT;
+      let before = 0;
+      for (let i = 0; i <= EDGE_STEPS; i++) {
+        // The edge of the leaf at this depth, from the foot of the page to its head, on the screen.
+        const e = v.edgeAt(which, (i / EDGE_STEPS) * thick);
+        v.group.localToWorld(edgeA.set(e.x, -v.dims.pageH / 2, e.z)).project(ctx.camera);
+        v.group.localToWorld(edgeB.set(e.x, v.dims.pageH / 2, e.z)).project(ctx.camera);
+        const ax = rect.left + (edgeA.x * 0.5 + 0.5) * rect.width;
+        const ay = rect.top + (0.5 - edgeA.y * 0.5) * rect.height;
+        const ux = rect.left + (edgeB.x * 0.5 + 0.5) * rect.width - ax;
+        const uy = rect.top + (0.5 - edgeB.y * 0.5) * rect.height - ay;
+        const length = Math.hypot(ux, uy) || 1;
+        const along = ((x - ax) * ux + (y - ay) * uy) / (length * length);
+        // Which side of that line the pointer is on, in pixels.
+        const off = ((x - ax) * uy - (y - ay) * ux) / length;
+        if (i > 0 && along >= -0.01 && along <= 1.01 && before !== 0 && off !== before && before > 0 !== off > 0) {
+          const depth = (i - 1 + before / (before - off)) / EDGE_STEPS;
+          const count = bundleCount(depth, here, bundleTune);
+          return count ? { side, count } : null;
+        }
+        before = off;
+      }
+    }
+    return null;
+  };
+
+  /** Lifts the top `count` leaves of a stack as a block, or changes the leaves of the block that is lifted there. */
+  const gather = (side: 1 | -1, count: number, hover: boolean): void => {
+    if (!book) return;
+    if (bundle) {
+      if (!lifted() || bundle.progress !== 0 || (bundle.forward ? 1 : -1) !== side) return;
+      // A block that was sinking back is taken up again.
+      bundle.phase = 'gather';
+      bundle.missing = false;
+      bundle.lost = 0;
+      bundle.hover = bundle.hover && hover;
+      if (count !== bundle.hi - bundle.lo) {
+        if (bundle.forward) bundle.hi = bundle.lo + count;
+        else bundle.lo = bundle.hi - count;
+        bundle.steady = 0;
+        paintSpread();
+      }
+      return;
+    }
+    if (!calm()) return;
+    // Sheets that lay on the stacks for the corner curl go: the block takes their place.
+    for (const leaf of leaves) retire(leaf);
+    hovered = null;
+    const lo = side === 1 ? spread : spread - count;
+    bundle = { lo, hi: lo + count, forward: side === 1, source: 'hand', phase: 'gather', progress: 0, goal: 0, counted: false, elapsed: 0, turn: side === 1 ? 0 : 1, lift: 0, landed: false, hover, missing: false, lost: 0, steady: 0 };
+    paintSpread();
+  };
+
+  /** Sends a lifted block over: from here on its leaves count where they are going. */
+  const send = (): void => {
+    if (!book || !bundle || !lifted()) return;
+    bundle.phase = 'release';
+    bundle.goal = 1;
+    bundle.counted = true;
+    spread = bundle.forward ? bundle.hi : bundle.lo;
+    queuePages();
+    ctx.events.emit('page-turn', { slug: book.record.slug, leaf: bundle.lo, direction: bundle.forward ? 1 : -1, leaves: bundle.hi - bundle.lo });
+    paintSpread();
+    emitView();
+  };
+
+  /** Lets a lifted block sink back onto its stack. */
+  const drop = (): void => {
+    if (!bundle || !lifted()) return;
+    bundle.phase = 'release';
+    bundle.goal = 0;
+  };
+
+  /** Takes a lifted block away at once, for a press that wants a single page. */
+  const unlift = (): void => {
+    if (!book || !lifted()) return;
+    bundle = null;
+    book.bundle = null;
+    paintSpread();
+  };
+
+  /** A mouse moved with no button down: a block lifts under it on the fore-edge of a stack, and sinks when it has left. */
+  const hoverEdge = (x: number, y: number, blocked: boolean): void => {
+    if (drag || brake || edgePress || bundleTune.handLift <= 0) return;
+    if (bundle && !(lifted() && bundle.hover)) return;
+    const at = blocked ? null : where(x, y);
+    // Measured: only the outer fifth of a page looks for the edge.
+    const hit = at && at.u > 0.8 ? pickEdge(x, y) : null;
+    if (hit && (!bundle || (bundle.forward ? 1 : -1) === hit.side)) gather(hit.side, hit.count, true);
+    else if (bundle) bundle.missing = true;
+  };
+
+  /** Sends the top `count` leaves of a stack across as one block, on a clock: 1 = off the right stack, -1 = off the left. */
   const takeBundle = (side: 1 | -1, count: number): boolean => {
     if (!book || !calm()) return false;
     const n = Math.min(Math.floor(count), side === 1 ? book.dims.leaves - spread : spread);
     if (n < 2) return n === 1 && launch(side);
-    // Sheets that lay on the stacks for the corner curl go: the block takes their place.
     for (const leaf of leaves) retire(leaf);
     hovered = null;
     const lo = side === 1 ? spread : spread - n;
     const hi = lo + n;
-    bundle = { lo, hi, forward: side === 1, elapsed: 0, turn: side === 1 ? 0 : 1, lift: 0, landed: false };
+    bundle = { lo, hi, forward: side === 1, source: 'auto', phase: 'turn', progress: 0, goal: 1, counted: true, elapsed: 0, turn: side === 1 ? 0 : 1, lift: 0, landed: false, hover: false, missing: false, lost: 0, steady: 0 };
     spread = side === 1 ? hi : lo;
-    // The page that comes into view under the block first, then the face of the block that turns up.
-    const want = side === 1 ? [hi * 2 + 1, hi * 2, lo * 2 + 1, lo * 2] : [lo * 2, lo * 2 + 1, hi * 2, hi * 2 + 1];
-    pending = want.filter((page) => page >= 1 && page <= book!.dims.leaves * 2 && !cache.has(page));
+    queuePages();
     ctx.events.emit('page-turn', { slug: book.record.slug, leaf: lo, direction: side, leaves: n });
     paintSpread();
     emitView();
@@ -680,13 +804,21 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const onDown = (ev: PointerEvent): void => {
     if (drag || brake || edgePress || ev.button !== 0 || !ev.isPrimary) return;
     if (ev.target instanceof Element && ev.target.closest(ignore)) return;
-    const edge = pickEdge(ev.clientX, ev.clientY);
-    if (edge) {
-      // Measured: a press on the fore-edge takes no leaf into the hand. The block goes when the hand lets go.
-      edgePress = { id: ev.pointerId, ...edge };
+    // A block that stands lifted under the pointer is the one that goes: what was shown is what turns. The book
+    // leans toward the pointer, so the place under a resting pointer may have left the edge by a pixel or two.
+    const up = bundle && lifted() && bundle.phase === 'gather' ? bundle : null;
+    const here = up ? where(ev.clientX, ev.clientY) : null;
+    const edge = up && here && here.u > 0.8 && here.half === (up.forward ? 1 : -1) ? { side: here.half, count: up.hi - up.lo } : pickEdge(ev.clientX, ev.clientY);
+    if (edge) gather(edge.side, edge.count, false);
+    if (edge && bundle && lifted() && bundle.phase === 'gather') {
+      // A press on the fore-edge takes no leaf into the hand. The block lifts, and goes when the hand lets go.
+      edgePress = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, startX: ev.clientX, startY: ev.clientY, time: ev.timeStamp || performance.now(), speed: 0, moved: 0, spent: false };
       ev.preventDefault();
+      ctx.invalidate();
       return;
     }
+    // A press anywhere else wants a page: a block that was lifted is down at once.
+    unlift();
     const half = halfAt(ev.clientX, ev.clientY);
     if (!half) return;
     // Catch a leaf that is in the air over this half, whichever way it was going. Otherwise lift the top one.
@@ -707,6 +839,32 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const blocked = ev.target instanceof Element && !!ev.target.closest(ignore);
     point = ev.pointerType === 'mouse' ? { x: ev.clientX, y: ev.clientY, blocked } : null;
     stirred = true;
+    if (edgePress && ev.pointerId === edgePress.id) {
+      const p = edgePress;
+      const now = ev.timeStamp || performance.now();
+      const ms = Math.max(4, now - p.time);
+      const step = Math.hypot(ev.clientX - p.x, ev.clientY - p.y);
+      p.time = now;
+      p.x = ev.clientX;
+      p.y = ev.clientY;
+      p.speed = 0.6 * p.speed + (step / ms) * 0.4;
+      p.moved = Math.max(p.moved, Math.hypot(ev.clientX - p.startX, ev.clientY - p.startY));
+      if (!p.spent && p.moved >= t.tapPx && p.speed > bundleTune.flick) {
+        // A flick sends the block without waiting for the hand to let go.
+        send();
+        p.spent = true;
+      } else if (!p.spent && p.speed < bundleTune.flick / 2 && step <= 12) {
+        // A slow hand along the edge takes more leaves, or fewer.
+        const hit = pickEdge(ev.clientX, ev.clientY);
+        if (hit) gather(hit.side, hit.count, false);
+      }
+      ctx.invalidate();
+      return;
+    }
+    if (ev.pointerType === 'mouse' && ev.buttons === 0 && opening) {
+      hoverEdge(ev.clientX, ev.clientY, blocked);
+      if (bundle) ctx.invalidate();
+    }
     if (brake && ev.pointerId === brake.id && Math.abs(ev.clientX - brake.startX) >= t.tapPx) {
       // The hand moved in time: it has the leaf.
       const { leaf, id, startX, half } = brake;
@@ -734,7 +892,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (edgePress && ev.pointerId === edgePress.id) {
       const press = edgePress;
       edgePress = null;
-      if (ev.type !== 'pointercancel') takeBundle(press.side, press.count);
+      // Read in the reference: a block in a hand always goes when the hand lets go.
+      if (!press.spent) {
+        if (ev.type === 'pointercancel') drop();
+        else send();
+      }
       ctx.invalidate();
       return;
     }
@@ -773,6 +935,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   /** The mouse left the window: nothing is under it any more. */
   const onLeave = (): void => {
     point = null;
+    if (!edgePress) drop();
     ctx.invalidate();
   };
 
@@ -980,12 +1143,36 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     // A bundle turns on a clock. Like a leaf it counts by how far it has come.
     if (bundle) {
       const n = bundle.hi - bundle.lo;
-      bundle.elapsed += f.dt;
-      const turned = ctx.still ? 1 : bundleTurn(bundle.elapsed, n, bundleTune);
+      let turned = 0;
+      if (bundle.source === 'auto') {
+        bundle.elapsed += f.dt;
+        turned = ctx.still ? 1 : bundleTurn(bundle.elapsed, n, bundleTune);
+        bundle.lift = ctx.still ? 0 : bundleLift(bundle.elapsed, turned, bundleTune) * bundleTune.lift;
+        bundle.landed = turned >= 1;
+      } else {
+        if (bundle.phase === 'gather') {
+          // Under the pointer the block lifts and waits. Its pages are painted once its leaves hold still.
+          bundle.steady += 1;
+          if (bundle.steady === 4) queuePages();
+          bundle.lift = approach(bundle.lift, bundleTune.handLift, bundleTune.liftRate, f.dt);
+          if (bundle.hover && bundle.missing && !edgePress) {
+            bundle.lost += f.dt;
+            if (bundle.lost > bundleTune.leave) drop();
+          }
+        } else {
+          bundle.progress = ctx.still ? bundle.goal : stepRelease(bundle.progress, bundle.goal, f.dt, bundleTune);
+          bundle.lift = ctx.still ? 0 : approach(bundle.lift, releaseLift(bundle.progress, bundle.goal) * bundleTune.handLift, bundleTune.dropRate, f.dt);
+          bundle.landed = bundle.goal === 1 && bundle.progress === 1 && bundle.lift < 0.01;
+        }
+        turned = bundleShown(bundle.progress);
+      }
       bundle.turn = bundle.forward ? turned : 1 - turned;
-      bundle.lift = ctx.still ? 0 : bundleLift(bundle.elapsed, turned, bundleTune);
-      bundle.landed = turned >= 1;
-      onLeft += n * (bundle.turn - (bundle.forward ? 1 : 0));
+      onLeft += n * (bundle.turn - (bundle.counted === bundle.forward ? 1 : 0));
+      if (bundle.source === 'hand' && bundle.phase === 'release' && bundle.goal === 0 && bundle.progress === 0 && bundle.lift < 0.004) {
+        // Back on its stack: it was never counted anywhere else.
+        bundle = null;
+        paintSpread();
+      }
     }
     const reading = book.dims.leaves ? clamp(onLeft / book.dims.leaves, 0, 1) : 0.5;
     readingShown = readingShown < 0 || ctx.still ? reading : readingShown + (reading - readingShown) * (1 - Math.pow(1 - t.readingFollow, frames));
@@ -1002,7 +1189,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
             under: bundle.lo / book.dims.leaves,
             share: (bundle.hi - bundle.lo) / book.dims.leaves,
             turn: bundle.turn,
-            lift: bundle.lift * bundleTune.lift,
+            lift: bundle.lift,
             twist: bundleTune.twist,
             // Like a sheet it bows back against the air, the way it came from.
             bow: -0.42 * bundleTune.bow * (bundle.forward ? 1 : -1),

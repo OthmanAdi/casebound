@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUNDLE_DEFAULT, bundleCount, bundleLift, bundleSeconds, bundleTurn } from './bundle';
+import { BUNDLE_DEFAULT, bundleCount, bundleLift, bundleRecount, bundleSeconds, bundleShown, bundleTurn, releaseLift, stepRelease } from './bundle';
 
 describe('a bundle of leaves', () => {
   it('takes longer the more leaves it holds, within its limits', () => {
@@ -49,5 +49,58 @@ describe('a bundle of leaves', () => {
     expect(bundleCount(0, 180)).toBe(180);
     expect(bundleCount(0, 1)).toBe(0);
     expect(bundleCount(0.2, 3)).toBe(3);
+  });
+});
+
+describe('a bundle let go by hand', () => {
+  const run = (goal: 0 | 1, from: number): number[] => {
+    const seen: number[] = [];
+    let p = from;
+    for (let i = 0; i < 120 && p !== goal; i++) {
+      p = stepRelease(p, goal, 1 / 60);
+      seen.push(p);
+    }
+    return seen;
+  };
+
+  it('goes over fast at first and is down in under half a second', () => {
+    const seen = run(1, 0);
+    // Half way after about a tenth of a second.
+    expect(seen[5]).toBeGreaterThan(0.45);
+    expect(seen[5]).toBeLessThan(0.56);
+    expect(seen[seen.length - 1]).toBe(1);
+    expect(seen.length).toBeGreaterThan(20);
+    expect(seen.length).toBeLessThan(30);
+    for (let i = 1; i < seen.length; i++) expect(seen[i]!).toBeGreaterThan(seen[i - 1]!);
+    // What is seen is down a little earlier: the sheet lies from nine tenths of the progress on.
+    expect(bundleShown(seen[19]!)).toBe(1);
+  });
+
+  it('sinks back the same way when it is not sent', () => {
+    const seen = run(0, 0.4);
+    expect(seen[seen.length - 1]).toBe(0);
+    expect(seen.length).toBeLessThan(30);
+  });
+
+  it('stands where its progress says, down at both ends', () => {
+    expect(bundleShown(0)).toBe(0);
+    expect(bundleShown(0.03)).toBe(0);
+    expect(bundleShown(0.465)).toBeCloseTo(0.5, 6);
+    expect(bundleShown(0.9)).toBe(1);
+    expect(bundleShown(1)).toBe(1);
+  });
+
+  it('keeps its lift until it is well over, and loses it at once on the way back', () => {
+    expect(releaseLift(0, 1)).toBe(1);
+    expect(releaseLift(0.55, 1)).toBe(1);
+    expect(releaseLift(0.75, 1)).toBeCloseTo(0.5, 6);
+    expect(releaseLift(0.95, 1)).toBeCloseTo(0, 9);
+    expect(releaseLift(0.3, 0)).toBe(0);
+  });
+
+  it('is counted again from a place on its own edge', () => {
+    expect(bundleRecount(1, 20)).toBe(1);
+    expect(bundleRecount(0.5, 20)).toBe(11);
+    expect(bundleRecount(0, 20)).toBe(20);
   });
 });
