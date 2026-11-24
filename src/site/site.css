@@ -319,8 +319,11 @@ html[data-reading] .detail { display: none; }
   html[data-aside] .marquee::after { opacity: 0; }
   html[data-aside] .section-label { opacity: 0; transform: translateX(-10px); }
   #home-link { left: var(--gutter); top: 54px; }
-  .toolbar { gap: 10px; padding: 8px 10px; white-space: nowrap; flex-wrap: wrap; justify-content: center; row-gap: 0; max-width: calc(100vw - 16px); }
-  #folio { min-width: 64px; }
+  /* One row as wide as its controls. Placed from the middle, a bar would be offered only half the screen and wrap. */
+  .toolbar { gap: 3px; padding: 8px 6px; white-space: nowrap; width: max-content; max-width: calc(100vw - 8px); flex-wrap: wrap; justify-content: center; row-gap: 0; }
+  .toolbar .pen-slot { width: 16px; }
+  .toolbar .pen-slot:first-child { margin-left: 4px; }
+  #folio { min-width: 0; padding: 0 2px; }
   .detail h2 { font-size: 32px; }
   .byline { margin-bottom: 20px; }
 }
