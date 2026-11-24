@@ -11,6 +11,7 @@ import { createEngine, type BookRecord, type Extension } from '../engine';
 import { fan } from '../../extensions/fan';
 import { easeInOutQuad } from '../engine/core/math';
 import { createMagnifier, type Magnifier } from '../engine/effects/magnifier';
+import { createMarker, type Marker } from '../engine/marker/marker';
 import { createSurfaceEffects } from '../engine/effects/surface-effects';
 import { createReader, type Reader } from '../engine/reader/reader';
 import { createShelf } from '../engine/shelf/shelf';
@@ -130,6 +131,7 @@ async function boot(): Promise<void> {
   };
   const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
   const magnifier: Magnifier = createMagnifier(engine, { centreOffsetPx: offset, onToggle: (on) => setLens(on) });
+  const marker: Marker = createMarker(engine, reader);
   const effects = createSurfaceEffects(engine);
 
   // Extensions: any file in `extensions/` with a default export. Listed in content/library.json or in `?ext=a,b`.
@@ -454,7 +456,7 @@ async function boot(): Promise<void> {
   sync();
   engine.start();
   route(entry);
-  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, effects, library } });
+  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, marker, effects, library } });
   // Tell tools the page has settled: after the intro, or at once on a deep link.
   setTimeout(() => (html.dataset.caseboundReady = 'true'), entry.startsWith('#/book/') || ctx.still ? 300 : 2100);
 }
