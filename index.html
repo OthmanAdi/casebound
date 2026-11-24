@@ -56,17 +56,28 @@
     </div>
 
     <aside class="detail" id="detail" aria-labelledby="detail-title" hidden>
-      <p class="label">Book</p>
-      <h2 id="detail-title"></h2>
-      <p class="byline" id="detail-author"></p>
-      <p class="label">About</p>
-      <p class="blurb" id="detail-blurb"></p>
-      <div class="rows">
-        <button class="row" type="button" id="row-read">Read it here <span>open</span></button>
-        <a class="row" id="row-ebook" target="_blank" rel="noopener noreferrer">E-book <span>Project Gutenberg &nearr;</span></a>
-        <a class="row" id="row-audio" target="_blank" rel="noopener noreferrer">Audiobook <span>LibriVox &nearr;</span></a>
-      </div>
-      <p class="label fineprint" id="detail-source"></p>
+      <section class="d-sec">
+        <p class="label">Book</p>
+        <h2 id="detail-title"></h2>
+        <p class="byline" id="detail-author"></p>
+      </section>
+      <section class="d-sec">
+        <p class="label">About</p>
+        <p class="blurb" id="detail-blurb"></p>
+        <div class="rows">
+          <button class="row" type="button" id="row-read">Read it here <span>open</span></button>
+          <a class="row" id="row-ebook" target="_blank" rel="noopener noreferrer">E-book <span>Project Gutenberg &nearr;</span></a>
+          <a class="row" id="row-audio" target="_blank" rel="noopener noreferrer">Audiobook <span>LibriVox &nearr;</span></a>
+        </div>
+      </section>
+      <section class="d-sec">
+        <p class="label">Colophon</p>
+        <ul class="facts" id="detail-facts"></ul>
+      </section>
+      <nav class="d-end" aria-label="More books">
+        <button class="label" type="button" id="detail-next">Next &rarr;</button>
+        <button class="label" type="button" id="detail-all">&swarr; All books</button>
+      </nav>
     </aside>
 
     <div class="grain" aria-hidden="true"></div>

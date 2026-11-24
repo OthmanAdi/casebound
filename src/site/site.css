@@ -240,8 +240,6 @@ html[data-detail] .bar-actions { transform: translateY(54px); visibility: hidden
   top: var(--nav);
   bottom: 40px;
   overflow: auto;
-  border-top: 1px solid var(--rule);
-  padding-top: 12px;
   z-index: 35;
   /* Measured: the column waits until the picture has narrowed, then comes 10 percent of the width from the right,
      fading in, in 0.6 s, quick at first. It leaves the same way in 0.3 s, slow at first. */
@@ -251,12 +249,20 @@ html[data-detail] .bar-actions { transform: translateY(54px); visibility: hidden
 @keyframes slide { from { opacity: 0; transform: translateX(10vw); } to { opacity: 1; transform: none; } }
 @keyframes leave-x { to { transform: translateX(10vw); } }
 @keyframes leave-o { to { opacity: 0; } }
+/* Measured: every section of the details opens with a full rule and its label 7 px below it, and ends 62 px above
+   the next rule. The text of a section stands 14 px in from the rule's left end; the rows run its whole width. */
+.d-sec { border-top: 1px solid var(--rule); padding-top: 7px; margin-bottom: 62px; }
+.detail .d-sec > .label { margin: 0; line-height: 16.5px; }
 .detail .label::before { content: '[ '; }
 .detail .label::after { content: ' ]'; }
-.detail h2 { font: 500 50px/1.06 var(--display); font-variation-settings: 'opsz' 72; letter-spacing: -0.025em; margin: 18px 0 8px; }
-.byline { font: 400 italic 22px/1.3 var(--display); margin: 0 0 48px; }
-.blurb { font: 400 17px/1.45 var(--display); margin: 14px 0 36px; max-width: 46ch; text-indent: 1.4em; }
+.detail h2 { font: 500 50px/1.06 var(--display); font-variation-settings: 'opsz' 72; letter-spacing: -0.025em; margin: 10px 0 0; padding-left: 14px; }
+.byline { font: 400 italic 22px/1.3 var(--display); margin: 13px 0 0; padding-left: 14px; }
+.blurb { font: 400 17px/1.45 var(--display); margin: 14px 0 32px; padding-left: 14px; max-width: calc(46ch + 14px); text-indent: 1.4em; }
 .rows { border-top: 1px dotted var(--rule); }
+.facts { list-style: none; margin: 14px 0 0; padding: 0 0 0 14px; font: 400 16px/1.65 var(--display); }
+/* Measured: the details end with two small links, on to the next book and to the whole library. */
+.d-end { display: flex; gap: 24px; padding: 0 0 24px 14px; }
+.d-end .label::before, .d-end .label::after { content: ''; }
 .row {
   display: flex;
   justify-content: space-between;
@@ -272,8 +278,6 @@ html[data-detail] .bar-actions { transform: translateY(54px); visibility: hidden
   transition: background-color 0.2s ease;
 }
 .row:hover, .row:focus-visible { background: color-mix(in srgb, var(--ink) 9%, transparent); }
-.fineprint { margin-top: 18px; opacity: 0.7; }
-.detail .fineprint::before, .detail .fineprint::after { content: ''; }
 
 .grain {
   /* Paper tooth over everything, books included, like the reference's film grain layer (SPEC S-DOM-4). Most of

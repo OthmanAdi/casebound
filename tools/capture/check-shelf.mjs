@@ -113,16 +113,35 @@ try {
     if (!ok) failed++;
     console.log(`${ok ? 'ok  ' : 'FAIL'} beside the details: picture to ${a.picture.toFixed(0)} px, column from ${a.column.toFixed(0)} px, the way back above it at ${a.back.left.toFixed(0)}, ${a.back.top.toFixed(0)}, title row cut (${a.clip}), bar buttons ${a.bar}`);
   }
+  {
+    // Sections with a rule each, a colophon, and a way on to the next book that keeps the details open.
+    const d = await page.evaluate(() => ({ sections: [...document.querySelectorAll('#detail .d-sec')].filter((s) => parseFloat(getComputedStyle(s).borderTopWidth) >= 1).length, facts: document.querySelectorAll('#detail-facts li').length, next: document.getElementById('detail-next').getAttribute('aria-label') }));
+    const ok = d.sections >= 3 && d.facts >= 4 && /^Next book: /.test(d.next);
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the details hold ${d.sections} ruled sections, ${d.facts} lines of colophon and "${d.next}"`);
+    const before = (await state()).view;
+    await page.click('#detail-next');
+    await page.waitForTimeout(1600);
+    await run(2);
+    const after = await state();
+    const moved = after.view !== before && after.view.startsWith('/book/');
+    if (!moved) failed++;
+    console.log(`${moved ? 'ok  ' : 'FAIL'} "Next" brings the next book with its details: ${before} to ${after.view}`);
+    // Back to the first book for the steps that follow.
+    await page.evaluate(() => scrollTo(0, 0));
+    await run(3);
+  }
   await page.keyboard.press('Escape');
+  const leaving = await around();
   await run(1.2);
   await check('Escape closes them', (s) => s.view === '/');
   {
-    const leaving = await around();
-    await page.waitForTimeout(600);
+    // A clock-driven page renders seldom, so the fades are given time to finish on the browser's own clock.
+    await page.waitForFunction(() => document.getElementById('detail').hidden && +getComputedStyle(document.getElementById('home-link')).opacity < 0.01, null, { timeout: 4000 }).catch(() => undefined);
     const gone = await around();
     const ok = !leaving.hidden && gone.hidden && gone.back.opacity < 0.01 && gone.bar === 'visible';
     if (!ok) failed++;
-    console.log(`${ok ? 'ok  ' : 'FAIL'} the column fades out before it goes, and the bar buttons come back`);
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the column fades out before it goes, and the way back and the bar buttons follow`);
   }
 
   // The next book comes to the centre; the turned one forgets its turn.

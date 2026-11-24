@@ -143,15 +143,30 @@ async function boot(): Promise<void> {
     strip.x = goal;
     strip.centre = centre;
   };
-  /** A press on a title brings its book: a featured one to the centre, any other into the row. */
-  const goToBook = (slug: string): void => {
-    if (reader.isOpen || detailOpen) return;
+  /** Brings a book to the front: a featured one to the centre, any other into the row. */
+  const bring = (slug: string): void => {
     const slot = library.featured.indexOf(slug);
     if (slot >= 0) stepTo(slot);
     else {
       stepTo(library.featured.length);
       shelf.row?.select(slug);
     }
+  };
+  /** A press on a title brings its book. */
+  const goToBook = (slug: string): void => {
+    if (!reader.isOpen && !detailOpen) bring(slug);
+  };
+  /** The colophon of a book, in our own words, from what its record says. */
+  const facts = (book: BookRecord): string[] => {
+    const out: string[] = [];
+    if (book.year) out.push(`First published ${book.year}`);
+    if (book.pages) out.push(`${book.pages} pages`);
+    const grain = book.cover.grain ?? 'buckram';
+    out.push(grain === 'buckram' ? 'Bound in buckram cloth' : grain === 'paper' ? 'Bound in paper over boards' : 'Bound in board');
+    out.push(book.cover.foil && book.cover.foil !== 'none' ? 'Title stamped in foil' : 'Title printed in ink');
+    out.push(book.paper ? 'Printed on cream paper' : 'Printed on white paper');
+    if (book.source) out.push(`Text from ${book.source.name}${book.source.note ? `, ${book.source.note.replace(/\.$/, '').toLowerCase()}` : ''}`);
+    return out.map((fact) => `– ${fact}`);
   };
 
   // ---------------------------------------------------------------- views
@@ -246,7 +261,9 @@ async function boot(): Promise<void> {
       ebook.setAttribute('aria-label', `E-book of ${book.title} at Project Gutenberg`);
       audio.href = `https://librivox.org/search?q=${encodeURIComponent(book.title)}&search_form=advanced`;
       audio.setAttribute('aria-label', `Audiobook of ${book.title} at LibriVox`);
-      $('detail-source').textContent = book.source ? `Text: ${book.source.name}. ${book.source.note ?? ''}` : '';
+      $('detail-facts').replaceChildren(...facts(book).map((fact) => Object.assign(document.createElement('li'), { textContent: fact })));
+      const next = bySlug.get(catalogue[(catalogue.indexOf(book.slug) + 1) % catalogue.length]!)!;
+      $('detail-next').setAttribute('aria-label', `Next book: ${next.title}`);
     }
     if (on || !d.classList.contains('leaving')) d.hidden = !on;
     html.toggleAttribute('data-detail', on);
@@ -319,6 +336,12 @@ async function boot(): Promise<void> {
   $('open').addEventListener('click', () => setReading(!reader.isOpen));
   $('details').addEventListener('click', () => setDetail(!detailOpen));
   $('row-read').addEventListener('click', () => setReading(true));
+  // Measured: the details end with a way on to the next book and a way to the whole library.
+  $('detail-next').addEventListener('click', () => bring(catalogue[(catalogue.indexOf(current().slug) + 1) % catalogue.length]!));
+  $('detail-all').addEventListener('click', () => {
+    setDetail(false);
+    stepTo(library.featured.length);
+  });
   $('prev').addEventListener('click', () => reader.previous());
   $('next').addEventListener('click', () => reader.next());
   // Many leaves as one block. The edge of a page stack does the same under the pointer, but nothing on the page
