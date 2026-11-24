@@ -128,6 +128,29 @@ const SCENES = {
     key(sec(9.8), 'ArrowRight'),
     ...glide(sec(11.4), 0, sec(0.4), [[380, 300], [700, 130]]),
   ] },
+  // The pens: take the yellow one, mark two lines, change to the pink one, mark the other page, then turn the
+  // marked page with a key. Lines of print rise a little to the right on the right-hand page, so the strokes do.
+  pen: { path: '/?midday', frames: sec(13.2), actions: [
+    { at: 1, run: (p) => p.mouse.move(1000, 520) },
+    key(sec(0.3), 'Space'),
+    key(sec(2.9), 'h'),
+    ...glide(sec(3.1), 0, sec(0.8), [[1000, 520], [792, 320]]),
+    { at: sec(4.0), run: (p) => p.mouse.down() },
+    ...glide(sec(4.1), 0, sec(1.0), [[792, 320], [1046, 305]]),
+    { at: sec(5.2), run: (p) => p.mouse.up() },
+    ...glide(sec(5.4), 0, sec(0.5), [[1046, 305], [796, 346]]),
+    { at: sec(6.0), run: (p) => p.mouse.down() },
+    ...glide(sec(6.1), 0, sec(0.7), [[796, 346], [980, 335]]),
+    { at: sec(6.9), run: (p) => p.mouse.up() },
+    { at: sec(7.3), run: (p) => p.click('#pens .pen-slot:first-child') },
+    ...glide(sec(7.5), 0, sec(0.6), [[660, 860], [424, 452]]),
+    { at: sec(8.2), run: (p) => p.mouse.down() },
+    ...glide(sec(8.3), 0, sec(1.0), [[424, 452], [660, 452]]),
+    { at: sec(9.4), run: (p) => p.mouse.up() },
+    // A quick sweep: the pen swings against its travel.
+    ...glide(sec(9.7), 0, sec(0.5), [[660, 452], [1010, 560]]),
+    key(sec(10.9), 'ArrowRight'),
+  ] },
   pointer: { path: '/?midday', frames: sec(6), actions: glide(sec(0.2), 0, sec(5.4), [[300, 300], [1100, 300], [1150, 700], [330, 720], [720, 450], [300, 300]]) },
   night: { path: '/?theme=dark', frames: sec(7), actions: [
     ...glide(sec(0.2), 0, sec(2.4), [[300, 620], [1050, 320], [700, 500]]),
