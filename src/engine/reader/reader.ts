@@ -62,6 +62,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       pageDelay: { value: 0.693, min: 0, max: 5, unit: 's', help: 'When the pages start to part, counted from the cover starting to move. Measured: the moment the cover is half way' },
       pageSeconds: { value: 0.9, min: 0.05, max: 5, unit: 's', help: 'Time for the pages to part to the reading place' },
       forward: { value: 0, min: 0, max: 60, help: 'How far the open book comes toward the camera. Measured: a featured book stays at its depth; 14 when opened from a spine row' },
+      forwardFirst: { value: 0.236, min: 0, max: 1, help: 'Share of the way forward that the book takes while it waits for its cover to move. Measured: 4.25 of 18' },
       scale: { value: 1, min: 0.3, max: 3, help: 'Scale of the open book. Measured: 1 for a featured book; 1.1 when opened from a spine row' },
       rise: { value: 0.524, min: -10, max: 10, help: 'How far above the centre of the picture the spine of the open book sits' },
       pitch: { value: 22, min: 0, max: 80, unit: 'deg', help: 'How far the open book leans back' },
@@ -789,6 +790,12 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     // Measured: position and turn follow the cover's own progress, with no second easing on top.
     const blend = cover;
     book.root.position.copy(home.position).lerp(goalPos, blend);
+    // Measured on a book opened from the row: of the way toward the camera it takes a first step while it waits
+    // for its cover (4.25 of 18 units), eased, and the rest with the cover.
+    if (t.forward > 0) {
+      const waited = opening ? (delay > 0 ? easeOutCubic(clamp(elapsed / delay, 0, 1)) : 1) : blend;
+      book.root.position.z = home.position.z + t.forward * (t.forwardFirst * waited + (1 - t.forwardFirst) * blend);
+    }
     q.setFromEuler(e.set(-(t.pitch - pitch.v) * DEG, 0, 0));
     book.root.quaternion.copy(home.quaternion).slerp(q, blend);
     book.root.scale.setScalar(lerp(home.scale, home.scale * t.scale * (opts.fit?.() ?? 1), blend));
