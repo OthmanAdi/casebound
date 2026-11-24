@@ -164,6 +164,37 @@ try {
   await page.evaluate(() => scrollTo(0, 0));
   await run(3);
   await rowCheck('back at the top the row is gone', (r) => !r.settled && r.visible < r.books);
+
+  // A jump of the scroll bar from one end of the page to the other. The books between are not skipped: each
+  // featured book on the way is seen near the centre for some frames.
+  // In the stack: at the depth of the first book at rest. A book standing in the row is further back.
+  const rest = await page.evaluate(() => casebound.engine.books[0].root.position.toArray());
+  const jump = (bottom) => page.evaluate(([bottom, rest]) => {
+    const e = casebound.engine;
+    const seen = Array.from({ length: casebound.library.featured.length }, () => 0);
+    scrollTo(0, bottom ? document.documentElement.scrollHeight : 0);
+    for (let f = 0; f < 150; f++) {
+      window.__clock += 1000 / 60;
+      e.ctx.loop.tick(window.__clock);
+      for (let i = 0; i < seen.length; i++) {
+        const p = e.books[i].root.position;
+        if (e.books[i].root.visible && Math.abs(p.y - rest[1]) < 8 && Math.abs(p.z - rest[2]) < 0.5) seen[i]++;
+      }
+    }
+    return seen;
+  }, [bottom, rest]);
+  const down = await jump(true);
+  const okDown = down.slice(1).every((n) => n >= 3);
+  if (!okDown) failed++;
+  console.log(`${okDown ? 'ok  ' : 'FAIL'} a jump to the bottom passes every book: frames at the centre of the stack ${down.join(', ')}`);
+  await run(3);
+  await rowCheck('and the row stands', (r) => r.settled && r.visible === r.books);
+  const up = await jump(false);
+  const okUp = up.slice(0, -1).every((n) => n >= 3);
+  if (!okUp) failed++;
+  console.log(`${okUp ? 'ok  ' : 'FAIL'} a jump back to the top passes every book: frames at the centre of the stack ${up.join(', ')}`);
+  await run(3);
+  await rowCheck('and the row is gone again', (r) => !r.settled && r.visible < r.books);
   for (const e of errors) { failed++; console.log('FAIL page error: ' + e); }
 } finally {
   await browser.close();
