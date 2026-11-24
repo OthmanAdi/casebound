@@ -235,11 +235,17 @@ async function boot(): Promise<void> {
   });
 
   // ---------------------------------------------------------------- controls
+  /** Leaves that a button or a key turns as one block. */
+  const BLOCK = 10;
   $('open').addEventListener('click', () => setReading(!reader.isOpen));
   $('details').addEventListener('click', () => setDetail(!detailOpen));
   $('row-read').addEventListener('click', () => setReading(true));
   $('prev').addEventListener('click', () => reader.previous());
   $('next').addEventListener('click', () => reader.next());
+  // Many leaves as one block. The edge of a page stack does the same under the pointer, but nothing on the page
+  // says so, and a finger has no pointer to rest there.
+  $('back-many').addEventListener('click', () => reader.turnLeaves(-BLOCK));
+  $('on-many').addEventListener('click', () => reader.turnLeaves(BLOCK));
   $('close').addEventListener('click', () => setReading(false));
   $('lens').addEventListener('click', () => setLens(!magnifier.on));
   $('home-link').addEventListener('click', (e) => {
@@ -363,6 +369,10 @@ async function boot(): Promise<void> {
       // In the row the arrows choose the next book.
       e.preventDefault();
       shelf.row.step(e.key === 'ArrowRight' ? 1 : -1);
+    } else if (reader.isOpen && ((e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) || e.key === 'PageDown' || e.key === 'PageUp')) {
+      // Shift with an arrow, or Page Down and Page Up: ten leaves as one block.
+      e.preventDefault();
+      if (!e.repeat) reader.turnLeaves(e.key === 'ArrowRight' || e.key === 'PageDown' ? BLOCK : -BLOCK);
     } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && reader.isOpen) {
       e.preventDefault();
       if (!e.repeat) leaf(e.key === 'ArrowRight' ? 1 : -1, e.key);

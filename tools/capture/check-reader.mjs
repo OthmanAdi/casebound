@@ -225,6 +225,18 @@ try {
     await run(1);
   }
   say(taken.length === 3 && taken[0] >= 2 && taken[1] >= taken[0] && taken[2] > taken[0], `a press on the fore-edge turns a block of leaves, more the deeper it falls: ${taken.join(', ') || 'none'}`);
+  // Shift with an arrow, and the two buttons of the toolbar, turn ten leaves as one block.
+  await page.mouse.move(c.x, 30);
+  await run(1);
+  await page.keyboard.press('Shift+ArrowRight');
+  await run(3);
+  await expect('Shift and the right arrow turn ten leaves', { page: first + 20, inAir: 0 });
+  await page.click('#back-many');
+  await run(3);
+  await expect('the button turns ten back', { page: first, inAir: 0 });
+  await page.mouse.move(c.x, 30);
+  await run(1);
+
   // Under a resting pointer the block lifts off its stack and waits. It sinks back when the pointer leaves.
   const lift = () => page.evaluate(() => { const b = casebound.reader.book.bundle; return b ? { leaves: Math.round(b.share * casebound.reader.book.dims.leaves), lift: (b.lift * 180) / Math.PI, turn: b.turn } : null; });
   await page.mouse.move(edgeX, right[1]);
