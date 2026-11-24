@@ -138,6 +138,40 @@ try {
     if (!ok) failed++;
     console.log(`${ok ? 'ok  ' : 'FAIL'} 60 px of scroll in the dwell move the picture by ${(before - after).toFixed(1)} px, as the book`);
   }
+
+  // The title row: every book, three times over; it stays put until the current book changes, then glides.
+  // Read from the place it is sent to, since its glide runs on the browser's clock, not the engine's.
+  const titleRow = () => page.evaluate(() => {
+    const cur = document.querySelector('.m-title.is-current');
+    const track = document.querySelector('.marquee-track');
+    const x = new DOMMatrix(track.style.transform).e;
+    const up = cur.querySelector('.t-up');
+    return { title: up.firstChild.textContent, x, centre: (x + new DOMMatrix(cur.style.transform).e + up.offsetWidth / 2) / innerWidth, count: document.querySelectorAll('.m-title').length, glide: getComputedStyle(track).transitionDuration, book: casebound.engine.books[casebound.engine.state.active].record.title, books: casebound.engine.books.length };
+  });
+  await page.evaluate((y) => scrollTo(0, y), slot);
+  await run(2);
+  const t0 = await titleRow();
+  {
+    const ok = t0.title === t0.book && Math.abs(t0.centre - 0.475) < 0.002 && t0.count === 3 * t0.books;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the title row holds ${t0.count} titles, the current one "${t0.title}" centred at ${(t0.centre * 100).toFixed(1)} percent of the width`);
+  }
+  await page.evaluate((y) => scrollTo(0, y), Math.round(slot * 1.45));
+  await run(2);
+  const t1 = await titleRow();
+  {
+    const ok = t1.title === t0.title && Math.abs(t1.x - t0.x) < 0.5;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} 45 percent of the way to the next book the title row has not moved: ${(t1.x - t0.x).toFixed(1)} px`);
+  }
+  await page.evaluate((y) => scrollTo(0, y), Math.round(slot * 1.8));
+  await run(2);
+  const t2 = await titleRow();
+  {
+    const ok = t2.title === t2.book && t2.title !== t0.title && t2.x < t0.x - 50 && t2.glide === '0.5s';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} past the turn of the current book the row glides to "${t2.title}" (${(t2.x - t0.x).toFixed(1)} px, in ${t2.glide})`);
+  }
   // The row: past the last featured book every book of the library stands spine to the front.
   const row = () => page.evaluate(() => {
     const { engine, shelf, reader } = casebound;
@@ -164,6 +198,12 @@ try {
   await page.keyboard.press('ArrowRight');
   await run(1.6);
   const stepped = await rowCheck('an arrow chooses the next book', (r) => r.selected !== stood.selected && r.active === r.selected);
+  {
+    const t = await titleRow();
+    const ok = t.title === t.book;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the title row follows the choice in the row: "${t.title}"`);
+  }
   await shot('row stepped');
   // A hand that pulls the row to the right brings the books on the left to the middle.
   const spineOf = (n) => page.evaluate((n) => {

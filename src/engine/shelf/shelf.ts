@@ -45,6 +45,8 @@ export interface ShelfRow {
   readonly settled: boolean;
   /** Slug of the book that shows its cover. */
   readonly selected: string;
+  /** Slugs of every book of the row, left to right. */
+  readonly order: readonly string[];
   /** Moves the choice by a number of books. False when nothing changed. */
   step(delta: number): boolean;
   select(slug: string): boolean;
@@ -251,6 +253,7 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
           get selected() {
             return engine.books[display[row.selected]!]!.record.slug;
           },
+          order: display.map((i) => engine.books[i]!.record.slug),
           step: (delta) => {
             const moved = stepChoice(row, delta, rowTune!);
             if (moved) ctx.invalidate();

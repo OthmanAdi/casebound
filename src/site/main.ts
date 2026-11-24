@@ -46,9 +46,8 @@ async function boot(): Promise<void> {
   $('panel-lens').addEventListener('click', () => setLens(!magnifier.on));
   const marquee = $('marquee');
   const track = document.createElement('div');
-  track.className = 'marquee-track';
+  track.className = 'marquee-track snap';
   marquee.append(track);
-  const titles: HTMLElement[] = [];
   for (const book of featured) {
     const panel = document.createElement('section');
     panel.className = 'panel';
@@ -63,44 +62,97 @@ async function boot(): Promise<void> {
     card.append(art);
     pictures.append(card);
     cards.push({ el: card, art, zoom: 1, shown: true });
-
-    const t = document.createElement('span');
-    t.className = 'm-title';
-    t.textContent = book.title;
-    if (book.year) {
-      const sup = document.createElement('sup');
-      sup.textContent = `(${book.year})`;
-      t.append(sup);
-    }
-    track.append(t);
-    const slot = titles.length;
-    t.addEventListener('click', () => {
-      if (!reader.isOpen && !detailOpen) stepTo(slot);
-    });
-    titles.push(t);
   }
 
-  // One more stretch and title for the row, where every book of the library stands spine to the front. Measured:
-  // the row stands on the bare page, with no picture behind it.
+  // One more stretch for the row, where every book of the library stands spine to the front. Measured: the row
+  // stands on the bare page, with no picture behind it.
   {
     const panel = document.createElement('section');
     panel.className = 'panel';
     panel.dataset.slug = '';
     panel.setAttribute('aria-label', `All ${library.books.length} books`);
     panels.append(panel);
-    const t = document.createElement('span');
-    t.className = 'm-title';
-    t.textContent = 'The whole shelf';
-    const sup = document.createElement('sup');
-    sup.textContent = `(${library.books.length})`;
-    t.append(sup);
-    track.append(t);
-    const slot = titles.length;
-    t.addEventListener('click', () => {
-      if (!reader.isOpen && !detailOpen) stepTo(slot);
-    });
-    titles.push(t);
   }
+
+  // ---------------------------------------------------------------- title row
+  // Measured: the title row holds every book of the library, the featured ones first, three times over so it never
+  // runs out on either side. The current book's title stands upright, the others in italic at 0.8 opacity. It does
+  // not slide with the scroll: when the current book changes (with the shelf's own hysteresis) the row glides to the
+  // new title in 0.5 s, ease in and out. In the row of spines it holds the books in the row's own order and follows
+  // the chosen one.
+  const bySlug = new Map(library.books.map((b) => [b.slug, b]));
+  const catalogue = [...library.featured, ...library.books.map((b) => b.slug).filter((s) => !library.featured.includes(s))];
+  type Entry = { slug: string; el: HTMLElement; up: HTMLElement; wi: number; wu: number };
+  let strip: { list: readonly string[]; entries: Entry[]; active: number; x: number; centre: number; width: number } = { list: [], entries: [], active: -1, x: NaN, centre: NaN, width: 0 };
+  const buildStrip = (list: readonly string[]): void => {
+    track.replaceChildren();
+    const entries: Entry[] = [];
+    for (let copy = 0; copy < 3; copy++)
+      for (const slug of list) {
+        const book = bySlug.get(slug)!;
+        const el = document.createElement('span');
+        el.className = 'm-title';
+        const it = document.createElement('span');
+        it.className = 't-it';
+        const up = document.createElement('span');
+        up.className = 't-up';
+        for (const face of [it, up]) {
+          face.textContent = book.title;
+          if (book.year) {
+            const sup = document.createElement('sup');
+            sup.textContent = `(${book.year})`;
+            face.append(sup);
+          }
+        }
+        el.append(it, up);
+        el.addEventListener('click', () => goToBook(slug));
+        track.append(el);
+        entries.push({ slug, el, up, wi: 0, wu: 0 });
+      }
+    strip = { list, entries, active: -1, x: NaN, centre: NaN, width: 0 };
+  };
+  /** Places the titles around the current one. `snap` skips the glide: a new list, a new window size. */
+  const layoutStrip = (slug: string, snap: boolean): void => {
+    const phone = innerWidth <= 899;
+    if (strip.width !== innerWidth) {
+      for (const e of strip.entries) {
+        e.wi = e.el.offsetWidth;
+        e.wu = e.up.offsetWidth;
+      }
+      strip.width = innerWidth;
+      snap = true;
+    }
+    const n = strip.list.length;
+    const active = n + Math.max(0, strip.list.indexOf(slug));
+    // Measured: the upright title sits with its middle at 47.5 percent of the window (27.5 percent beside the details).
+    const centre = innerWidth * (detailOpen && !phone ? 0.275 : 0.475);
+    if (active === strip.active && centre === strip.centre && !snap) return;
+    const gap = phone ? 30 : 72;
+    let at = 0;
+    let x = 0;
+    for (const [k, e] of strip.entries.entries()) {
+      if (k === active) x = at;
+      e.el.style.transform = `translate3d(${at.toFixed(1)}px,0,0)`;
+      e.el.classList.toggle('is-current', k === active);
+      at += (k === active ? e.wu : e.wi) + gap;
+    }
+    const goal = centre - x - strip.entries[active]!.wu / 2;
+    track.classList.toggle('snap', snap || ctx.still);
+    track.style.transform = `translate3d(${goal.toFixed(1)}px,0,0)`;
+    strip.active = active;
+    strip.x = goal;
+    strip.centre = centre;
+  };
+  /** A press on a title brings its book: a featured one to the centre, any other into the row. */
+  const goToBook = (slug: string): void => {
+    if (reader.isOpen || detailOpen) return;
+    const slot = library.featured.indexOf(slug);
+    if (slot >= 0) stepTo(slot);
+    else {
+      stepTo(library.featured.length);
+      shelf.row?.select(slug);
+    }
+  };
 
   // ---------------------------------------------------------------- views
   /** How far the canvas content is shifted left to make room for the detail column, 0..1. */
@@ -431,7 +483,6 @@ async function boot(): Promise<void> {
 
   // ---------------------------------------------------------------- per frame
   const sectionLabel = $('section-label');
-  let trackX = 0;
   ctx.onFrame('before-render', (f) => {
     // Measured: the book moves aside in 0.64 s, slow at both ends.
     const before = shift;
@@ -466,19 +517,12 @@ async function boot(): Promise<void> {
       c.art.style.transform = `translate3d(0,${(-0.7 * y).toFixed(1)}px,0) scale(${c.zoom.toFixed(4)})`;
     }
 
-    // Marquee: the current title sits at the centre of the picture; neighbours slide with the scroll.
-    const i = Math.max(0, Math.min(titles.length - 1, Math.floor(p)));
-    const j = Math.min(titles.length - 1, i + 1);
-    const centre = (el: HTMLElement): number => el.offsetLeft + el.offsetWidth / 2;
-    const x = centre(titles[i]!) + (centre(titles[j]!) - centre(titles[i]!)) * (p - i);
-    const goal = innerWidth / 2 + offset().x - x;
-    if (Math.abs(goal - trackX) > 0.05) {
-      trackX = goal;
-      track.style.transform = `translate3d(${trackX.toFixed(1)}px,0,0)`;
-    }
-    const active = Math.round(p);
-    for (const [k, el] of titles.entries()) el.classList.toggle('is-current', k === active);
-    const label = active >= library.featured.length ? 'All books' : 'Featured';
+    // Title row: the list of the row while the row stands, the catalogue otherwise.
+    const list = shelf.row?.settled ? shelf.row.order : catalogue;
+    const fresh = list !== strip.list;
+    if (fresh) buildStrip(list);
+    layoutStrip(current().slug, fresh);
+    const label = Math.round(p) >= library.featured.length ? 'All books' : 'Featured';
     if (sectionLabel.textContent !== label) sectionLabel.textContent = label;
   });
 
