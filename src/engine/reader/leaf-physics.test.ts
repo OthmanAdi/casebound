@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEAF_DEFAULT, createLeafMotion, sendLeaf, sheetTurn, stepLeaf, throwLeaf } from './leaf-physics';
+import { BRAKE_FULL, braked, createLeafMotion, heldTurn, LEAF_DEFAULT, sendLeaf, sheetTurn, stepLeaf, throwLeaf, windOf } from './leaf-physics';
 
 const run = (hz: number, seconds: number, side: 0 | 1 = 1, settle = 0): { progress: number[]; restedAt: number | null } => {
   const m = createLeafMotion(side === 1 ? 0 : 1);
@@ -136,5 +136,71 @@ describe('sheetTurn', () => {
 
   it('never goes back', () => {
     for (let k = 1; k <= 100; k++) expect(sheetTurn(k / 100)).toBeGreaterThanOrEqual(sheetTurn((k - 1) / 100));
+  });
+});
+
+describe('a sheet in a hand', () => {
+  it('comes off its stack late and then stands where the hand has it', () => {
+    expect(heldTurn(0)).toBe(0);
+    expect(heldTurn(0.04)).toBe(0);
+    // Measured on the reference in a held pull: 12, 25, 42 and 59 degrees.
+    expect(heldTurn(0.16) * 180).toBeGreaterThan(8);
+    expect(heldTurn(0.16) * 180).toBeLessThan(14);
+    expect(heldTurn(0.21) * 180).toBeGreaterThan(20);
+    expect(heldTurn(0.21) * 180).toBeLessThan(27);
+    expect(heldTurn(0.27) * 180).toBeGreaterThan(39);
+    expect(heldTurn(0.27) * 180).toBeLessThan(45);
+    expect(heldTurn(0.34)).toBeCloseTo(0.34, 6);
+    expect(heldTurn(0.5)).toBeCloseTo(0.5, 6);
+  });
+
+  it('comes down on the other stack the same way, mirrored', () => {
+    for (const x of [0, 0.05, 0.1, 0.2, 0.3, 0.45]) expect(heldTurn(1 - x)).toBeCloseTo(1 - heldTurn(x), 9);
+    expect(heldTurn(1)).toBe(1);
+  });
+
+  it('never goes back as the hand goes on', () => {
+    let last = 0;
+    for (let x = 0; x <= 1.0001; x += 0.005) {
+      const now = heldTurn(x);
+      expect(now).toBeGreaterThanOrEqual(last - 1e-12);
+      last = now;
+    }
+  });
+
+  it('stands straighter the slower it moves', () => {
+    expect(windOf(0)).toBe(0);
+    // A hand pulls at about half the pace of a flying leaf.
+    expect(windOf(0.03)).toBeCloseTo(0.25, 6);
+    expect(windOf(-0.03)).toBeCloseTo(0.25, 6);
+    expect(windOf(0.06)).toBe(1);
+    expect(windOf(0.08)).toBe(1);
+  });
+});
+
+describe('a press on a leaf in the air', () => {
+  it('brakes it: the push fades and it loses more speed', () => {
+    const fresh = braked(LEAF_DEFAULT, 0);
+    expect(fresh.accel).toBe(LEAF_DEFAULT.accel);
+    expect(fresh.damping).toBeCloseTo(LEAF_DEFAULT.damping + 0.035, 9);
+    const half = braked(LEAF_DEFAULT, BRAKE_FULL / 2);
+    expect(half.accel).toBeCloseTo(LEAF_DEFAULT.accel / 2, 9);
+    expect(half.damping).toBeCloseTo(LEAF_DEFAULT.damping + 0.035 + 0.2325, 9);
+    expect(braked(LEAF_DEFAULT, 9).accel).toBe(0);
+  });
+
+  it('slows the leaf without stopping it in the time the press waits', () => {
+    const run = (brake: boolean): number => {
+      const m = createLeafMotion(0);
+      sendLeaf(m, 1);
+      for (let i = 0; i < 18; i++) stepLeaf(m, 1 / 60);
+      const from = m.angle;
+      for (let i = 0; i < 12; i++) stepLeaf(m, 1 / 60, brake ? braked(LEAF_DEFAULT, i / 60) : LEAF_DEFAULT);
+      return m.angle - from;
+    };
+    const free = run(false);
+    const slowed = run(true);
+    expect(slowed).toBeGreaterThan(0.1 * free);
+    expect(slowed).toBeLessThan(0.85 * free);
   });
 });

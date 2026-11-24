@@ -107,6 +107,29 @@ export function throwLeaf(m: LeafMotion, side: 0 | 1, kick = LEAF_DEFAULT.kick):
   return true;
 }
 
+/** Speed at which the air presses on a sheet with its full weight, radians per normalised frame: the pace of a leaf in flight. */
+export const WIND_FULL = 0.06;
+
+/**
+ * How hard the air presses on a sheet that moves at `velocity`, 0 to 1. It grows with the square of the speed, so
+ * a sheet in a hand, at half the pace of a flying one, bows a quarter as far.
+ */
+export const windOf = (velocity: number): number => Math.min(1, (velocity / WIND_FULL) * (velocity / WIND_FULL));
+
+/**
+ * A press on a leaf in the air does not take it at once. Read in the reference: while the press waits to see
+ * whether the hand moves, the push toward the leaf's stack fades and it loses more speed, both over `BRAKE_FULL`
+ * seconds. After `BRAKE_HOLD` seconds without a move the leaf is let go on.
+ */
+export const BRAKE_HOLD = 0.2;
+export const BRAKE_FULL = 0.4;
+
+/** The tuning of a leaf that has been braked for `elapsed` seconds. */
+export function braked(t: LeafTuning, elapsed: number): LeafTuning {
+  const o = Math.min(Math.max(elapsed / BRAKE_FULL, 0), 1);
+  return { ...t, accel: t.accel * (1 - o), damping: Math.min(0.98, t.damping + 0.035 + 0.465 * o) };
+}
+
 /** Share of a turn at which the sheet starts to leave its stack, and the share over which it travels to the other. */
 const SHEET_FROM = 0.03;
 const SHEET_SPAN = 0.87;
@@ -119,4 +142,18 @@ const SHEET_SPAN = 0.87;
 export function sheetTurn(turn: number): number {
   const t = Math.min(Math.max((turn - SHEET_FROM) / SHEET_SPAN, 0), 1);
   return t * t * (3 - 2 * t);
+}
+
+/**
+ * Where the sheet of a leaf in a hand stands, for a drawn turn of 0..1. Measured on the reference in a held pull:
+ * the sheet comes off its stack late (12, 25, 42 and 59 degrees at a turn of 0.16, 0.21, 0.27 and 0.32) and from a
+ * third of the turn on it stands where the hand has it. The same holds, mirrored, as it comes down on the other
+ * stack.
+ */
+export function heldTurn(turn: number): number {
+  const t = Math.min(Math.max(turn, 0), 1);
+  const near = Math.min(t, 1 - t);
+  const s = Math.min(Math.max((near - 0.04) / 0.3, 0), 1);
+  const off = near * s * s * (3 - 2 * s);
+  return t <= 0.5 ? off : 1 - off;
 }

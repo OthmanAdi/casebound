@@ -12,7 +12,7 @@ import { tunable } from '../core/tune';
 import { BUNDLE_DEFAULT, bundleCount, bundleLift, bundleTurn } from './bundle';
 import { CURL_DEFAULT, curlFlat, resetCurl, resetFlop, stepCurl, stepFlop } from './curl';
 import { Leaf } from './leaf';
-import { LEAF_DEFAULT, sendLeaf, stepLeaf, throwLeaf } from './leaf-physics';
+import { BRAKE_HOLD, LEAF_DEFAULT, braked, sendLeaf, sheetTurn, stepLeaf, throwLeaf, windOf } from './leaf-physics';
 import { flowPages } from '../book/painter';
 import { paginate, type PageSource } from './pages';
 import { PUSH_DEFAULT, createPush, stepPush } from './push';
@@ -297,6 +297,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     leaf.toss = null;
     leaf.script = null;
     leaf.limp = 1;
+    leaf.wind = 1;
+    leaf.held = 0;
     leaf.mesh.visible = false;
     resetCurl(leaf.curl);
     resetFlop(leaf.flop);
@@ -334,6 +336,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     leaf.motion.velocity = 0;
     leaf.motion.target = leaf.side;
     leaf.motion.resting = false;
+    leaf.wind = 1;
+    leaf.held = 0;
     resetCurl(leaf.curl);
     leaf.setPages(texture(index * 2 + 1), texture(index * 2 + 2));
     leaf.mesh.visible = true;
@@ -381,15 +385,18 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   const ray = new Raycaster();
   const ndc = new Vector2();
 
-  /** True when a block can be taken: the pages have parted, nothing is in the air and the case has come to rest. */
+  /**
+   * True when a block can be taken: the pages have parted, no sheet is off its stack and the case has come to
+   * rest. A turned leaf whose sheet is down counts as down, although its angle creeps on for seconds.
+   */
   const calm = (): boolean =>
     !!book &&
     opening &&
     pages >= 0.985 &&
     !bundle &&
     !ctx.still &&
-    Math.abs(readingShown * book.dims.leaves - spread) < 1e-3 &&
-    !leaves.some((l) => l.active && (l.script || l.dragTarget !== null || Math.abs(l.motion.shown - l.side * Math.PI) > 0.02));
+    Math.abs(readingShown * book.dims.leaves - spread) < 0.5 &&
+    !leaves.some((l) => l.active && (l.script || l.dragTarget !== null || Math.abs(sheetTurn(l.motion.shown / Math.PI) - l.side) > 0.002));
 
   /**
    * A press on the fore-edge of a page stack: the side (1 = right) and the leaves from the top of the stack down
@@ -528,6 +535,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
 
   // ---------------------------------------------------------------- turning a page by hand (SPEC S-RD-10)
   let drag: { leaf: Leaf; id: number; startX: number; startAngle: number; remembered: 0 | 1; half: 1 | -1; travel: number; dx: number } | null = null;
+  /**
+   * A press on a leaf in the air, before it is known whether the hand moves. The leaf is braked, not held: a move
+   * of the hand catches it, and without one it is let go on (SPEC S-RD-10a).
+   */
+  let brake: { leaf: Leaf; id: number; startX: number; half: 1 | -1; elapsed: number } | null = null;
   const centre = new Vector3();
   const ignore = opts.ignore ?? 'button, a, input, select, textarea, label, aside, header, footer, nav, [role="toolbar"], [role="dialog"]';
 
@@ -635,8 +647,38 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
   /** How far a pull of `px` pixels turns the leaf, 0..1: a quick start, then in step with the hand. */
   const pull = (px: number): number => Math.min(1, 0.08 * (1 - Math.exp(-px / 12)) + (0.92 * px) / Math.max(1, window.innerWidth * t.dragWidth * (ctx.compact ? 2 : 1)));
 
+  /** Puts a leaf into the hand. */
+  const hold = (leaf: Leaf, id: number, x: number, half: 1 | -1): void => {
+    unscript(leaf);
+    // Whatever the leaf was doing, in the hand it shows both its pages.
+    leaf.setPages(texture(leaf.index * 2 + 1), texture(leaf.index * 2 + 2));
+    // A sheet lifted off its stack starts straight: the air only presses on it once it moves.
+    if (Math.abs(leaf.motion.velocity) < 1e-3) {
+      leaf.wind = 0;
+      // Lying on its stack it is in the hand at once: both rules have it there.
+      if (Math.abs(leaf.motion.shown - leaf.side * Math.PI) < 0.02) leaf.held = 1;
+    }
+    drag = { leaf, id, startX: x, startAngle: leaf.motion.angle, remembered: leaf.side, half, travel: 0, dx: 0 };
+    leaf.dragTarget = leaf.motion.angle;
+    leaf.toss = null;
+    leaf.motion.resting = false;
+    document.documentElement.style.cursor = 'grabbing';
+  };
+
+  /** Ends the wait of a press on a flying leaf that saw no move: the leaf is thrown on and the hand takes the page under it. */
+  const letGo = (): void => {
+    if (!brake) return;
+    const { leaf, id, startX, half } = brake;
+    brake = null;
+    if (leaf.active && !leaf.motion.resting) leaf.motion.velocity = leafTune.kick * (leaf.side === 1 ? 1 : -1);
+    // A leaf on its way to the side of the hand lands on the page the hand would take: there is none to hold yet.
+    if (leaf.side === (half === 1 ? 0 : 1)) return;
+    const next = take(half, false);
+    if (next) hold(next, id, startX, half);
+  };
+
   const onDown = (ev: PointerEvent): void => {
-    if (drag || edgePress || ev.button !== 0 || !ev.isPrimary) return;
+    if (drag || brake || edgePress || ev.button !== 0 || !ev.isPrimary) return;
     if (ev.target instanceof Element && ev.target.closest(ignore)) return;
     const edge = pickEdge(ev.clientX, ev.clientY);
     if (edge) {
@@ -650,15 +692,13 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     // Catch a leaf that is in the air over this half, whichever way it was going. Otherwise lift the top one.
     const leaf = reach(half);
     if (!leaf || leaf.dragTarget !== null) return;
-    unscript(leaf);
-    // Whatever the leaf was doing, in the hand it shows both its pages.
-    leaf.setPages(texture(leaf.index * 2 + 1), texture(leaf.index * 2 + 2));
-    drag = { leaf, id: ev.pointerId, startX: ev.clientX, startAngle: leaf.motion.angle, remembered: leaf.side, half, travel: 0, dx: 0 };
     gripAt(ev.clientX, ev.clientY);
-    leaf.dragTarget = leaf.motion.angle;
-    leaf.toss = null;
-    leaf.motion.resting = false;
-    document.documentElement.style.cursor = 'grabbing';
+    const m = leaf.motion;
+    if (!leaf.script && !m.resting && Math.abs(m.velocity) > 0.004 && Math.abs(m.angle - leaf.side * Math.PI) > 0.05) {
+      // Measured: a leaf in the air is braked first. It is caught only if the hand moves.
+      brake = { leaf, id: ev.pointerId, startX: ev.clientX, half, elapsed: 0 };
+      document.documentElement.style.cursor = 'grabbing';
+    } else hold(leaf, ev.pointerId, ev.clientX, half);
     ev.preventDefault();
     ctx.invalidate();
   };
@@ -667,7 +707,14 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const blocked = ev.target instanceof Element && !!ev.target.closest(ignore);
     point = ev.pointerType === 'mouse' ? { x: ev.clientX, y: ev.clientY, blocked } : null;
     stirred = true;
+    if (brake && ev.pointerId === brake.id && Math.abs(ev.clientX - brake.startX) >= t.tapPx) {
+      // The hand moved in time: it has the leaf.
+      const { leaf, id, startX, half } = brake;
+      brake = null;
+      if (leaf.active && leaf.dragTarget === null) hold(leaf, id, startX, half);
+    }
     if (!drag) {
+      if (brake) return;
       if (opening && ev.pointerType === 'mouse') {
         const over = !blocked && halfAt(ev.clientX, ev.clientY) !== 0;
         document.documentElement.style.cursor = over ? 'grab' : '';
@@ -688,6 +735,16 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       const press = edgePress;
       edgePress = null;
       if (ev.type !== 'pointercancel') takeBundle(press.side, press.count);
+      ctx.invalidate();
+      return;
+    }
+    if (brake && ev.pointerId === brake.id) {
+      // Let go before the wait was over: a tap. The leaf goes on, and one more page turns like the button does.
+      const { half } = brake;
+      brake = null;
+      stirred = false;
+      document.documentElement.style.cursor = '';
+      if (ev.type !== 'pointercancel') launch(half);
       ctx.invalidate();
       return;
     }
@@ -791,6 +848,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       riffle = null;
       pending = [];
       drag = null;
+      brake = null;
       hovered = null;
       paintSpread();
       emitView();
@@ -818,6 +876,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     riffle = null;
     pending = [];
     drag = null;
+    brake = null;
     hovered = null;
     bundle = null;
     edgePress = null;
@@ -872,8 +931,17 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const frames = 60 * Math.min(f.dt, 0.05);
     stepRiffle(f.dt);
     lookUnder();
+    if (brake) {
+      brake.elapsed += f.dt;
+      if (brake.elapsed >= BRAKE_HOLD || !brake.leaf.active || brake.leaf.motion.resting) letGo();
+    }
     for (const leaf of leaves) {
       if (!leaf.active) continue;
+      // The air presses on a sheet by how fast it moves. The leaves of the opening keep their own rule.
+      if (!leaf.script) {
+        leaf.wind = ctx.still ? 0 : approach(leaf.wind, windOf(leaf.motion.velocity), 14, f.dt);
+        leaf.held = approach(leaf.held, leaf.dragTarget !== null ? 1 : 0, 10, f.dt);
+      }
       if (leaf.script) {
         ride(leaf, frames);
         continue;
@@ -888,7 +956,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         bend(leaf, f.dt);
         continue;
       }
-      stepLeaf(leaf.motion, f.dt, { ...LEAF_DEFAULT, ...leafTune });
+      const tune = { ...LEAF_DEFAULT, ...leafTune };
+      stepLeaf(leaf.motion, f.dt, brake && brake.leaf === leaf ? braked(tune, brake.elapsed) : tune);
       if (leaf.toss !== null && throwLeaf(leaf.motion, leaf.toss, leafTune.kick)) leaf.toss = null;
       bend(leaf, f.dt);
       if (leaf.motion.resting || ctx.still) {

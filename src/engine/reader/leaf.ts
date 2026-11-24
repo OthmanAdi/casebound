@@ -12,7 +12,7 @@ import { CLOTH, PAGE_PAPER, createSurfaceMaterial, type SurfaceFx } from '../boo
 import { BLOCK_S, Surface } from '../book/volume';
 import { clamp, lerp, smoothstep } from '../core/math';
 import { ROLL_STRIDE, createCurl, createFlop, fillRoll, type CurlState, type FlopState } from './curl';
-import { createLeafMotion, sheetTurn, type LeafMotion } from './leaf-physics';
+import { createLeafMotion, heldTurn, sheetTurn, type LeafMotion } from './leaf-physics';
 import type { RifflePart } from './riffle';
 
 /** Samples across the page, crowded toward the binding: the same as the top of a page block, so the two coincide. */
@@ -53,6 +53,13 @@ export class Leaf {
   script: RifflePart | null = null;
   /** How limp the sheet is in the air, 0 (stiff) to 1: how far it bows and lets its free edge trail. */
   limp = 1;
+  /**
+   * How hard the air presses on the sheet, 0 to 1. A sheet that flies bows back against the air; one that a hand
+   * moves slowly, or holds still, stands straight.
+   */
+  wind = 1;
+  /** How much the sheet is in a hand, 0 to 1: in a hand it stands where the hand has it, in flight it runs ahead near upright. */
+  held = 0;
   /** How many live sheets lie between this one and its stack when it rests on the right, and on the left. */
   readonly below: [number, number] = [0, 0];
 
@@ -119,7 +126,7 @@ export class Leaf {
     const drawn = this.motion.shown / Math.PI;
     // Where the sheet stands. A leaf that turns by itself or in a hand eases off its stack and lies down before
     // its angle has come to rest; one in the opening riffle stands where its script puts it.
-    const turn = this.script ? drawn : sheetTurn(drawn);
+    const turn = this.script ? drawn : lerp(sheetTurn(drawn), heldTurn(drawn), this.held);
     const right = volume.layerShape(1, 1);
     const left = volume.layerShape(0, 1);
     // In the air the sheet bows back against the air and its free edge trails.
@@ -134,8 +141,8 @@ export class Leaf {
         length: dims.pageW,
         // Lying down, the sheet has the belly of the page it lies on.
         arch: lerp(right.arch ?? 0, left.arch ?? 0, turn),
-        bow: -0.42 * air * dir * this.limp,
-        tip: -0.3 * air * dir * this.limp,
+        bow: -0.42 * air * dir * this.limp * this.wind,
+        tip: -0.3 * air * dir * this.limp * this.wind,
         flop: this.flop.bend,
       },
       COLS,
