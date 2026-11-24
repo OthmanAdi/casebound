@@ -59,8 +59,8 @@ export interface MarkerOptions {
  * print under it come out as they do there: yellow takes paper from 190, 188, 185 to 186, 165, 82.
  */
 export const MARKER_COLORS: PenColor[] = [
-  { name: 'pink', body: '#ff5fa8', collar: '#e8458c', nib: '#ff8fc1', ink: '#e697c5', strength: 0.48 },
-  { name: 'yellow', body: '#f4e400', collar: '#e6b800', nib: '#f0a83c', ink: '#f8d84e', strength: 0.8 },
+  { name: 'pink', body: '#ff5fa8', collar: '#e8458c', nib: '#ff8fc1', ink: '#ff6dc3', strength: 0.48 },
+  { name: 'yellow', body: '#f4e400', collar: '#e6b800', nib: '#f0a83c', ink: '#fde846', strength: 0.8 },
 ];
 
 /** Marks in the browser's local storage, one entry per book. Storage that is full or switched off is not an error. */
@@ -281,17 +281,17 @@ export function createMarker(engine: Engine, reader: Reader, opts: MarkerOptions
     if (!on || pressed !== null || ev.button !== 0 || !ev.isPrimary) return;
     pointer = { x: ev.clientX, y: ev.clientY, blocked: blockedBy(ev) };
     if (pointer.blocked) return;
-    pressed = ev.pointerId;
     if (touch(ev.clientX, ev.clientY)) {
+      pressed = ev.pointerId;
       ev.stopPropagation();
       ev.preventDefault();
     }
     ctx.invalidate();
   };
   const onMove = (ev: PointerEvent): void => {
-    if (!on) return;
     const before = pointer;
     pointer = { x: ev.clientX, y: ev.clientY, blocked: blockedBy(ev) };
+    if (!on) return;
     ctx.invalidate();
     if (pressed === null || ev.pointerId !== pressed) return;
     // Off the page the nib is up; back on a page it is down again, and a new stroke starts where it came back.
