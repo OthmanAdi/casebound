@@ -55,7 +55,7 @@ What already agreed: the damper (SmoothDamp 0.0945 s x 0.7; after a jump our hei
 | 4 | Turn of the arriving book after a fast scroll | 54, 98, 195, 344 ms | 43, 104, 253, 466 ms | 37, 81, 178, 328 ms |
 | 5 | Wall shadow while the book changes | dips by 7 %: 0.179 | dipped by 25 %: 0.143 | 0.179 |
 | 6 | A scripted scroll jump | shows one frame later | shows at once | open; not seen with real wheel events |
-| 7 | Rise of a book per frame | capped at 4 units | 4.24, 4.31, 3.65 | open (17 px for three frames) |
+| 7 | Rise of a book per frame | capped at 4 units: -0.85, 3.15, 7.15, 11.15 after a jump | 4.24, 4.31, 3.65 | capped: -0.84, 3.16, 7.16, 11.16 |
 | 8 | The first book | dwells 110 px, not 75 | like the others | open |
 | 9 | The push of a leaving book upward | capped: 74.9 units | grew without bound, 1333 | capped |
 
