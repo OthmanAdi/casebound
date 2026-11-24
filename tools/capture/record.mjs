@@ -68,10 +68,12 @@ const SCENES = {
   ] },
   light: { path: '/?midday' + READER, frames: sec(8), settle: 3400, actions: [
     { at: 1, run: (p) => p.mouse.move(520, 420) },
-    { at: sec(0.6), run: (p) => p.hover('#row-ebook') },
-    { at: sec(3.4), run: (p) => p.mouse.move(520, 420) },
-    { at: sec(4.2), run: (p) => p.hover('#row-audio') },
-    { at: sec(7.2), run: (p) => p.mouse.move(520, 420) },
+    // The two rows that start the effects belong to the details, which step aside while a book is open: the
+    // scene asks the effects for the same thing the rows do.
+    js(sec(0.6), 'casebound.effects.hologram(true)'),
+    js(sec(3.4), 'casebound.effects.hologram(false)'),
+    js(sec(4.2), 'casebound.effects.hologram(true); casebound.effects.radio(true)'),
+    js(sec(7.2), 'casebound.effects.hologram(false); casebound.effects.radio(false)'),
   ] },
   drag: { path: '/?midday', frames: sec(10.6), actions: [
     { at: 1, run: (p) => p.mouse.move(980, 470) },
