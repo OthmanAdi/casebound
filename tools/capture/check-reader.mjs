@@ -238,6 +238,43 @@ try {
     await page.mouse.up();
     await run(0.1);
   };
+  // The pen stands on the pointer over a page with the cursor hidden, and waits on the page edge beside the book.
+  const pen = () => page.evaluate(() => {
+    let o = null;
+    casebound.engine.ctx.scene.traverse((m) => { if (m.name === 'marker.pen') o = m; });
+    const { ctx } = casebound.engine;
+    const v = o.position.clone().project(ctx.camera);
+    const r = ctx.canvas.getBoundingClientRect();
+    return { shown: o.visible, x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (0.5 - v.y * 0.5) * r.height, cursor: document.documentElement.style.cursor, on: casebound.marker.on, color: casebound.marker.color };
+  });
+  await page.mouse.move(right[0], right[1]);
+  await run(0.6);
+  const over = await pen();
+  say(over.shown && over.cursor === 'none' && Math.abs(over.x - right[0]) < 6 && over.y < right[1] && right[1] - over.y < 40 && over.color === 'yellow', `the pen stands on the pointer over a page, a little above the paper, and the cursor is hidden: ${Math.round(over.x - right[0])} px across, ${Math.round(right[1] - over.y)} px up, cursor '${over.cursor}', ${over.color}`);
+  await page.mouse.move(right[0] + 420, right[1]);
+  await run(0.6);
+  const beside = await pen();
+  say(beside.shown && beside.cursor === '' && beside.x < right[0] + 400, `beside the book it waits on the page edge and the cursor is back: ${Math.round(right[0] + 420 - beside.x)} px from the pointer`);
+  // A press without a move leaves nothing.
+  await page.mouse.move(right[0], right[1] + 80);
+  await run(0.2);
+  await page.mouse.down();
+  await run(0.2);
+  await page.mouse.up();
+  await run(0.6);
+  say(Object.keys(await page.evaluate(() => casebound.marker.marks())).length === 0, 'a press that does not move leaves no mark');
+  // The two places in the bar: a click changes pens, a click on the pen that is out puts it back.
+  await page.click('#pens .pen-slot:first-child');
+  const pink = await pen();
+  await page.click('#pens .pen-slot:first-child');
+  const away = await pen();
+  await page.keyboard.press('h');
+  const back = await pen();
+  say(pink.on && pink.color === 'pink' && !away.on && back.on && back.color === 'pink', `a click takes the other pen, a second click puts it back, H takes the pen used last: ${pink.color}, ${away.on ? 'out' : 'away'}, ${back.color}`);
+  await page.keyboard.press('Escape');
+  const kept = await page.evaluate(() => ({ on: casebound.marker.on, open: casebound.reader.isOpen }));
+  say(!kept.on && kept.open, 'Escape puts the pen away and leaves the book open');
+  await page.click('#pens .pen-slot:last-child');
   await stroke(right[0] - 120, right[1] - 60, right[0] + 120);
   await stroke(left[0] - 120, left[1] + 40, left[0] + 100);
   const marked = await page.evaluate(() => ({ on: casebound.marker.on, marks: casebound.marker.marks(), page: casebound.reader.page }));
@@ -261,8 +298,8 @@ try {
   await run(3);
   await page.keyboard.press('ArrowLeft');
   await run(4);
-  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('casebound.marks.' + casebound.reader.book.record.slug) || '{}'));
-  say(Object.keys(kept).length === 2, `the marks are kept for the next visit: pages ${Object.keys(kept).join(', ')}`);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('casebound.marks.' + casebound.reader.book.record.slug) || '{}'));
+  say(Object.keys(stored).length === 2, `the marks are kept for the next visit: pages ${Object.keys(stored).join(', ')}`);
   await page.evaluate(() => casebound.marker.undo());
   const fewer = await page.evaluate(() => Object.keys(casebound.marker.marks()).length);
   say(fewer === 1, 'the last mark can be taken away');
