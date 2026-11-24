@@ -304,8 +304,9 @@ export function createMarker(engine: Engine, reader: Reader, opts: MarkerOptions
     lift();
     ctx.invalidate();
   };
-  /** The mouse left the window: the pen is out of sight until it comes back. */
-  const onLeave = (): void => {
+  /** The mouse left the window: the pen is out of sight until it comes back. A finger that lifts leaves the pen where it was. */
+  const onLeave = (ev: PointerEvent): void => {
+    if (ev.pointerType !== 'mouse') return;
     pointer = null;
     ctx.invalidate();
   };
