@@ -198,8 +198,9 @@ export function createMarker(engine: Engine, reader: Reader, opts: MarkerOptions
 
   /** Makes the marks of the reader's book the current ones. */
   const follow = (): void => {
+    // The reader keeps its book until the cover is shut, so the marks stay on the pages while it closes.
     const book = reader.book;
-    const slug = book && reader.isOpen ? book.record.slug : null;
+    const slug = book ? book.record.slug : null;
     if (slug === (current?.slug ?? null)) return;
     current?.ink.end();
     pressed = null;
@@ -231,12 +232,24 @@ export function createMarker(engine: Engine, reader: Reader, opts: MarkerOptions
     if (on && !reader.isOpen) marker.set(false);
   });
 
+  /** What is waiting to be saved. */
+  let unsaved: (() => void) | null = null;
   const save = (): void => {
     clearTimeout(saving);
     const target = current;
     if (!target || !store) return;
-    saving = window.setTimeout(() => store.save(target.slug, target.ink.toJSON()), t.saveDelay * 1000);
+    unsaved = () => {
+      unsaved = null;
+      store.save(target.slug, target.ink.toJSON());
+    };
+    saving = window.setTimeout(() => unsaved?.(), t.saveDelay * 1000);
   };
+  /** The page is going away: what waits is saved now. */
+  const flush = (): void => {
+    clearTimeout(saving);
+    unsaved?.();
+  };
+  window.addEventListener('pagehide', flush);
 
   /** Puts the nib down at a point of the window, or moves it there. Returns false where there is no page. */
   const touch = (x: number, y: number): boolean => {
@@ -375,7 +388,8 @@ export function createMarker(engine: Engine, reader: Reader, opts: MarkerOptions
     dispose: () => {
       marker.set(false);
       offView();
-      clearTimeout(saving);
+      flush();
+      window.removeEventListener('pagehide', flush);
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('pointermove', onMove, true);
       window.removeEventListener('pointerup', onUp, true);
