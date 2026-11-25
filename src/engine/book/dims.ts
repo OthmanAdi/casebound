@@ -30,6 +30,30 @@ export interface DimsInput {
   pages?: number;
 }
 
+/** Where the parts of a case lie on the strip its cover is painted on, as shares of the strip's width. */
+export interface CaseAtlas {
+  back: [number, number];
+  spine: [number, number];
+  front: [number, number];
+  /** Width divided by height of the whole strip. */
+  aspect: number;
+  /** Half the arc of a hinge, as a share of the width. A hinge lies half in the spine's range and half in the board's. */
+  hinge: number;
+}
+
+/**
+ * The strip a case is painted on: back cover, spine, front cover, left to right, as a printer lays it out.
+ * It needs nothing but the dimensions, so a cover can be painted where no book is built: on a page of stills.
+ */
+export function atlasOf(d: BookDims): CaseAtlas {
+  const spineHalf = (d.thickness - d.board) / 2 - d.hinge;
+  const arc = (d.hinge * Math.PI) / 2;
+  const boardLen = d.coverW - d.hinge - d.board / 2;
+  const total = 2 * (spineHalf + arc + boardLen);
+  const boardShare = (boardLen + arc / 2) / total;
+  return { back: [0, boardShare], spine: [boardShare, 1 - boardShare], front: [1 - boardShare, 1], aspect: total / d.coverH, hinge: arc / 2 / total };
+}
+
 export const COVER_W = 13.52;
 export const COVER_H = 20.13;
 export const LEAF_THICKNESS = 0.0234 * 0.85;
