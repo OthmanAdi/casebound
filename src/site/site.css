@@ -416,6 +416,8 @@ html[data-reading] .dpage { visibility: hidden; }
 .dp-wide { margin: 0 var(--gutter) 96px; }
 /* Measured: a pill under the rows takes the zine out, 118 x 37 px. */
 .row-zine { margin: 18px 0 0 14px; padding: 9px 12px; font: 400 15px/1.2 var(--display); color: inherit; background: none; cursor: pointer; }
+/* Under the pointer or the keyboard the pill is filled and its words take the colour of the page. */
+.dpage .row-zine:hover, .dpage .row-zine:focus-visible { color: var(--bg); background: var(--ink); }
 .dp-excerpt { margin-top: 22px; padding-left: 14px; max-width: calc(46ch + 14px); }
 /* The excerpt in the book's own typeface, as its pages set it. */
 .dp-excerpt p { margin: 0; font: 520 18px/1.36 var(--display); text-indent: 1.4em; }
