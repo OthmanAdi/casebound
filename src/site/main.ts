@@ -433,6 +433,19 @@ async function boot(): Promise<void> {
       if (dir > 0) zine.read();
       return true;
     }
+    if (zine.state === 'reading' && zine.onBack) {
+      // Measured: closed on its back, the way on goes nowhere; the way back opens it again.
+      if (dir < 0) zine.back(false);
+      sync();
+      return true;
+    }
+    if (zine.state === 'reading' && dir > 0 && reader.page >= reader.pageCount) {
+      // Measured: after the last leaf the back cover comes over and it lies closed on its face.
+      marker.set(false);
+      zine.back(true);
+      sync();
+      return true;
+    }
     if (zine.state === 'reading' && dir < 0 && reader.page === 0) {
       marker.set(false);
       zine.shut();
