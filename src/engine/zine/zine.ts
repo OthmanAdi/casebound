@@ -80,6 +80,9 @@ const LENT = [
   ['reader', 'pageSeconds'],
   ['reader', 'push'],
   ['reader', 'pushEdge'],
+  ['reader', 'pitch'],
+  ['reader', 'pitchUp'],
+  ['reader', 'pitchDown'],
   ['reader.leaf', 'damping'],
   ['reader.leaf', 'follow'],
   ['reader.leaf', 'kick'],
@@ -88,6 +91,8 @@ const LENT = [
 
 /** Time for the reader to let go of a zine whose cover has already come down, seconds. Nothing moves in it. */
 const LET_GO = 0.05;
+/** Share of the reader's pitch a zine keeps on a narrow screen. Read in the reference: 0.4. */
+const PHONE_PITCH = 0.4;
 /** Share of the way to the reading place the shut zine may still have to go when the reader lets go of it. */
 const LET_GO_BLEND = 0.005;
 
@@ -112,6 +117,8 @@ export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = 
       lieScale: { value: 0.88, min: 0.2, max: 2, help: 'Scale of the closed zine. Fitted to a still: 0.88' },
       forward: { value: 5, min: 0, max: 30, help: 'How far in front of its book the zine is read. Measured: 5' },
       scale: { value: 0.896, min: 0.2, max: 2, help: 'Scale of the open zine. Measured: a page 12.11 wide, which is 0.896 of ours' },
+      phoneFill: { value: 0.95, min: 0.3, max: 1.5, help: 'On a narrow screen: the share of the window width the closed cover fills, and one open page. Measured: a page 373 px wide in a window of 390' },
+      phonePitch: { value: -9, min: -60, max: 30, unit: 'deg', help: 'On a narrow screen: how far the closed zine leans back. Measured: -8.8' },
       open: { value: 83.5, min: 60, max: 100, unit: 'deg', help: 'Opening angle of each half of the open zine at its middle; 90 lies flat. Measured: the two halves lie 13 degrees short of flat' },
       lean: { value: 6.5, min: 0, max: 30, unit: 'deg', help: 'How far the open zine turns about its spine at its first leaf, and back the other way at its last: the side with fewer leaves lies higher. Measured: 6.5' },
       pointerLean: { value: 3, min: 0, max: 15, unit: 'deg', help: 'And up to this much toward the side the pointer is on. Read in the reference: 3' },
@@ -129,7 +136,30 @@ export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = 
       ctx.invalidate();
     },
   });
-  const pose = (): typeof ZINE_POSE => ({ flyFrom: t.flyFrom, flyRate: t.flyRate, shown: ZINE_POSE.shown, liePitch: t.liePitch, lieYaw: t.lieYaw, lieRoll: t.lieRoll });
+  /** Where the zine lies and where it is read, in world units and degrees. */
+  interface Place {
+    pitch: number;
+    yaw: number;
+    roll: number;
+    left: number;
+    forward: number;
+    scale: number;
+    readForward: number;
+    readScale: number;
+  }
+  /**
+   * Beside the details these are the measured tunables. On a narrow screen the reference fits the zine to the width
+   * of the window at its book's own depth: closed, its cover fills the width, nearly facing the window; open, one
+   * page does, and the site shows one side of the spread at a time (`ZineOptions.side`).
+   */
+  const place = (depth: number, book: Book): Place => {
+    if (!ctx.compact) return { pitch: t.liePitch, yaw: t.lieYaw, roll: t.lieRoll, left: t.lieLeft, forward: t.lieForward, scale: t.lieScale, readForward: t.forward, readScale: t.scale };
+    const width = (ctx.visibleHeightAt(depth) * ctx.size.x) / Math.max(1, ctx.size.y);
+    return { pitch: t.phonePitch, yaw: 0, roll: 0, left: 0, forward: 0, scale: (t.phoneFill * width) / book.dims.coverW, readForward: 0, readScale: (t.phoneFill * width) / book.dims.pageW };
+  };
+  /** The place worked out in the last frame, for what is lent to the reader. */
+  let where: Place | null = null;
+  const pose = (at: Place): typeof ZINE_POSE => ({ flyFrom: t.flyFrom, flyRate: t.flyRate, shown: ZINE_POSE.shown, liePitch: at.pitch, lieYaw: at.yaw, lieRoll: at.roll });
   const paper = (): LeafTuning => ({ ...LEAF_DEFAULT, damping: t.damping, follow: t.follow });
 
   const pamphlets = new Map<string, Book>();
@@ -184,8 +214,9 @@ export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = 
   /** What the reader is lent; set again whenever a tunable of the zine changes. */
   const lent = (): void => {
     const lend = (id: string, key: string, value: number): void => void ctx.registry.set(id, key, value);
-    lend('reader', 'forward', t.forward - t.lieForward);
-    lend('reader', 'scale', t.scale / t.lieScale);
+    const at = where ?? { forward: t.lieForward, scale: t.lieScale, readForward: t.forward, readScale: t.scale };
+    lend('reader', 'forward', at.readForward - at.forward);
+    lend('reader', 'scale', at.readScale / at.scale);
     // Measured: the cover moves in the frame after the key, over a booklet that lies open under it from the start.
     lend('reader', 'openDelay', 0);
     lend('reader', 'pageDelay', 0);
@@ -194,6 +225,12 @@ export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = 
     // leaves are of its own paper.
     lend('reader', 'push', 0);
     lend('reader', 'pushEdge', 0);
+    // Read in the reference: on a narrow screen the open zine leans back and follows the pointer's height less.
+    const keep = ctx.compact ? PHONE_PITCH : 1;
+    for (const key of ['pitch', 'pitchUp', 'pitchDown']) {
+      const had = saved?.get(`reader/${key}`);
+      if (had !== undefined && Number.isFinite(had)) lend('reader', key, had * keep);
+    }
     lend('reader.leaf', 'damping', t.damping);
     lend('reader.leaf', 'follow', t.follow);
     lend('reader.leaf', 'kick', t.kick);
@@ -357,18 +394,19 @@ export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = 
     book.openAngle = t.open * DEG;
     const coming = state === 'coming' || state === 'lying' || state === 'reading';
     const before = p;
-    p = ctx.still ? (coming ? 1 : 0) : stepPresence(p, coming, f.dt, pose());
+    p = ctx.still ? (coming ? 1 : 0) : stepPresence(p, coming, f.dt, { ...ZINE_POSE, flyRate: t.flyRate });
 
     // The reading place, as the reader will work it out, and the place to lie relative to it.
     const parent = engine.book(out.slug);
     const depth = parent ? parent.home.position.z : book.home.position.z;
-    const zRead = depth + t.forward;
+    const at = (where = place(depth, book));
+    const zRead = depth + at.readForward;
     const offset = opts.centreOffsetPx?.() ?? { x: 0, y: 0 };
     const perPx = ctx.visibleHeightAt(zRead) / Math.max(1, ctx.size.y);
-    const turn = flyTurn(p, pose());
-    book.home.position.set(offset.x * perPx - t.lieLeft + flyOffset(p, pose()), ctx.camera.position.y - offset.y * perPx + Number(ctx.registry.getParam('reader', 'rise') ?? 0) + t.lieUp, depth + t.lieForward);
+    const turn = flyTurn(p, pose(at));
+    book.home.position.set(offset.x * perPx - at.left + flyOffset(p, pose(at)), ctx.camera.position.y - offset.y * perPx + Number(ctx.registry.getParam('reader', 'rise') ?? 0) + t.lieUp, depth + at.forward);
     book.home.quaternion.setFromEuler(e.set(turn.pitch, turn.yaw, turn.roll));
-    book.home.scale = t.lieScale;
+    book.home.scale = at.scale;
     if (!book.held) {
       book.root.position.copy(book.home.position);
       book.root.quaternion.copy(book.home.quaternion);
