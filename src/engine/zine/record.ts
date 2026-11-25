@@ -25,7 +25,7 @@ export interface ZineSpec {
   ink?: string;
 }
 
-const SUFFIX = ':zine';
+const SUFFIX = '.zine';
 
 /** The slug of a book's zine. Marks and the remembered place are kept under it. */
 export const zineSlug = (slug: string): string => slug + SUFFIX;
@@ -54,6 +54,8 @@ export function zineRecord(book: BookRecord): BookRecord | null {
     const k = Number(at) - from;
     if (k >= 0 && k < text.length) headings[k] = heading;
   }
+  // Its first page opens with its title, unless the text brings a heading of its own there.
+  headings[0] ??= spec.title ?? book.title;
   return {
     slug: zineSlug(book.slug),
     title: spec.title ?? book.title,

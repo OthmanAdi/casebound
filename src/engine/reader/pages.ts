@@ -18,14 +18,16 @@ export type Flow = (paragraphs: string[], heading: (index: number) => string | u
 
 export function paginate(record: BookRecord, pageCount: number, flow?: Flow, charsPerPage = 1500): PageSource {
   const paragraphs = record.text?.length ? record.text : FILLER;
+  // A pamphlet holds one stretch of text and ends where it ends: nothing repeats, the pages after it are bare.
+  const once = record.binding === 'pamphlet';
   const flowed = flow?.(paragraphs, (i) => (record.text?.length ? record.headings?.[i] : undefined));
   if (flowed?.length) {
     // The text repeats through a thick book. A last page that is mostly empty would come round as a hole, so it is left out.
     const full = Math.max(...flowed.map((p) => p.lines.length));
-    if (flowed.length > 1 && flowed[flowed.length - 1]!.lines.length < full * 0.7) flowed.pop();
+    if (!once && flowed.length > 1 && flowed[flowed.length - 1]!.lines.length < full * 0.7) flowed.pop();
     return (page) => {
       const left = page % 2 === 0;
-      if (page < 1 || page > pageCount) return { folio: null, left };
+      if (page < 1 || page > pageCount || (once && page > flowed.length)) return { folio: null, left };
       // Short texts repeat so every page of a thick book has print on it.
       const body = flowed[(page - 1) % flowed.length]!;
       return { folio: page, left, head: left ? record.title : (body.heading ?? record.author), heading: body.heading, lines: body.lines };
@@ -57,7 +59,7 @@ export function paginate(record: BookRecord, pageCount: number, flow?: Flow, cha
 
   return (page) => {
     const left = page % 2 === 0;
-    if (page < 1 || page > pageCount) return { folio: null, left };
+    if (page < 1 || page > pageCount || (once && page > pages.length)) return { folio: null, left };
     // Short texts repeat so every page of a thick book has print on it.
     const body = pages[(page - 1) % pages.length]!;
     return {

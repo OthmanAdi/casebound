@@ -17,10 +17,10 @@ const book = (zine?: BookRecord['zine']): BookRecord => ({
 
 describe('the slug of a zine', () => {
   it('is the slug of its book and a suffix, and goes back to it', () => {
-    expect(zineSlug('walden')).toBe('walden:zine');
-    expect(isZine('walden:zine')).toBe(true);
+    expect(zineSlug('walden')).toBe('walden.zine');
+    expect(isZine('walden.zine')).toBe(true);
     expect(isZine('walden')).toBe(false);
-    expect(bookOf('walden:zine')).toBe('walden');
+    expect(bookOf('walden.zine')).toBe('walden');
     expect(bookOf('walden')).toBe('walden');
   });
 });
@@ -41,7 +41,7 @@ describe('the record of a zine', () => {
 
   it('is a pamphlet of the book, with every default, from two braces', () => {
     const z = zineRecord(book({}))!;
-    expect(z.slug).toBe('candle:zine');
+    expect(z.slug).toBe('candle.zine');
     expect(z.binding).toBe('pamphlet');
     expect(z.title).toBe('The Chemical History of a Candle');
     expect(z.author).toBe('Michael Faraday');
@@ -49,12 +49,15 @@ describe('the record of a zine', () => {
     expect(z.text).toHaveLength(12);
     expect(z.text![0]).toMatch(/^Paragraph 0\./);
     expect(z.zine).toBeUndefined();
+    // A heading the text has at its start is kept; without one the first page opens with the title.
+    expect(z.headings![0]).toBe('Lecture one');
+    expect(zineRecord({ ...book({ title: 'The Flame' }), headings: undefined })!.headings).toEqual({ 0: 'The Flame' });
   });
 
   it('takes the stretch of text it is told to, and brings the headings that fall in it along', () => {
     const z = zineRecord(book({ from: 9, paragraphs: 4 }))!;
     expect(z.text!.map((p) => p.slice(0, 13))).toEqual(['Paragraph 9. ', 'Paragraph 10.', 'Paragraph 11.', 'Paragraph 12.']);
-    expect(z.headings).toEqual({ 2: 'Lecture two' });
+    expect(z.headings).toEqual({ 0: 'The Chemical History of a Candle', 2: 'Lecture two' });
   });
 
   it('stops at the end of the text', () => {
