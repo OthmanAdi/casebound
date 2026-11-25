@@ -319,7 +319,7 @@ try {
       const { ctx } = casebound.engine;
       const v = casebound.engine.books[casebound.engine.state.active].root.position.clone().project(ctx.camera);
       const q = (s) => document.querySelector(s);
-      return { bookY: (0.5 - v.y * 0.5) * innerHeight, strip: +(q('#marquee').style.opacity || 1), foot: document.documentElement.hasAttribute('data-foot'), menu: getComputedStyle(q('#menu')).visibility, label: q('#section-label').textContent, band: q('#band').getBoundingClientRect().top, cards: document.querySelectorAll('.band-card').length, links: [...document.querySelectorAll('.foot-links a')].map((a) => a.getAttribute('href')), end: document.documentElement.scrollHeight - innerHeight };
+      return { bookY: (0.5 - v.y * 0.5) * innerHeight, strip: +(q('#marquee').style.opacity || 1), foot: document.documentElement.hasAttribute('data-foot'), menu: getComputedStyle(q('#menu')).visibility, label: q('#section-label').textContent, band: q('#band').getBoundingClientRect().top, cards: document.querySelectorAll('.band-card').length, films: document.querySelectorAll('.band-film').length, links: [...document.querySelectorAll('.foot-links a')].map((a) => a.getAttribute('href')), end: document.documentElement.scrollHeight - innerHeight };
     });
     const rowY = (await page.evaluate(() => document.querySelector('.panel').offsetHeight + 16)) * (await page.evaluate(() => casebound.shelf.order.length));
     const atRow = await foot();
@@ -336,6 +336,83 @@ try {
     ok = end.label === 'Footer' && end.cards >= 5 && end.links.length === 3 && end.links.every((h) => h.startsWith('https://github.com/OthmanAdi/casebound')) && end.end - rowY > 1500;
     if (!ok) failed++;
     console.log(`${ok ? 'ok  ' : 'FAIL'} the page goes on ${(end.end - rowY).toFixed(0)} px past the row: a band of ${end.cards} cards, then the footer with links to the source, the skill and the licence ("${end.label}")`);
+    ok = atRow.films === 0;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} at the row, far from the band, no film of the band is in the page (${atRow.films})`);
+
+    // The band of films: each card has a recording of this page; the card in front plays while the band is in view,
+    // and the band steps one card at a time by key, press and drag. Its films and transitions run on the browser's
+    // clock, so these steps wait in real time.
+    const band = () => page.evaluate(() => {
+      const cards = [...document.querySelectorAll('.band-card')];
+      const lit = cards.findIndex((c) => c.classList.contains('is-lit'));
+      return {
+        width: innerWidth,
+        cards: cards.map((c) => {
+          const r = c.getBoundingClientRect();
+          const v = c.querySelector('video');
+          return { x: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height), o: +getComputedStyle(c).opacity, film: v ? v.getAttribute('src') : null, playing: v ? !v.paused && v.readyState >= 2 : false, time: v ? v.currentTime : 0 };
+        }),
+        lit,
+        title: document.getElementById('band-card-title').textContent,
+        row: casebound.shelf.row ? casebound.shelf.row.selected : null,
+      };
+    });
+    await page.evaluate(() => scrollTo(0, scrollY + document.getElementById('band').getBoundingClientRect().top));
+    await page.waitForTimeout(1600);
+    const b0 = await band();
+    const films0 = b0.cards.filter((c) => c.film);
+    ok = films0.length === 1 && b0.cards[0].film.startsWith('band/shelf.') && b0.cards[0].playing && b0.cards[0].x === 16 && Math.abs(b0.cards[0].w - 0.6 * b0.width) < 1 && Math.abs(b0.cards[0].h - b0.cards[0].w * 9 / 16) < 1;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} in view, the card in front plays its film, the only one loaded: ${films0.map((c) => c.film).join(', ') || 'none'}, playing ${b0.cards[0].playing}, card ${b0.cards[0].w} by ${b0.cards[0].h} at x ${b0.cards[0].x}`);
+    const rowBefore = b0.row;
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(1300);
+    const b1 = await band();
+    const middle = (b1.width - b1.cards[1].w) / 2;
+    ok = b1.title === 'A book in your hand' && Math.abs(b1.cards[1].x - middle) < 2 && Math.abs(b1.cards[0].x - (middle - b1.cards[1].w - 16)) < 2 && b1.cards[3].o === 0 && b1.row === rowBefore && !b1.cards[0].film && b1.cards[1].film?.startsWith('band/hand.') && b1.cards[1].playing;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ArrowRight steps the band one card: "${b1.title}" in the middle (x ${b1.cards[1].x}), the first card to its left, the fourth gone, the row untouched (${b1.row}); its film plays, the first one's is gone`);
+    await page.mouse.move(b1.cards[2].x + 40, (await page.evaluate(() => document.querySelector('.band-card').getBoundingClientRect().top)) + 60);
+    await page.waitForTimeout(1300);
+    const b2 = await band();
+    ok = b2.cards[2].film?.startsWith('band/row.') && b2.cards[2].playing && b2.cards[1].playing;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a neighbour under the mouse loads and plays its film too: ${b2.cards[2].film}, playing ${b2.cards[2].playing}`);
+    const cardTop = await page.evaluate(() => document.querySelector('.band-card').getBoundingClientRect().top);
+    await page.mouse.click(b2.cards[1].x + b2.cards[1].w / 2, cardTop + 60);
+    await page.waitForTimeout(400);
+    const b3 = await band();
+    ok = !b3.cards[1].playing && b3.cards[1].film && b3.title === 'A book in your hand';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a press on the card in front pauses its film where it was (${b3.cards[1].time.toFixed(2)} s)`);
+    // A drag of 100 px to the left steps one card; a slow 30 px goes back.
+    const y = cardTop + 100;
+    const x0 = b3.cards[1].x + b3.cards[1].w / 2;
+    await page.mouse.move(x0, y);
+    await page.mouse.down();
+    for (let k = 1; k <= 10; k++) { await page.mouse.move(x0 - 10 * k, y); await page.waitForTimeout(16); }
+    await page.mouse.up();
+    await page.waitForTimeout(900);
+    const b4 = await band();
+    await page.mouse.move(x0, y);
+    await page.mouse.down();
+    for (let k = 1; k <= 6; k++) { await page.mouse.move(x0 - 5 * k, y); await page.waitForTimeout(60); }
+    await page.waitForTimeout(200);
+    await page.mouse.up();
+    await page.waitForTimeout(900);
+    const b5 = await band();
+    ok = b4.title === 'The whole library' && b5.title === 'The whole library';
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a drag of 100 px steps one card ("${b4.title}"), a slow one of 30 px goes back ("${b5.title}")`);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(400);
+    const b6 = await band();
+    ok = b6.cards.every((c) => !c.film);
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} with reduced motion no film is loaded or playing: ${b6.cards.filter((c) => c.film).length} left`);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.mouse.move(30, 300);
     await page.evaluate((y) => scrollTo(0, y), rowY);
     await run(2.5);
     await page.waitForTimeout(500);
