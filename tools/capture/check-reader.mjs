@@ -1,6 +1,6 @@
 // Checks the reader in a real browser: keys, a page pulled over by hand, a page let go, taps, a leaf
-// sent back while it is still in the air, and a bundle of leaves turned as one block. The engine's clock is driven by hand, so the result does not
-// depend on the machine's speed.
+// sent back while it is still in the air, a bundle of leaves turned as one block, a lost drawing context, and reading
+// by touch on a phone. The engine's clock is driven by hand, so the result does not depend on the machine's speed.
 //
 //   node tools/capture/check-reader.mjs <base url>
 //
@@ -472,6 +472,83 @@ try {
   console.log(`${held || after ? 'FAIL' : 'ok  '} a page taken as the opening settles shows print on both sides: ${held} bare in the hand, ${after} after it landed`);
   await page.keyboard.press('Escape');
   await run(3);
+
+  // Reading by touch on a phone, 390 by 844. Measured on the reference: one page side fills 0.96 of the width, the
+  // left one first; a finger pans to the other side, a pull at the end of the pan turns the page, a pan past its
+  // limit gives way to 0.28 of it, two fingers zoom from 0.5 to twice the fit and give way to 0.35 past it.
+  {
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+    const tp = await phone.newPage();
+    tp.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
+    await tp.goto(base.replace(/\/$/, '') + '/?midday#/book/opticks/page/40', { waitUntil: 'load', timeout: 60000 });
+    await tp.waitForSelector('html[data-casebound-ready="true"]', { state: 'attached', timeout: 30000 });
+    await tp.evaluate(() => { casebound.engine.ctx.loop.stop(); window.__clock = performance.now(); });
+    const go = (seconds) => tp.evaluate((n) => { for (let i = 0; i < n; i++) { window.__clock += 1000 / 60; casebound.engine.ctx.loop.tick(window.__clock); } }, Math.round(seconds * 60));
+    const look = () => tp.evaluate(() => {
+      const f = casebound.reader.frame();
+      const v = casebound.reader.view;
+      let inAir = 0;
+      casebound.engine.ctx.scene.traverse((o) => { if (o.name === 'leaf' && o.visible) inAir++; });
+      return { mode: casebound.touch.mode, side: casebound.touch.side, zoom: v.zoom, x: v.x, y: v.y, page: casebound.reader.page, open: casebound.reader.isOpen, inAir, pageW: f ? f.pageW * v.zoom : 0, spine: f ? f.x + v.x : 0, fit: f ? Math.min(3, 0.96 * Math.min(390 / f.pageW, 9999)) : 0 };
+    });
+    const cdp = await phone.newCDPSession(tp);
+    const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([x, y], id) => ({ x, y, id })) });
+    /** One finger from a point to another in ten steps, a frame of the clock between them. */
+    const finger = async (from, to, wait = 1.5) => {
+      await touch('touchStart', [from]);
+      for (let i = 1; i <= 10; i++) { await touch('touchMove', [[from[0] + ((to[0] - from[0]) * i) / 10, from[1] + ((to[1] - from[1]) * i) / 10]]); await go(1 / 60); }
+      // The browser hands a move on with its next frame: give the last one time to arrive.
+      await tp.waitForTimeout(60);
+      await go(1 / 60);
+      const held = await look();
+      await touch('touchEnd', []);
+      await go(wait);
+      return held;
+    };
+    /** Two fingers from a distance apart to another, about the middle of the window. */
+    const fingers = async (from, to) => {
+      const at = (d) => [[195 - d / 2, 420], [195 + d / 2, 420]];
+      await touch('touchStart', at(from));
+      for (let i = 1; i <= 12; i++) { await touch('touchMove', at(from + ((to - from) * i) / 12)); await go(1 / 60); }
+      await tp.waitForTimeout(60);
+      await go(1 / 60);
+      const held = await look();
+      await touch('touchEnd', []);
+      await go(1.5);
+      return held;
+    };
+    await go(8);
+    const rest = await look();
+    say(rest.open && rest.side === 'left' && Math.abs(rest.pageW - 0.96 * 390) < 3 && Math.abs(rest.spine - (195 + rest.pageW / 2)) < 3, `on a phone the open book shows one page side, 0.96 of the width, the left one first: page ${rest.pageW.toFixed(1)} px wide, spine at ${rest.spine.toFixed(1)} px, zoom ${rest.zoom.toFixed(3)}`);
+    await finger([300, 420], [100, 420]);
+    const right = await look();
+    say(right.side === 'right' && right.page === rest.page && right.inAir === 0 && Math.abs(right.spine - (195 - right.pageW / 2)) < 3, `a finger pulled to the left pans to the right page and turns nothing: spine at ${right.spine.toFixed(1)} px, page ${right.page}`);
+    await finger([300, 420], [100, 420], 3);
+    const turned = await look();
+    say(turned.page === rest.page + 2 && turned.side === 'right', `pulled again at the end of the pan it turns the page: page ${turned.page}, still on the ${turned.side} side`);
+    await finger([100, 420], [300, 420]);
+    const back = await look();
+    say(back.side === 'left' && back.page === turned.page && Math.abs(back.spine - rest.spine) < 3, `a finger pulled to the right pans back to the left page: spine at ${back.spine.toFixed(1)} px`);
+    await finger([100, 420], [300, 420], 3);
+    say((await look()).page === rest.page, `and pulled again turns back: page ${(await look()).page}`);
+    const down = await finger([200, 520], [200, 320]);
+    const after = await look();
+    say(down.mode === 'pan' && down.y < -35 && down.y > -65 && Math.abs(after.y) < 0.5, `a pan the page has no room for gives way to 0.28 of it and springs back: ${down.y.toFixed(1)} px for a pull of 200, then ${after.y.toFixed(2)}`);
+    const out = await fingers(80, 300);
+    const wide = await look();
+    // The fit of the moment: the room a page has can still change while the site settles around the reader.
+    const hi = 2 * wide.fit;
+    say(out.mode === 'pinch' && out.zoom > hi + 0.2 && Math.abs(wide.zoom - hi) < 0.01, `two fingers zoom in to twice the fit, past it they give way, and it springs back: ${out.zoom.toFixed(3)} held, ${wide.zoom.toFixed(3)} let go, limit ${hi.toFixed(3)}`);
+    const small = await fingers(300, 20);
+    const least = await look();
+    say(small.zoom < 0.5 && small.zoom > 0.3 && Math.abs(least.zoom - 0.5) < 0.005 && Math.abs(least.spine - 195) < 1, `and out to 0.5, the spread then centred: ${small.zoom.toFixed(3)} held, ${least.zoom.toFixed(3)} let go, spine at ${least.spine.toFixed(1)} px`);
+    await touch('touchStart', [[250, 420]]);
+    await go(1 / 60);
+    await touch('touchEnd', []);
+    await go(3);
+    say((await look()).page === rest.page + 2, `a tap on the right page turns it: page ${(await look()).page}`);
+    await phone.close();
+  }
   for (const e of errors) { failed++; console.log('FAIL page error: ' + e); }
 } finally {
   await browser.close();
