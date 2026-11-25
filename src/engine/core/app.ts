@@ -27,6 +27,13 @@ export interface EngineEvents {
   'page-land': { slug: string; leaves: number };
   /** A cover of a closed book that was lifted has fallen shut. `speed`, 0 to 1, says how fast. */
   'cover-shut': { slug: string; speed: number };
+  /**
+   * The drawing context was lost (`lost: true`: a reset of the graphics driver, or the browser took it back) or has
+   * come back (`lost: false`). While it is lost nothing is drawn. When it comes back the renderer has rebuilt its
+   * programs and uploads every texture again from its source the next time it is drawn; a module that keeps
+   * something only on the graphics card must make it again here.
+   */
+  context: { lost: boolean };
 }
 
 type Handler<T> = (payload: T) => void;
@@ -67,6 +74,8 @@ export interface EngineContext {
   /** True under 900 CSS px wide: the compact layout tier. */
   compact: boolean;
   readonly lowPower: boolean;
+  /** True while the drawing context is lost. The canvas is empty until it comes back. */
+  readonly lost: boolean;
   /** Reduced motion: animations jump to their end. */
   still: boolean;
   onFrame(phase: FramePhase, fn: (f: FrameInfo) => void): Unsubscribe;
@@ -144,6 +153,9 @@ export function createContext(opts: ContextOptions): EngineContext {
     pointerPx,
     compact: false,
     lowPower,
+    get lost() {
+      return lost;
+    },
     still: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
     onFrame: (phase, fn) => loop.onFrame(phase, fn),
     invalidate: () => loop.invalidate(),
@@ -160,6 +172,8 @@ export function createContext(opts: ContextOptions): EngineContext {
       window.removeEventListener('pointermove', onPointer);
       window.removeEventListener('pointerdown', onPointer);
       motion?.removeEventListener('change', onMotion);
+      canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
       renderer.dispose();
     },
   };
@@ -194,6 +208,34 @@ export function createContext(opts: ContextOptions): EngineContext {
     ctx.still = !!motion?.matches;
     loop.invalidate();
   };
+
+  /**
+   * A lost context. Read in the reference: it only reports the loss. Ours asks the browser for the context back (the
+   * renderer's own handler prevents the default too, so this does not depend on it) and says so on the canvas
+   * (`data-gl="lost"`) for tools and styles.
+   */
+  let lost = false;
+  const onLost = (e: Event): void => {
+    e.preventDefault();
+    lost = true;
+    canvas.dataset.gl = 'lost';
+    events.emit('context', { lost: true });
+  };
+  /**
+   * The context is back. The renderer has rebuilt its state and will upload every texture again from its image the
+   * first time it is drawn, so nothing has to be reloaded; the size is set again and a frame is asked for at once
+   * instead of waiting for the next heartbeat, which left the canvas empty for up to a second.
+   */
+  const onRestored = (): void => {
+    lost = false;
+    delete canvas.dataset.gl;
+    renderer.setClearColor(0x000000, 0);
+    resize();
+    events.emit('context', { lost: false });
+    loop.invalidate();
+  };
+  canvas.addEventListener('webglcontextlost', onLost);
+  canvas.addEventListener('webglcontextrestored', onRestored);
 
   window.addEventListener('resize', resize);
   window.addEventListener('pointermove', onPointer, { passive: true });
