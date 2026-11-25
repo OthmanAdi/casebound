@@ -999,8 +999,10 @@ async function boot(): Promise<void> {
     const pitch = pictures.clientHeight + 24;
     for (const [k, c] of cards.entries()) {
       if (detailPage) {
-        // In the details each picture belongs to its book's part of the page.
-        const y = cardAt(articles[catalogue.indexOf(featured[k]!.slug)]!);
+        // In the details each picture belongs to its book's part of the page. On a narrow screen an open book or a
+        // zine has the whole picture: its picture stands in the window however far the details were scrolled.
+        const part = catalogue.indexOf(featured[k]!.slug);
+        const y = ctx.compact && part === stage && (reader.isOpen || zineOut()) ? 0 : cardAt(articles[part]!);
         const show = y > -windowH - 40 && y < innerHeight;
         if (show !== c.shown) {
           c.el.style.visibility = show ? '' : 'hidden';
