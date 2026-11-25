@@ -58,7 +58,7 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with WebGL 2.
+Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with WebGL 2. A browser without it gets the same page with the books as stills.
 
 ## What you get
 
@@ -266,6 +266,7 @@ No model, artwork, text or typeface of the reference is in this repository, and 
 | `npm run check` | Type check, unit tests and a production build |
 | `node tools/capture/check-reader.mjs <url>` | The reader in a real browser: keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves |
 | `node tools/capture/check-shelf.mjs <url>` | The shelf in a real browser: a book turned by hand, its coasting, a press that opens the details, the row of spines, a jump of the scroll bar that skips no book |
+| `node tools/capture/check-stills.mjs <url>` | The page without WebGL in a real browser: a still that rides the scroll, turns under a pull and opens the details, the row, `?nowebgl` and `?webgl` |
 | `node tools/capture/shot.mjs <url> <out.png>` | One picture of a page in a real browser, with console errors |
 | `node tools/capture/record.mjs <url> <dir> <scene>` | A scripted visit as exact frames, for GIFs and review |
 | `node tools/capture/gif.mjs <dir> <out.gif>` | Those frames as a GIF |
@@ -276,6 +277,8 @@ The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 fram
 ## What is missing
 
 The books are heard: a page turning, a page taken into the hand, a held leaf flopping over, a block of leaves riffling and landing, a cover falling shut. When each sound plays, how loud and at what pace follows the reference. The sounds themselves are made from noise in the browser, because the reference plays recordings that are not ours, and nobody has yet listened to them side by side. `casebound.sound.muted = true` or the tunable `sound.paper` `level` 0 turns them off.
+
+Without WebGL 2 the page shows stills. Every book is then a box of six faces placed by the browser's own 3D transforms, with the cover the painter paints for the real book cut into front, back and spine, so no picture is loaded here either. A still rides the scroll in the middle of its picture, turns under a sideways pull, and a press opens the details; at the end of the shelf every book stands in a row of spines. There is no reader, no lens and no pen. `?nowebgl` in the address shows this page in any browser and is remembered for the tab, `?webgl` goes back.
 
 Touch works but was not measured against the reference. The pen was compared with a capture of the reference frame by frame and pixel by pixel; its scratch was compared call by call, not by ear, and it was not tried on a real touch screen. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages.
 
