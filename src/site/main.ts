@@ -15,6 +15,7 @@ import { createMarker, type Marker } from '../engine/marker/marker';
 import { createPageSound } from '../engine/sound/page-sound';
 import { createSurfaceEffects } from '../engine/effects/surface-effects';
 import { createReader, type Reader } from '../engine/reader/reader';
+import { createTouchReading } from '../engine/reader/touch-view';
 import { createShelf } from '../engine/shelf/shelf';
 import { createZines, type Zines } from '../engine/zine/zine';
 import { themeForHour, type ThemeName } from '../engine/stage/presets';
@@ -267,12 +268,7 @@ async function boot(): Promise<void> {
   const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
   const magnifier: Magnifier = createMagnifier(engine, { centreOffsetPx: offset, onToggle: (on) => setLens(on) });
   const marker: Marker = createMarker(engine, reader, { onChange: () => syncPens() });
-  /**
-   * Measured on a phone: the open zine shows one side of its spread at a time, the left one first, and a swipe
-   * across the page goes to the other side instead of turning it. -1 is the left page, 1 the right one.
-   */
-  let zineSide: 1 | -1 = -1;
-  const zine: Zines = (zines = createZines(engine, reader, { centreOffsetPx: offset, onChange: () => sync(), side: () => (ctx.compact && zines?.state === 'reading' && !zines.onBack ? -zineSide / 2 : 0) }));
+  const zine: Zines = (zines = createZines(engine, reader, { centreOffsetPx: offset, onChange: () => sync() }));
   /** A zine has the picture: on its way in, lying closed, or being read. */
   const zineOut = (): boolean => zine.state === 'coming' || zine.state === 'lying' || zine.state === 'reading';
   const effects = createSurfaceEffects(engine);
@@ -425,7 +421,6 @@ async function boot(): Promise<void> {
         reader.close();
       }
       if (!detailOpen) setDetail(true);
-      if (!zineOut()) zineSide = -1;
       zine.open(current().slug, number);
     } else {
       marker.set(false);
@@ -693,29 +688,19 @@ async function boot(): Promise<void> {
   }
 
   /**
-   * A swipe across an open zine on a narrow screen goes to the other side of its spread and turns nothing. It is
-   * taken before the reader sees it. Pixels of sideways travel that make a swipe: ours, not measured.
+   * Fingers on an open book or zine. Measured on a phone: one page side fills the width, the left one first; a
+   * finger pans to the other side, a pull at the end of the pan turns the page, two fingers zoom. The page may fill
+   * the room down to the bar. The lens and the pens keep the fingers for themselves, and so does a zine closed on
+   * its back, which a press opens again.
    */
-  const ZINE_SWIPE_PX = 40;
-  let swipe: { id: number; x: number; y: number } | null = null;
-  const swipeIgnore = 'button, a, input, select, textarea, label, aside, header, footer, nav, [role="toolbar"], [role="dialog"]';
-  addEventListener('pointerdown', (ev) => {
-    if (ev.pointerType === 'mouse' || !ev.isPrimary || !ctx.compact || zine.state !== 'reading' || zine.onBack || marker.on) return;
-    if (ev.target instanceof Element && ev.target.closest(swipeIgnore)) return;
-    swipe = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
-    ev.stopPropagation();
-  }, { capture: true });
-  addEventListener('pointerup', (ev) => {
-    if (!swipe || ev.pointerId !== swipe.id) return;
-    const dx = ev.clientX - swipe.x;
-    const dy = ev.clientY - swipe.y;
-    swipe = null;
-    ev.stopPropagation();
-    if (Math.abs(dx) < ZINE_SWIPE_PX || Math.abs(dx) < Math.abs(dy)) return;
-    zineSide = dx < 0 ? 1 : -1;
-    ctx.invalidate();
-  }, { capture: true });
-  addEventListener('pointercancel', () => (swipe = null), { capture: true });
+  const touchReading = createTouchReading(engine, reader, {
+    area: () => {
+      const bar = $('toolbar');
+      const top = bar.hidden ? innerHeight : bar.getBoundingClientRect().top;
+      return { top: Number(ctx.registry.getParam('reader.touch', 'areaTop') ?? 88), bottom: top > 89 ? Math.min(top, innerHeight) : innerHeight };
+    },
+    paused: () => magnifier.on || marker.on || (zine.state === 'reading' && zine.onBack),
+  });
 
   /** Measured: Escape under a zine closes the details too, this long after the zine. Milliseconds. */
   const ZINE_ESCAPE_DETAILS_MS = 630;
@@ -1112,7 +1097,7 @@ async function boot(): Promise<void> {
     setTimeout(() => pageSections().find((s) => named(s.word) === wanted.toLowerCase())?.run(), ctx.still ? 0 : 400);
   }
   const sound = createPageSound(engine);
-  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, marker, effects, library, sound, zine } });
+  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, marker, effects, library, sound, zine, touch: touchReading } });
   // Tell tools the page has settled: after the intro, or at once on a deep link.
   setTimeout(() => (html.dataset.caseboundReady = 'true'), entry.startsWith('#/book/') || ctx.still ? 300 : 2100);
 }
