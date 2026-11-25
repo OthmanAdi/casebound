@@ -235,6 +235,40 @@ try {
   if (!fine) failed++;
   console.log(`${fine ? 'ok  ' : 'FAIL'} a book without a zine has no button, and its zine address shows its details: ${JSON.stringify(none)}`);
 
+  // on a phone: the whole picture, fitted to the width, one page side at a time, a swipe for the other side
+  {
+    await page.close();
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+    page = await phone.newPage();
+    page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
+    await page.goto(base.replace(/\/$/, '') + '/?midday#/book/chemical-history-of-a-candle/zine', { waitUntil: 'load', timeout: 60000 });
+    await page.waitForSelector('html[data-casebound-ready="true"]', { state: 'attached', timeout: 30000 });
+    await page.evaluate(() => { casebound.engine.ctx.loop.stop(); window.__clock = performance.now(); });
+    await run(2.5);
+    const column = () => page.evaluate(() => document.documentElement.hasAttribute('data-reading') && !document.documentElement.hasAttribute('data-aside'));
+    const closed = await step('on a phone the closed zine has the whole picture, its cover as wide as the window', (s) => s.state === 'lying' && s.rect[2] > 0.85 * 390 && s.rect[2] < 1.15 * 390, (s) => `${s.state}, box ${s.rect}`);
+    console.log(`${(await column()) ? 'ok  ' : 'FAIL'} and the column of the details is out of view`);
+    if (!(await column())) failed++;
+    await page.tap('#next');
+    await run(2.5);
+    const left = await step('a tap on the bar opens it: one page fills the width, the left one first', (s) => s.state === 'reading' && s.folio === '2' && s.rect[0] < 20 && s.rect[2] > 1.6 * 390, (s) => `${s.state}, "${s.folio}", box ${s.rect}, x ${s.x.toFixed(2)}`);
+    const cdp = await phone.newCDPSession(page);
+    const swipe = async (from, to) => {
+      const y = 450;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from, y }] });
+      for (let i = 1; i <= 8; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from + ((to - from) * i) / 8, y }] }); await run(1 / 60); }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await run(1.5);
+    };
+    await swipe(320, 80);
+    await step('a swipe to the left shows the right page and turns nothing', (s) => s.x < left.x - 0.8 * 12 && s.folio === '2' && s.inAir === 0, (s) => `x ${s.x.toFixed(2)} from ${left.x.toFixed(2)}, "${s.folio}", in the air ${s.inAir}`);
+    await swipe(80, 320);
+    await step('and a swipe to the right the left one again', (s) => Math.abs(s.x - left.x) < 0.5 && s.folio === '2', (s) => `x ${s.x.toFixed(2)}, "${s.folio}"`);
+    void closed;
+    await phone.close();
+    page = null;
+  }
+
   for (const e of errors) { failed++; console.log('FAIL page error: ' + e); }
 } finally {
   await browser.close();
