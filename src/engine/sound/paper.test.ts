@@ -47,16 +47,19 @@ describe('the sounds of paper', () => {
 
   it('come in eight turns that do not sound alike: brighter ones cross zero more often', () => {
     expect(TURN_VOICES.length).toBe(8);
-    const light = crossings(renderVoice(TURN_VOICES[1]!, RATE, 5));
-    const deep = crossings(renderVoice(TURN_VOICES[5]!, RATE, 5));
+    // Fitted to the recordings: the fourth is the brightest (centre 4020 Hz), the first among the darkest (1760 Hz).
+    const light = crossings(renderVoice(TURN_VOICES[3]!, RATE, 5));
+    const deep = crossings(renderVoice(TURN_VOICES[0]!, RATE, 5));
     expect(light).toBeGreaterThan(deep * 1.5);
   });
 
-  it('fall away: a turn is louder in its first third than in its last', () => {
+  it('swell to their loudest, as the recordings do, and fall away fast after it', () => {
     for (const voice of TURN_VOICES) {
       const s = renderVoice(voice, RATE, 9);
-      const third = Math.floor(s.length / 3);
-      expect(rms(s, 0, third)).toBeGreaterThan(rms(s, 2 * third) * 1.5);
+      const at = (t: number): number => Math.round(t * RATE);
+      const peak = rms(s, at(voice.attack - 0.01), at(voice.attack + 0.01));
+      expect(rms(s, 0, at(0.01))).toBeLessThan(peak * 0.5);
+      expect(rms(s, at(voice.attack + 0.1), at(voice.attack + 0.12))).toBeLessThan(peak * 0.2);
     }
   });
 

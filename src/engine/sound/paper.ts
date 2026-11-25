@@ -29,32 +29,42 @@ export interface PaperVoice {
   knockGain?: number;
   knockAt?: number;
   knockFall?: number;
+  /** A quiet tail after the fall, as the sheet settles: its share of the loudness 0 to 1 (default 0) and its time constant. */
+  tail?: number;
+  tailFall?: number;
   /** Share of the noise beside the knock, 0 to 1. Default 1. */
   air?: number;
 }
 
-/** Eight ways a single leaf sounds as it turns. One is picked at random for every turn. */
+/**
+ * Eight ways a single leaf sounds as it turns. One is picked at random for every turn.
+ *
+ * Fitted by measurement to the eight recordings the reference picks from (SPEC S-SND-2): each voice has the length of
+ * its recording, swells to its loudest when the recording does (50 to 180 ms in), falls 20 dB in the 35 to 80 ms
+ * after that, and has the same spectral centre, 1760 to 4020 Hz. The band's pitches are low for that centre because
+ * the filtered noise reaches well above its band.
+ */
 export const TURN_VOICES: PaperVoice[] = [
-  { length: 0.22, from: 2600, to: 5200, q: 1.4, attack: 0.012, fall: 0.06, crinkle: 60, depth: 0.5 },
-  { length: 0.18, from: 3200, to: 6400, q: 1.2, attack: 0.01, fall: 0.045, crinkle: 70, depth: 0.4 },
-  { length: 0.24, from: 2200, to: 4800, q: 1.7, attack: 0.014, fall: 0.07, crinkle: 48, depth: 0.6 },
-  { length: 0.34, from: 1500, to: 3600, q: 1.3, attack: 0.03, fall: 0.1, crinkle: 36, depth: 0.55 },
-  { length: 0.38, from: 1300, to: 3000, q: 1.5, attack: 0.035, fall: 0.11, crinkle: 30, depth: 0.6 },
-  { length: 0.4, from: 900, to: 2400, q: 1.2, attack: 0.04, fall: 0.13, crinkle: 26, depth: 0.5 },
-  { length: 0.3, from: 1800, to: 4200, q: 1.6, attack: 0.02, fall: 0.085, crinkle: 44, depth: 0.65 },
-  { length: 0.3, from: 1600, to: 3200, q: 1.0, attack: 0.03, fall: 0.09, crinkle: 34, depth: 0.3 },
+  { length: 0.37, from: 630, to: 1270, q: 1.4, attack: 0.065, fall: 0.017, crinkle: 60, depth: 0.5, tail: 0.06, tailFall: 0.08 },
+  { length: 0.25, from: 480, to: 960, q: 1.2, attack: 0.05, fall: 0.015, crinkle: 70, depth: 0.4, tail: 0.06, tailFall: 0.08 },
+  { length: 0.44, from: 1130, to: 2470, q: 1.7, attack: 0.18, fall: 0.03, crinkle: 48, depth: 0.6, tail: 0.06, tailFall: 0.08 },
+  { length: 0.345, from: 1420, to: 3410, q: 1.3, attack: 0.13, fall: 0.015, crinkle: 36, depth: 0.55, tail: 0.06, tailFall: 0.08 },
+  { length: 0.375, from: 1110, to: 2560, q: 1.5, attack: 0.105, fall: 0.03, crinkle: 30, depth: 0.6, tail: 0.06, tailFall: 0.08 },
+  { length: 0.43, from: 940, to: 2510, q: 1.2, attack: 0.165, fall: 0.02, crinkle: 26, depth: 0.5, tail: 0.06, tailFall: 0.08 },
+  { length: 0.315, from: 860, to: 2010, q: 1.6, attack: 0.055, fall: 0.03, crinkle: 44, depth: 0.65, tail: 0.06, tailFall: 0.08 },
+  { length: 0.42, from: 750, to: 1500, q: 1.0, attack: 0.115, fall: 0.035, crinkle: 34, depth: 0.3, tail: 0.06, tailFall: 0.08 },
 ];
 
-/** A page taken into the hand: a short brush of a finger on paper. */
-export const GRAB_VOICE: PaperVoice = { length: 0.09, from: 2600, to: 1800, q: 1.1, attack: 0.004, fall: 0.025, crinkle: 90, depth: 0.4 };
-/** A held leaf falling over as it passes upright: a rush that sinks, with a soft slap at its end. */
-export const FLOP_VOICE: PaperVoice = { length: 0.3, from: 1900, to: 900, q: 1.2, attack: 0.02, fall: 0.09, crinkle: 30, depth: 0.5, knock: 150, knockGain: 0.35, knockAt: 0.1, knockFall: 0.04 };
-/** A block of leaves on its way over: many edges riffling past each other. */
-export const SHUFFLE_VOICE: PaperVoice = { length: 0.5, from: 1700, to: 3400, q: 1.3, attack: 0.03, fall: 0.2, crinkle: 28, depth: 0.9 };
+/** A page taken into the hand: a short brush of a finger on paper. Fitted to the reference's: 0.165 s, centre 3480 Hz. */
+export const GRAB_VOICE: PaperVoice = { length: 0.165, from: 1320, to: 910, q: 1.1, attack: 0.01, fall: 0.015, crinkle: 90, depth: 0.4 };
+/** A held leaf falling over as it passes upright: a rush that sinks, with a soft slap. Fitted: 0.16 s, centre 2730 Hz. */
+export const FLOP_VOICE: PaperVoice = { length: 0.16, from: 3430, to: 1620, q: 1.2, attack: 0.025, fall: 0.02, crinkle: 30, depth: 0.5, knock: 150, knockGain: 0.35, knockAt: 0.025, knockFall: 0.04 };
+/** A block of leaves on its way over: many edges riffling past each other, low and long. Fitted: 1.1 s, centre 660 Hz. */
+export const SHUFFLE_VOICE: PaperVoice = { length: 1.1, from: 170, to: 330, q: 1.3, attack: 0.175, fall: 0.26, crinkle: 28, depth: 0.6 };
 /** A block of leaves landing on its stack. */
 export const HIT_VOICE: PaperVoice = { length: 0.2, from: 900, to: 400, q: 0.9, attack: 0.003, fall: 0.035, crinkle: 20, depth: 0.2, knock: 120, knockGain: 0.8, knockAt: 0, knockFall: 0.045, air: 0.5 };
 /** A cover falling shut on its book. */
-export const THUD_VOICE: PaperVoice = { length: 0.24, from: 500, to: 220, q: 0.8, attack: 0.002, fall: 0.03, crinkle: 16, depth: 0.2, knock: 85, knockGain: 1, knockAt: 0, knockFall: 0.06, air: 0.35 };
+export const THUD_VOICE: PaperVoice = { length: 0.3, from: 500, to: 220, q: 0.8, attack: 0.002, fall: 0.03, crinkle: 16, depth: 0.2, knock: 130, knockGain: 1, knockAt: 0, knockFall: 0.033, air: 0.35 };
 
 /** A small generator of random numbers that gives the same run for the same seed. */
 export function seeded(seed: number): () => number {
@@ -98,7 +108,9 @@ export function renderVoice(voice: PaperVoice, sampleRate: number, seed = 1): Fl
       until = t + (0.4 + 1.2 * random()) / Math.max(1, voice.crinkle);
     }
     level += (goal - level) * Math.min(1, (voice.crinkle * 3) / sampleRate);
-    const env = Math.min(1, t / Math.max(1e-4, voice.attack)) * Math.exp(-Math.max(0, t - voice.attack) / Math.max(1e-4, voice.fall));
+    const after = Math.max(0, t - voice.attack);
+    const tail = voice.tail ?? 0;
+    const env = Math.min(1, t / Math.max(1e-4, voice.attack)) * ((1 - tail) * Math.exp(-after / Math.max(1e-4, voice.fall)) + tail * Math.exp(-after / Math.max(1e-4, voice.tailFall ?? voice.fall)));
     let sample = band * env * level * air;
     if (voice.knock && voice.knockGain) {
       const since = t - (voice.knockAt ?? 0);
