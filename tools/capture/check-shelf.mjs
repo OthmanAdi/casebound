@@ -518,6 +518,48 @@ try {
     await phone.close();
   }
 
+  // Stops for the keyboard: Tab reaches every featured book and the row, Enter opens the details.
+  await page.evaluate(() => scrollTo(0, 0));
+  await run(3);
+  const stop = () => page.evaluate(() => ({ text: document.activeElement?.textContent?.trim() ?? '', role: document.activeElement?.getAttribute('role') ?? '', active: casebound.engine.books[casebound.engine.state.active].record.slug, view: document.documentElement.dataset.caseboundView, y: Math.round(scrollY / Math.max(1, document.querySelector('.panel').offsetHeight + 16) * 10) / 10 }));
+  // The page glides there on the browser's own clock, not on the engine's.
+  await page.evaluate(() => document.querySelectorAll('#stops .stop')[2].focus());
+  await page.waitForTimeout(2200);
+  await run(3);
+  const third = await stop();
+  const okThird = third.text.startsWith('Featured book 3 of') && Math.abs(third.y - 2) < 0.2;
+  if (!okThird) failed++;
+  console.log(`${okThird ? 'ok  ' : 'FAIL'} a stop for the keyboard brings its book to the centre: "${third.text.slice(0, 40)}", slot ${third.y}`);
+  await page.keyboard.press('Enter');
+  await run(2);
+  const opened = await stop();
+  const okOpened = typeof opened.view === 'string' && opened.view.startsWith('/book/') && opened.view.endsWith(opened.active);
+  if (!okOpened) failed++;
+  console.log(`${okOpened ? 'ok  ' : 'FAIL'} Enter on it opens that book's details: ${opened.view}`);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(900);
+  await run(2);
+  /** Waits, on both clocks, until the row stands. */
+  const rowStands = async () => {
+    for (let k = 0; k < 50; k++) {
+      await page.waitForTimeout(200);
+      await run(0.4);
+      if (await page.evaluate(() => casebound.shelf.row.settled)) return;
+    }
+  };
+  await page.evaluate(() => document.getElementById('row-stop').focus());
+  await rowStands();
+  await page.keyboard.press('End');
+  await page.waitForTimeout(300);
+  await run(4);
+  await rowStands();
+  const last = await page.evaluate(() => ({ chosen: casebound.shelf.row.selected, order: casebound.shelf.row.order, said: document.getElementById('row-stop').getAttribute('aria-activedescendant'), settled: casebound.shelf.row.settled }));
+  const okRow = last.settled && last.chosen === last.order[last.order.length - 1] && last.said === `row-option-${last.chosen}`;
+  if (!okRow) failed++;
+  console.log(`${okRow ? 'ok  ' : 'FAIL'} the row is one stop: focus brings it up and End chooses its last book: ${last.chosen}${okRow ? '' : ` (settled ${last.settled}, says ${last.said}, last ${last.order[last.order.length - 1]})`}`);
+  await page.evaluate(() => { document.activeElement?.blur(); scrollTo(0, 0); });
+  await run(3);
+
   // A hidden extra, and an address that opens the page at a section.
   await page.keyboard.press('i');
   const negative = await page.evaluate(() => getComputedStyle(document.documentElement).filter);
