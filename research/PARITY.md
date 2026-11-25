@@ -82,6 +82,25 @@ Left on purpose: our typefaces and their sizes and tracking, the page colour, wh
 
 Not verified: every reference number is one reading from one load at each size. The zoom of the art in a picture is a fit to the frames (within 0.0024 of scale), not read from code. The details as a page were compared by their behaviour in steps of 450 px and by the arrival of the next book frame by frame; our parts are shorter than the reference's, so a picture stays at the top for less scrolling. Touch scrolls natively on both sides, but the headless browser made no fling from synthetic touches, so momentum was not compared. The reference's band plays films; how its row of cards is stepped was not captured.
 
+## 2026-11-25 · An inventory from the reference's side
+
+Nine passes compared what both sides had. Twice the owner then found something none of them had looked for: a pen, and the page around the books. So the question was turned round: what can the reference do at all? Its scripts were indexed by routes, component names, labels, keys, stored settings and named constants, doubts were checked in two page loads, and every feature was marked against ours: 62 rows, 13 of them missing or different.
+
+Built from that list so far:
+
+| Feature | Reference | Ours before | Now |
+| --- | --- | --- | --- |
+| Reading place | kept per book in the browser; a book opens where it was left | always the middle leaf | kept per book |
+| Page readout in the bar | a button that copies the address of the spread | plain text | a button that copies it |
+| Keys of the reader | `j` and `k` jump forty leaves (190, 270, 190 seen), `<` and `>` turn one, `x` closes | none of these | the same |
+| Sound | every turn, a taken page, a held leaf passing upright, a block of leaves, a cover falling shut | silent but for the pen | the same events at the read levels and paces, made from noise |
+
+Sound in detail. The reference plays recordings: one of eight for a turn at pace 1.1 forward and 0.91 back, a short one when a page is taken, one for a held leaf passing upright that is higher for a faster hand, a shuffle when a block of leaves is 0.15 of its way over, a hit when a block of more than three lands, and a thud for a cover falling shut whose loudness and pace follow how fast it closed. Ours fires the same sounds at the same moments, levels and paces, counted in the browser checks (two turns by key are two sounds; a page pulled over is one brush, one flop and one turn; three blocks are three riffles and two knocks). The recordings are not ours, so each sound is a voice of filtered noise with a rustle and, where something lands, a low knock.
+
+Still on the list, in the order of the inventory: a second readable object (a stapled pamphlet with an excerpt, in work), reading by touch with zoom and pan, keyboard stops on every book, a page of stills for browsers without WebGL, films in the band at the foot of the page, and small things (a negative view of the window, recovery when the graphics context is lost).
+
+Not verified: nobody has listened to our sounds beside the reference's; what was checked is when they play and how often. When the reference fires each sound against the turn was read in its code and not logged. Its crackle was not traced. The inventory can miss a rule that has no label, key or constant.
+
 ## 2026-11-24 · Ninth pass: the pen
 
 Eight passes compared what both sides had. None of them had opened the reference's control bar far enough to find a tool ours did not have at all: a highlighter. It marks the pages of the open book, and it was the largest thing missing.

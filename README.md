@@ -275,6 +275,8 @@ The unit tests cover what cannot be judged by eye: motion at 30, 60 and 120 fram
 
 ## What is missing
 
+The books are heard: a page turning, a page taken into the hand, a held leaf flopping over, a block of leaves riffling and landing, a cover falling shut. When each sound plays, how loud and at what pace follows the reference. The sounds themselves are made from noise in the browser, because the reference plays recordings that are not ours, and nobody has yet listened to them side by side. `casebound.sound.muted = true` or the tunable `sound.paper` `level` 0 turns them off.
+
 Touch works but was not measured against the reference. The pen was compared with a capture of the reference frame by frame and pixel by pixel; its scratch was compared call by call, not by ear, and it was not tried on a real touch screen. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages.
 
 ## Licence
