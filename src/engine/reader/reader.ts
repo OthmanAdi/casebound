@@ -1196,7 +1196,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         onUp(handEvent(cancel ? 'pointercancel' : 'pointerup', x, y, id, ctx.canvas));
       },
     },
-    turnLeaves:(count) => (Math.abs(count) < 2 ? count !== 0 && launch(count > 0 ? 1 : -1) : takeBundle(count > 0 ? 1 : -1, Math.abs(count))),
+    turnLeaves: (count) => (Math.abs(count) < 2 ? count !== 0 && launch(count > 0 ? 1 : -1) : takeBundle(count > 0 ? 1 : -1, Math.abs(count))),
     goTo: (page) => {
       if (!book) return;
       spread = clamp(Math.round(page / 2), 0, book.dims.leaves);
