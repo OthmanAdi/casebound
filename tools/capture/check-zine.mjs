@@ -97,7 +97,9 @@ try {
   await run(2);
   const before = await step('a book with a zine has a button for it in its details', (s) => s.button === '+ Open zine +' && s.state === 'away' && s.aside, (s) => `"${s.button}", zine ${s.state}`);
   {
-    // Under the pointer the pill is filled; its words must stay readable on the fill.
+    // Under the pointer the pill is filled; its words must stay readable on the fill. The column slides in by the
+    // clock on the wall first.
+    await page.waitForTimeout(1300);
     await page.hover('.dp-book.is-current .row-zine');
     await page.waitForTimeout(300);
     const pill = await page.evaluate(() => { const b = getComputedStyle(document.querySelector('.dp-book.is-current .row-zine')); return { color: b.color, fill: b.backgroundColor }; });
@@ -304,6 +306,31 @@ try {
     await swipe(80, 320);
     await step('and a swipe to the right the left one again', (s) => Math.abs(s.x - left.x) < 0.5 && s.folio === '2', (s) => `x ${s.x.toFixed(2)}, "${s.folio}"`);
     void closed;
+
+    // Taken out from details scrolled down to its button, the zine still lies over the whole picture.
+    await page.goto('about:blank');
+    await page.goto(base.replace(/\/$/, '') + '/?midday#/book/chemical-history-of-a-candle', { waitUntil: 'load', timeout: 60000 });
+    await page.waitForSelector('html[data-casebound-ready="true"]', { state: 'attached', timeout: 30000 });
+    await page.evaluate(() => { casebound.engine.ctx.loop.stop(); window.__clock = performance.now(); });
+    await run(3);
+    await page.evaluate(() => document.querySelector('.dp-book.is-current .row-zine').scrollIntoView({ block: 'center' }));
+    // A smooth scroll, by the clock on the wall.
+    await page.waitForTimeout(1200);
+    await run(0.5);
+    const scrolled = await page.evaluate(() => Math.round(scrollY));
+    await page.tap('.dp-book.is-current .row-zine');
+    await run(2.5);
+    const picture = await page.evaluate(() => Math.max(0, ...[...document.querySelectorAll('.card')].filter((c) => getComputedStyle(c).visibility === 'visible').map((c) => { const r = c.getBoundingClientRect(); return Math.min(innerHeight, r.bottom) - Math.max(0, r.top); })));
+    const lies = await state();
+    const whole = lies.state === 'lying' && picture > 600;
+    if (!whole) failed++;
+    console.log(`${whole ? 'ok  ' : 'FAIL'} from details scrolled ${scrolled} px down, the closed zine lies over the whole picture: ${Math.round(picture)} px of picture in view, ${lies.state}`);
+    await page.tap('#close');
+    await run(2.5);
+    const kept = await page.evaluate(() => Math.round(scrollY));
+    const same = Math.abs(kept - scrolled) < 2;
+    if (!same) failed++;
+    console.log(`${same ? 'ok  ' : 'FAIL'} and put away, the details are where they were: scrolled ${kept} px`);
     await phone.close();
     page = null;
   }
