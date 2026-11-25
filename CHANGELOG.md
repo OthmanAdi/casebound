@@ -60,6 +60,7 @@ Motion:
 - The cover of the centred book lifts under a resting pointer in the details view and in the row, and stays shut on the shelf itself, as measured (`peek` in the shelf options).
 - Pages turned by hand: a held leaf follows the pointer with the measured mapping, a pull that ends on the turning side turns the page, a pull brought back lets it fall, a tap turns one page, and a leaf in the air can be caught.
 - Reduced motion is honoured in the scene: with it on, every animation jumps to its end.
+- Reading by touch, as measured on a phone. On a narrow screen one page side fills 0.96 of the width, the left one first. A finger pans to the other side and the pan comes to rest on the side it was carried toward; a sideways pull at the end of the pan turns the page; a tap turns a page as a click does. Two fingers zoom from 0.5 to twice the zoom that fits a page, about the place between them. Past their limits the zoom gives way by 0.35 and the pan by 0.28, and both spring back when the fingers are lifted. On a wide touch screen a finger pulls pages as a mouse does and pans the book when it rests on a page for 0.3 s. The numbers are in the registry as `reader.touch`; `reader.view`, `reader.frame()` and `reader.hand` let a tool zoom the book, find its pages on the screen and lead a hand.
 - The zine in the scene: it flies in from the right the measured way (45 units, the square of what is left, 0.12 a frame), lies closed over the picture while its book stands aside to the left, opens with its cover on the first turn and comes to the reading place, and goes out the way it came. Honours reduced motion. Its feel is in the registry as `zine`.
 
 The page:
@@ -80,6 +81,10 @@ The page:
 - After the last leaf of a zine the way on brings its back cover over and it lies closed on its face, numbered with every side; the way back opens it again.
 - On a narrow screen a zine has the whole picture: closed, its cover fills the width of the window; open, one page does, the left one first, and a swipe across the page goes to the other side without turning it. It leans back less there.
 - One Escape under a zine puts it away and, 0.63 s later, closes the details.
+- Both demo zines are printed to their last page: 22 paragraphs of the candle lecture and 26 of Walden, and a page is reckoned at 2,500 characters, as the painter sets them, where it was 1,650. Before, the text ended after four sides and the last two and a half spreads were bare.
+- The pill that takes a zine out stays readable under the pointer and the keyboard: it fills with the ink and its words take the colour of the page. Before, both were the ink.
+- On a phone, a book or zine opened from details scrolled down has its picture behind it, as when it is opened by its address.
+- A zine on a phone is read by touch like a book: the swipe of its own that only changed sides is gone, and a pull at the end of the pan now turns its page.
 - A spine too narrow to read, such as the fold of a pamphlet, carries no title, author or mark.
 
 Effects:
@@ -90,6 +95,7 @@ Effects:
 System:
 
 - A registry of every tunable value with id, range and help text, readable and writable from the console.
+- A lost drawing context is caught: the canvas says so (`data-gl="lost"`, the event `context`), and when the browser gives the context back the frame is drawn at once with every texture, where the page stayed empty until the next heartbeat, up to a second.
 - Extension points for scene objects, surface effects, shelf layouts, light presets and page sources, with three example extensions.
 - A content folder: one record per book, optional text beside it, and a tool that fetches public-domain texts from Project Gutenberg.
 - An agent skill, `casebound`, with references for content, extending, tuning and verifying, and manifests for the Claude Code plugin marketplace.
@@ -103,11 +109,12 @@ Measurement:
 - A pass on the page around the books: its layout and timing measured at 1440 by 900 and on a 390 px phone, with the shelf's browser check extended by a step for each correction.
 - Tools: a screenshot script, a frame recorder that drives the engine's clock, a GIF encoder for its frames, two functional checks that run the reader and the shelf in a real browser, a runner for frame-stepped capture with reanimate, a channel comparison and a scene pose reader.
 - A pass on the zine: the reference's measured in three loads, ours laid beside it with the same driver, and `tools/capture/check-zine.mjs`, a third functional check that runs the zine in a real browser.
+- A pass on touch: the reference's reading by touch measured on a phone with one and two fingers, ours built to it, and steps in `check-reader.mjs` for it and for a lost drawing context. `check-stills.mjs` starts Edge without WebGL and checks that the page finds that out by itself.
 
 ### Known gaps
 
 - The row of spines was built from the measured constants without a capture of its own to compare with.
-- The zine lies on the book's two page stacks with six live leaves; the reference's has every leaf live. Its paper is fitted to the turn of the reference's leaf, not built from the reference's own paper model. Its lean about the spine is fitted to what the reference's leaves show, not built from its turning group and the ground its leaves lie on. A swipe on a phone was tried in a browser's touch emulation only, and the reference's pinch and pan were not built.
+- The zine lies on the book's two page stacks with six live leaves; the reference's has every leaf live. Its paper is fitted to the turn of the reference's leaf, not built from the reference's own paper model. Its lean about the spine is fitted to what the reference's leaves show, not built from its turning group and the ground its leaves lie on.
 - The opening is still up to 175 ms early at its start against the reference, and the closing sequence, the toolbar timing and the lens rim were not measured again after their correction.
 - Page paper is still about 8 of 255 short in blue against the reference.
-- Touch works but was not measured.
+- Reading by touch was measured and tried in a browser's touch emulation, not on a phone. Zoom 1 on a phone is the whole spread in the width, a little smaller than the reference's, so the least zoom shows the book smaller than there.
