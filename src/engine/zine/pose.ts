@@ -58,8 +58,38 @@ export function flyTurn(p: number, tune: ZinePoseTune = ZINE_POSE): { pitch: num
  */
 export const zineNumber = (spread: number | null): number => (spread === null ? 1 : 2 * Math.max(0, Math.round(spread)) + 2);
 
+/** The number of a zine closed onto its back: every side, the four of its cover counted. */
+export const zineLast = (leaves: number): number => 2 * (leaves + 2);
+
+/** Leaves turned for a number of the bar or of the address, the covers counted. Read in the reference: half of it, rounded down. */
+export const zineTurned = (n: number): number => (Number.isFinite(n) ? Math.max(0, Math.floor(n / 2)) : 0);
+
 /** The reader's page for a number of the bar or of the address. Null: closed. */
 export function zinePage(n: number, leaves: number): number | null {
-  if (!Number.isFinite(n) || n < 2) return null;
-  return clamp(Math.round(n / 2) - 1, 0, leaves) * 2;
+  const turned = zineTurned(n);
+  if (turned < 1) return null;
+  return clamp(turned - 1, 0, leaves) * 2;
 }
+
+/** True for a number that asks for the zine closed onto its back. */
+export const zineOnBack = (n: number, leaves: number): boolean => zineTurned(n) >= leaves + 2;
+
+/**
+ * The turn of an open zine about its spine, degrees, positive raising its left side, for `turned` leaves of `of`
+ * (both covers counted as leaves). Read in the reference: its group turns about the spine by 99 degrees from the
+ * first leaf to the last, and its leaves, lying on their own ground, give most of it back. Measured on the page,
+ * the side with fewer leaves lies higher, 13 degrees across the whole booklet, linear in the leaves turned:
+ * `lean` at the start, minus `lean` at the end. The pointer adds up to `pointer` toward its side (`toward` -1 to 1).
+ */
+export function zineLean(turned: number, of: number, lean: number, pointer = 0, toward = 0): number {
+  const n = of > 0 ? clamp(turned / of, 0, 1) : 0.5;
+  return lean * (1 - 2 * n) + pointer * clamp(toward, -1, 1);
+}
+
+/**
+ * The paper of a zine, against the book's leaf (`LEAF_DEFAULT`). Fitted with `stepLeaf` to a leaf of the reference's
+ * zine turned by key (0.14, 0.25, 0.40, 0.50, 0.67, 0.84, 0.87, 0.94 of its turn after 50, 100, 200, 300, 500, 800,
+ * 1000 and 2100 ms; ours within 0.01, rms 0.007): it starts faster and lands as slowly. Its cover is the same paper
+ * sent off with the book's starting speed (0.06, 0.21, 0.46, 0.70, 0.81 after 50, 200, 500, 800 and 1000 ms; rms 0.004).
+ */
+export const ZINE_PAPER = { damping: 0.16, follow: 0.05, kick: 0.2, coverKick: 0.08 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ZINE_POSE, flyOffset, flyTurn, stepPresence, zineNumber, zinePage } from './pose';
+import { ZINE_POSE, flyOffset, flyTurn, stepPresence, zineLast, zineLean, zineNumber, zineOnBack, zinePage } from './pose';
 
 const DT = 1 / 60;
 const DEG = Math.PI / 180;
@@ -97,8 +97,31 @@ describe('the number in the bar', () => {
     expect(zinePage(Number.NaN, 8)).toBeNull();
     expect(zinePage(2, 8)).toBe(0);
     expect(zinePage(6, 8)).toBe(4);
-    expect(zinePage(7, 8)).toBe(6);
+    // Read in the reference: an odd number is rounded down to the leaves turned.
+    expect(zinePage(7, 8)).toBe(4);
     expect(zinePage(99, 8)).toBe(16);
     for (const spread of [0, 1, 5, 8]) expect(zinePage(zineNumber(spread), 8)).toBe(spread * 2);
+  });
+
+  it('counts the back cover too: closed onto its back the zine shows every side', () => {
+    expect(zineLast(8)).toBe(20);
+    expect(zineOnBack(zineLast(8), 8)).toBe(true);
+    expect(zineOnBack(zineNumber(8), 8)).toBe(false);
+    expect(zineOnBack(19, 8)).toBe(false);
+  });
+});
+
+describe('the lean about the spine', () => {
+  it('raises the side with fewer leaves, evenly from the first leaf to the last', () => {
+    expect(zineLean(0, 14, 6.5)).toBeCloseTo(6.5);
+    expect(zineLean(7, 14, 6.5)).toBeCloseTo(0);
+    expect(zineLean(14, 14, 6.5)).toBeCloseTo(-6.5);
+    // Measured: 0.93 degrees a leaf of fourteen.
+    expect(zineLean(3, 14, 6.5) - zineLean(4, 14, 6.5)).toBeCloseTo(13 / 14);
+  });
+
+  it('turns toward the pointer by up to its share', () => {
+    expect(zineLean(7, 14, 6.5, 3, 1)).toBeCloseTo(3);
+    expect(zineLean(7, 14, 6.5, 3, -4)).toBeCloseTo(-3);
   });
 });
