@@ -94,10 +94,12 @@ Built from that list so far:
 | Page readout in the bar | a button that copies the address of the spread | plain text | a button that copies it |
 | Keys of the reader | `j` and `k` jump forty leaves (190, 270, 190 seen), `<` and `>` turn one, `x` closes | none of these | the same |
 | Sound | every turn, a taken page, a held leaf passing upright, a block of leaves, a cover falling shut | silent but for the pen | the same events at the read levels and paces, made from noise |
+| Keyboard stops | Tab reaches each featured book and the row as a list box with arrows, Home and End | nothing of the kind | a stop per featured book that brings it to the centre and opens its details on Enter, and one for the row |
+| Small things | `?section=` opens the page at a section; `i` shows the window as its negative | neither | both |
 
 Sound in detail. The reference plays recordings: one of eight for a turn at pace 1.1 forward and 0.91 back, a short one when a page is taken, one for a held leaf passing upright that is higher for a faster hand, a shuffle when a block of leaves is 0.15 of its way over, a hit when a block of more than three lands, and a thud for a cover falling shut whose loudness and pace follow how fast it closed. Ours fires the same sounds at the same moments, levels and paces, counted in the browser checks (two turns by key are two sounds; a page pulled over is one brush, one flop and one turn; three blocks are three riffles and two knocks). The recordings are not ours, so each sound is a voice of filtered noise with a rustle and, where something lands, a low knock.
 
-Still on the list, in the order of the inventory: a second readable object (a stapled pamphlet with an excerpt, in work), reading by touch with zoom and pan, keyboard stops on every book, a page of stills for browsers without WebGL, films in the band at the foot of the page, and small things (a negative view of the window, recovery when the graphics context is lost).
+Still on the list, in the order of the inventory: a second readable object (a stapled pamphlet with an excerpt, in work), reading by touch with zoom and pan, a page of stills for browsers without WebGL, and films in the band at the foot of the page.
 
 Not verified: nobody has listened to our sounds beside the reference's; what was checked is when they play and how often. When the reference fires each sound against the turn was read in its code and not logged. Its crackle was not traced. The inventory can miss a rule that has no label, key or constant.
 
