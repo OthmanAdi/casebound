@@ -251,8 +251,9 @@ async function boot(): Promise<void> {
   const fit = (): number => {
     const book = reader.book;
     if (!book) return 1;
-    // Measured: beside the details a zine is not fitted to the picture. It lies over the edge of it.
-    if (zines && zines.book === book && !ctx.compact) return 1;
+    // Measured: beside the details a zine is not fitted to the picture. It lies over the edge of it. On a narrow
+    // screen it fits itself, one page to the width of the window.
+    if (zines && zines.book === book) return 1;
     // A book opened from the row comes forward and grows, so it is measured where it will lie.
     const forward = Number(ctx.registry.getParam('reader', 'forward') ?? 0);
     const grown = Number(ctx.registry.getParam('reader', 'scale') ?? 1);
@@ -266,7 +267,12 @@ async function boot(): Promise<void> {
   const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
   const magnifier: Magnifier = createMagnifier(engine, { centreOffsetPx: offset, onToggle: (on) => setLens(on) });
   const marker: Marker = createMarker(engine, reader, { onChange: () => syncPens() });
-  const zine: Zines = (zines = createZines(engine, reader, { centreOffsetPx: offset, onChange: () => sync() }));
+  /**
+   * Measured on a phone: the open zine shows one side of its spread at a time, the left one first, and a swipe
+   * across the page goes to the other side instead of turning it. -1 is the left page, 1 the right one.
+   */
+  let zineSide: 1 | -1 = -1;
+  const zine: Zines = (zines = createZines(engine, reader, { centreOffsetPx: offset, onChange: () => sync(), side: () => (ctx.compact && zines?.state === 'reading' && !zines.onBack ? -zineSide / 2 : 0) }));
   /** A zine has the picture: on its way in, lying closed, or being read. */
   const zineOut = (): boolean => zine.state === 'coming' || zine.state === 'lying' || zine.state === 'reading';
   const effects = createSurfaceEffects(engine);
@@ -419,6 +425,7 @@ async function boot(): Promise<void> {
         reader.close();
       }
       if (!detailOpen) setDetail(true);
+      if (!zineOut()) zineSide = -1;
       zine.open(current().slug, number);
     } else {
       marker.set(false);
@@ -469,7 +476,9 @@ async function boot(): Promise<void> {
     // Measured: an open book has the whole picture, even when it was opened from the details; the details wait
     // underneath and come back when it closes.
     // Measured: a zine is read in the details: the column stays.
-    const aside = detailOpen && (!reading || out);
+    // Measured on a phone: there the zine has the whole picture, as an open book does, and the column is out of view.
+    const whole = out && ctx.compact;
+    const aside = detailOpen && (!reading || out) && !whole;
     if (aside !== asideShown) {
       shiftFrom = shift;
       // Measured against the reference: the move is already one frame along on the first frame after the press.
@@ -477,8 +486,8 @@ async function boot(): Promise<void> {
       asideShown = aside;
     }
     html.toggleAttribute('data-aside', aside);
-    html.toggleAttribute('data-lock', reading && !out);
-    html.toggleAttribute('data-reading', reading && !out);
+    html.toggleAttribute('data-lock', (reading && !out) || whole);
+    html.toggleAttribute('data-reading', (reading && !out) || whole);
     html.toggleAttribute('data-zine', out);
     for (const b of document.querySelectorAll<HTMLButtonElement>('.row-zine')) {
       const mine = out && b.closest<HTMLElement>('.dp-book')?.dataset.slug === zine.slug;
@@ -682,6 +691,31 @@ async function boot(): Promise<void> {
     showTimer = window.setTimeout(showNext, 5000);
     for (const type of ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const) addEventListener(type, endShow, { passive: true, once: true });
   }
+
+  /**
+   * A swipe across an open zine on a narrow screen goes to the other side of its spread and turns nothing. It is
+   * taken before the reader sees it. Pixels of sideways travel that make a swipe: ours, not measured.
+   */
+  const ZINE_SWIPE_PX = 40;
+  let swipe: { id: number; x: number; y: number } | null = null;
+  const swipeIgnore = 'button, a, input, select, textarea, label, aside, header, footer, nav, [role="toolbar"], [role="dialog"]';
+  addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType === 'mouse' || !ev.isPrimary || !ctx.compact || zine.state !== 'reading' || zine.onBack || marker.on) return;
+    if (ev.target instanceof Element && ev.target.closest(swipeIgnore)) return;
+    swipe = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+    ev.stopPropagation();
+  }, { capture: true });
+  addEventListener('pointerup', (ev) => {
+    if (!swipe || ev.pointerId !== swipe.id) return;
+    const dx = ev.clientX - swipe.x;
+    const dy = ev.clientY - swipe.y;
+    swipe = null;
+    ev.stopPropagation();
+    if (Math.abs(dx) < ZINE_SWIPE_PX || Math.abs(dx) < Math.abs(dy)) return;
+    zineSide = dx < 0 ? 1 : -1;
+    ctx.invalidate();
+  }, { capture: true });
+  addEventListener('pointercancel', () => (swipe = null), { capture: true });
 
   /** Measured: Escape under a zine closes the details too, this long after the zine. Milliseconds. */
   const ZINE_ESCAPE_DETAILS_MS = 630;
@@ -933,7 +967,8 @@ async function boot(): Promise<void> {
     const aside = asideShown && !ctx.compact ? 1 : 0;
     shiftClock = ctx.still ? 1 : Math.min(1, shiftClock + f.dt / 0.64);
     shift = shiftFrom + (aside - shiftFrom) * easeInOutQuad(shiftClock);
-    const up = detailOpen && ctx.compact && !reader.isOpen ? 1 : 0;
+    // On a narrow screen an open book and a zine have the whole picture.
+    const up = detailOpen && ctx.compact && !reader.isOpen && !zineOut() ? 1 : 0;
     const liftBefore = lift;
     lift = ctx.still ? up : lift + (up - lift) * (1 - Math.exp(-7 * Math.min(f.dt, 0.05)));
     if (Math.abs(lift - up) < 1e-3) lift = up;
