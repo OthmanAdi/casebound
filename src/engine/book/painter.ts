@@ -341,13 +341,24 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
     c.fillText(text.title, 0, 0);
   };
   drawText(spineTitle);
+  // The author's name ends above the imprint mark: a long name is set smaller, down to 0.7 of its size, and
+  // only then drawn narrower. The mark is stamped after it and would otherwise cut through its last letters.
+  const markTop = H - sw * 0.2 * 4.2;
+  const authorAt = H * 0.14 + H * 0.64;
+  const authorRoom = Math.max(H * 0.06, Math.min(H * 0.18, markTop - sw * 0.12 - authorAt));
   drawText((c) => {
-    c.translate(sx + sw / 2, H * 0.14 + H * 0.64);
+    c.translate(sx + sw / 2, authorAt);
     c.rotate(Math.PI / 2);
-    c.font = `400 italic ${Math.round(sw * 0.26)}px ${faces.text}`;
+    let px = Math.round(sw * 0.26);
+    const least = Math.round(px * 0.7);
+    c.font = `400 italic ${px}px ${faces.text}`;
+    while (c.measureText(text.author).width > authorRoom && px > least) {
+      px -= 1;
+      c.font = `400 italic ${px}px ${faces.text}`;
+    }
     c.textAlign = 'left';
     c.textBaseline = 'middle';
-    c.fillText(text.author, 0, 0, H * 0.18);
+    c.fillText(text.author, 0, 0, authorRoom);
   }, false);
   drawText((c) => {
     const r = sw * 0.2;
