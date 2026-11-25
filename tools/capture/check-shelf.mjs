@@ -95,6 +95,9 @@ try {
   await page.mouse.move(30, 300);
   await run(4);
   await check('keeps its turn and comes to rest with the covers shut', (s) => s.yaw >= held.yaw - 0.05 && s.front === 0 && s.back === 0);
+  const thuds = await page.evaluate(() => casebound.sound.played.thud);
+  if (!(thuds >= 1)) failed++;
+  console.log(`${thuds >= 1 ? 'ok  ' : 'FAIL'} the lifted cover falling shut is heard: ${thuds} thud(s)`);
   await shot('at rest turned');
 
   // Measured: on the shelf a pointer that rests on a featured book does not lift its cover.

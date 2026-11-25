@@ -225,6 +225,36 @@ try {
     await run(1);
   }
   say(taken.length === 3 && taken[0] >= 2 && taken[1] >= taken[0] && taken[2] > taken[0], `a press on the fore-edge turns a block of leaves, more the deeper it falls: ${taken.join(', ') || 'none'}`);
+  // Sound: every turn is heard, a page taken into the hand brushes, a held leaf flops as it passes upright, and a
+  // block riffles on its way and lands with a knock. The check counts what was asked for; it cannot listen.
+  const heard = () => page.evaluate(() => ({ ...casebound.sound.played }));
+  await page.mouse.move(c.x, 30);
+  await run(8);
+  const quiet = await heard();
+  await page.keyboard.press('ArrowRight');
+  await run(4);
+  await page.keyboard.press('ArrowLeft');
+  await run(8);
+  const turned = await heard();
+  say(turned.turn - quiet.turn === 2 && turned.grab === quiet.grab, `two turns by key are two page sounds: ${turned.turn - quiet.turn}`);
+  await pullFrom(...right, [-60, -160, -280, -400, -520, -600]);
+  await run(8);
+  const pulled = await heard();
+  say(pulled.grab - turned.grab === 1 && pulled.flop - turned.flop === 1 && pulled.turn - turned.turn === 1, `a page pulled over is a brush, a flop past upright and a turn: ${pulled.grab - turned.grab}, ${pulled.flop - turned.flop}, ${pulled.turn - turned.turn}`);
+  await page.mouse.move(c.x, 30);
+  await page.keyboard.press('ArrowLeft');
+  await run(10);
+  const before = await heard();
+  await page.evaluate(() => casebound.reader.turnLeaves(12));
+  await run(3);
+  await page.evaluate(() => casebound.reader.turnLeaves(-2));
+  await run(3);
+  await page.evaluate(() => casebound.reader.turnLeaves(-10));
+  await run(3);
+  const blocks = await heard();
+  say(blocks.shuffle - before.shuffle === 3 && blocks.hit - before.hit === 2 && blocks.turn === before.turn, `three blocks riffle, and the two of more than three leaves land with a knock: ${blocks.shuffle - before.shuffle} and ${blocks.hit - before.hit}`);
+  await expect('and the book is where it was', { page: first, inAir: 0 });
+
   // The keys of the reader: J and K jump forty leaves, < and > turn one, X closes. The place is remembered,
   // and the page numbers in the bar copy a link to the spread.
   await page.mouse.move(c.x, 30);
