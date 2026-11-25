@@ -12,6 +12,7 @@ import { fan } from '../../extensions/fan';
 import { easeInOutQuad } from '../engine/core/math';
 import { createMagnifier, type Magnifier } from '../engine/effects/magnifier';
 import { createMarker, type Marker } from '../engine/marker/marker';
+import { createPageSound } from '../engine/sound/page-sound';
 import { createSurfaceEffects } from '../engine/effects/surface-effects';
 import { createReader, type Reader } from '../engine/reader/reader';
 import { createShelf } from '../engine/shelf/shelf';
@@ -935,7 +936,8 @@ async function boot(): Promise<void> {
   sync();
   engine.start();
   route(entry);
-  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, marker, effects, library } });
+  const sound = createPageSound(engine);
+  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, marker, effects, library, sound } });
   // Tell tools the page has settled: after the intro, or at once on a deep link.
   setTimeout(() => (html.dataset.caseboundReady = 'true'), entry.startsWith('#/book/') || ctx.still ? 300 : 2100);
 }
