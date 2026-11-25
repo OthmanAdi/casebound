@@ -121,3 +121,4 @@ Measurement:
 - The opening is still up to 175 ms early at its start against the reference, and the closing sequence, the toolbar timing and the lens rim were not measured again after their correction.
 - Page paper is still about 8 of 255 short in blue against the reference.
 - Reading by touch was measured and tried in a browser's touch emulation, not on a phone. Zoom 1 on a phone is the whole spread in the width, a little smaller than the reference's, so the least zoom shows the book smaller than there.
+- The band of films follows the reference's rules as read in its code; its timing was not captured on the reference. The MP4 films were not played by a browser without WebM.
