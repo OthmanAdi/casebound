@@ -1325,7 +1325,15 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       stepLeaf(leaf.motion, f.dt, brake && brake.leaf === leaf ? braked(tune, brake.elapsed) : tune);
       if (leaf.toss !== null && throwLeaf(leaf.motion, leaf.toss, leafTune.kick)) leaf.toss = null;
       bend(leaf, f.dt);
-      if (leaf.motion.resting || ctx.still) {
+      // A back cover that comes down over the left stack presses the leaves still settling onto it: none may stand
+      // above the cover, and once the cover is down they have landed. Without this the zine's slow last leaf stood
+      // a hair above its shut back cover and its print showed through it.
+      const pressed = leaf.side === 1 && book.backShut > 0;
+      if (pressed && leaf.motion.shown < Math.PI * book.backShut) {
+        leaf.motion.shown = Math.PI * book.backShut;
+        leaf.motion.angle = Math.max(leaf.motion.angle, leaf.motion.shown);
+      }
+      if (leaf.motion.resting || ctx.still || (pressed && book.backShut >= 1)) {
         leaf.motion.angle = leaf.motion.shown = leaf.side * Math.PI;
         if (lying(leaf)) {
           // It stays as a sheet on its stack. One that came down in the opening riffle may lack a page.
