@@ -96,6 +96,16 @@ try {
 
   await run(2);
   const before = await step('a book with a zine has a button for it in its details', (s) => s.button === '+ Open zine +' && s.state === 'away' && s.aside, (s) => `"${s.button}", zine ${s.state}`);
+  {
+    // Under the pointer the pill is filled; its words must stay readable on the fill.
+    await page.hover('.dp-book.is-current .row-zine');
+    await page.waitForTimeout(300);
+    const pill = await page.evaluate(() => { const b = getComputedStyle(document.querySelector('.dp-book.is-current .row-zine')); return { color: b.color, fill: b.backgroundColor }; });
+    await page.mouse.move(5, 450);
+    const readable = pill.color !== pill.fill && pill.fill !== 'rgba(0, 0, 0, 0)';
+    if (!readable) failed++;
+    console.log(`${readable ? 'ok  ' : 'FAIL'} under the pointer the button is filled and its words keep their own colour: ${pill.color} on ${pill.fill}`);
+  }
 
   // by the button: it flies in from the right
   await page.click('.dp-book.is-current .row-zine');
@@ -135,7 +145,14 @@ try {
   const carried = await step('it comes to the reading place on its own quick curve, ahead of its cover', (s) => (s.z - lying.z) / (-31 - lying.z) > 0.85 && s.cover > 0.2 && s.cover < 0.45, (s) => `${(100 * (s.z - lying.z) / (-31 - lying.z)).toFixed(0)} % of the way after 0.35 s, cover ${s.cover.toFixed(2)}`);
   await run(2.15);
   const open = await step('open, it lies at the reading place beside the details: a spread, not a cover', (s) => s.open === 1 && s.cover > 0.9 && s.reading && s.aside && s.rect[2] > lying.rect[2] * 1.5 && near(s.x, lying.x, 1.5), (s) => `box ${s.rect}, x ${s.x.toFixed(2)}, scale ${s.scale.toFixed(3)}, cover ${s.cover.toFixed(2)}`);
-  await step('it lies turned about its spine, the side with fewer leaves higher', (s) => s.lean > 2 && s.lean < 9.5, (s) => `lean ${s.lean.toFixed(1)} degrees with ${s.leaves} leaves on the right, the pointer over the details`);
+  {
+    // The demo excerpt fills the pamphlet: no spread on the way to the back cover is bare.
+    const printed = await page.evaluate(() => { const n = 2 * casebound.zine.book.dims.leaves; const bare = []; for (let p = 1; p <= n; p++) if (casebound.reader.folio(p) === null) bare.push(p); return { n, bare }; });
+    const full = printed.bare.length === 0;
+    if (!full) failed++;
+    console.log(`${full ? 'ok  ' : 'FAIL'} its text fills every page: ${printed.n} pages, bare ${printed.bare.join(', ') || 'none'}`);
+  }
+  await step('it lies turned about its spine, the side with fewer leaves higher',(s) => s.lean > 2 && s.lean < 9.5, (s) => `lean ${s.lean.toFixed(1)} degrees with ${s.leaves} leaves on the right, the pointer over the details`);
   await page.keyboard.press('ArrowRight');
   await run(0.2);
   await step('a leaf turns by key', (s) => s.inAir === 1 && s.folio === '4' && s.page === 2, (s) => `in the air ${s.inAir}, "${s.folio}", page ${s.page}`);
@@ -242,6 +259,12 @@ try {
   await step('by its address it comes in closed first', (s) => s.state === 'lying' && s.slug === 'walden.zine' && s.folio === '1', (s) => `${s.state}, ${s.slug}, "${s.folio}"`);
   await run(4.5);
   await step('and opens at the number of the address after it has lain two seconds, its left page printed with that number', (s) => s.state === 'reading' && s.folio === '4' && s.view === '/book/walden/zine/page/4' && s.printed[0] === 4, (s) => `${s.state}, "${s.folio}", ${s.view}, printed ${s.printed.join(' and ')}`);
+  {
+    const printed = await page.evaluate(() => { const n = 2 * casebound.zine.book.dims.leaves; const bare = []; for (let p = 1; p <= n; p++) if (casebound.reader.folio(p) === null) bare.push(p); return { n, bare }; });
+    const full = printed.bare.length === 0;
+    if (!full) failed++;
+    console.log(`${full ? 'ok  ' : 'FAIL'} its text fills every page too: ${printed.n} pages, bare ${printed.bare.join(', ') || 'none'}`);
+  }
 
   // a book without one
   await visit('#/book/opticks/zine');
