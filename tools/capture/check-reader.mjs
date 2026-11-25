@@ -401,6 +401,52 @@ try {
   await run(2);
   await expect('back at the start', { page: first, inAir: 0, lying: 0 });
 
+  // A lost drawing context (WEBGL_lose_context stands in for a reset of the graphics driver): nothing is drawn
+  // while it is lost, and in the first frame after it is back the open book is there again with all its pictures.
+  {
+    const tick = () => page.evaluate(() => { window.__clock += 1000 / 60; casebound.engine.ctx.loop.tick(window.__clock); });
+    /** The canvas, shrunk to 480 by 300, kept in the page under a name. */
+    const keep = (name) => page.evaluate((name) => {
+      const c = document.createElement('canvas');
+      c.width = 480;
+      c.height = 300;
+      const g = c.getContext('2d', { willReadFrequently: true });
+      g.drawImage(casebound.engine.ctx.canvas, 0, 0, 480, 300);
+      (window.__frames ??= {})[name] = g.getImageData(0, 0, 480, 300).data;
+      let drawn = 0;
+      for (let i = 3; i < window.__frames[name].length; i += 4) if (window.__frames[name][i] > 0) drawn++;
+      return drawn;
+    }, name);
+    const compare = (a, b) => page.evaluate(([a, b]) => {
+      const p = window.__frames[a], q = window.__frames[b];
+      let sum = 0, moved = 0;
+      for (let i = 0; i < p.length; i += 4) {
+        const d = (Math.abs(p[i] - q[i]) + Math.abs(p[i + 1] - q[i + 1]) + Math.abs(p[i + 2] - q[i + 2]) + Math.abs(p[i + 3] - q[i + 3])) / 4;
+        sum += d;
+        if (d > 24) moved++;
+      }
+      return { mean: sum / (p.length / 4), moved: moved / (p.length / 4) };
+    }, [a, b]);
+    await page.evaluate(() => casebound.engine.ctx.invalidate());
+    await tick();
+    const before = await keep('before');
+    const gone = await page.evaluate(() => { window.__lose = casebound.engine.ctx.renderer.getContext().getExtension('WEBGL_lose_context'); window.__lose.loseContext(); return true; });
+    await page.waitForFunction(() => casebound.engine.ctx.lost, null, { timeout: 5000 }).catch(() => {});
+    await run(0.2);
+    const during = await keep('during');
+    const flagged = await page.evaluate(() => casebound.engine.ctx.lost && casebound.engine.ctx.canvas.dataset.gl === 'lost');
+    say(gone && flagged && during === 0, `a lost drawing context is caught and said on the canvas, and nothing is drawn while it is lost: ${during} of ${before} drawn pixels left`);
+    await page.evaluate(() => window.__lose.restoreContext());
+    await page.waitForFunction(() => !casebound.engine.ctx.lost, null, { timeout: 5000 }).catch(() => {});
+    // One frame of the clock and no more: the frame must not wait for the heartbeat.
+    await tick();
+    const back = await keep('after');
+    const diff = await compare('before', 'after');
+    say(back > 0.98 * before && diff.mean < 3 && diff.moved < 0.05, `when it is back the first frame shows the open book again with its pages, cover and shadow: ${back} of ${before} pixels drawn, mean difference ${diff.mean.toFixed(2)} of 255, ${(100 * diff.moved).toFixed(1)} % of pixels changed`);
+    const pages = await unprinted();
+    say(pages === 0, `and its pages are printed: ${pages} bare`);
+  }
+
   await page.keyboard.press('Escape');
   await run(3);
   await expect('closes', { open: false });
