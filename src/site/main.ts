@@ -387,6 +387,8 @@ async function boot(): Promise<void> {
     html.toggleAttribute('data-aside', aside);
     html.toggleAttribute('data-lock', reading);
     html.toggleAttribute('data-reading', reading);
+    // The stops for the keyboard belong to the shelf: behind an open book or the details they are out of reach.
+    $('stops').inert = reading || detailOpen;
     $('bar-title').textContent = `[▸] ${current().title}`;
     refreshMenu();
     if (reading && !copied) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
@@ -785,6 +787,65 @@ async function boot(): Promise<void> {
   });
 
   refreshMenu = () => menu.refresh();
+
+  // ---------------------------------------------------------------- stops for the keyboard
+  // Measured: with the Tab key alone every featured book can be reached and opened, and the row is one stop
+  // that takes the arrows, Home and End.
+  const stops = $('stops');
+  for (const [i, book] of featured.entries()) {
+    const stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'stop';
+    stop.textContent = `Featured book ${i + 1} of ${featured.length}: ${book.title}. Enter opens its details`;
+    stop.addEventListener('focus', () => {
+      if (!reader.isOpen && !detailOpen && engine.state.active !== engine.books.findIndex((b) => b.record.slug === book.slug)) stepTo(i);
+    });
+    stop.addEventListener('click', () => {
+      if (reader.isOpen) return;
+      stepTo(i, 0);
+      setDetail(true, book.slug);
+    });
+    stops.append(stop);
+  }
+  const rowStop = document.createElement('div');
+  rowStop.className = 'stop';
+  rowStop.id = 'row-stop';
+  rowStop.tabIndex = 0;
+  rowStop.setAttribute('role', 'listbox');
+  rowStop.setAttribute('aria-label', 'All books. Arrows choose a book, Enter opens its details');
+  for (const slug of shelf.row?.order ?? []) {
+    const option = document.createElement('span');
+    option.id = `row-option-${slug}`;
+    option.setAttribute('role', 'option');
+    option.textContent = `All books: ${library.books.find((b) => b.slug === slug)?.title ?? slug}`;
+    rowStop.append(option);
+  }
+  /** Says which book of the row is chosen. */
+  const syncRowStop = (): void => {
+    const chosen = shelf.row?.selected ?? '';
+    for (const option of rowStop.children) option.setAttribute('aria-selected', String(option.id === `row-option-${chosen}`));
+    if (chosen) rowStop.setAttribute('aria-activedescendant', `row-option-${chosen}`);
+  };
+  rowStop.addEventListener('focus', () => {
+    if (!reader.isOpen && !detailOpen && !shelf.row?.settled) stepTo(featured.length);
+    syncRowStop();
+  });
+  rowStop.addEventListener('keydown', (e) => {
+    const row = shelf.row;
+    if (!row || reader.isOpen || detailOpen) return;
+    // Left and right are the page's own keys while the row stands. Home, End and Enter belong to this stop.
+    if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      e.stopPropagation();
+      row.select(row.order[e.key === 'Home' ? 0 : row.order.length - 1]!);
+      syncRowStop();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      setDetail(true, row.selected);
+    }
+  });
+  if (shelf.row) stops.append(rowStop);
+  ctx.events.on('book-focus', syncRowStop);
 
   ctx.events.on('view', () => sync());
   // A press on the centred book that did not turn it opens its details.

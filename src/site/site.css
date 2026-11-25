@@ -362,6 +362,13 @@ html[data-detail] .bar-actions, html[data-foot] .bar-actions { transform: transl
 }
 .toolbar[hidden] { display: none; }
 #folio { min-width: 92px; text-align: center; white-space: nowrap; }
+/* Stops for the keyboard: one for every featured book and one list for the row. They are out of sight until
+   the Tab key reaches one; then a small label says where the focus is. */
+.stops { position: fixed; top: 64px; left: var(--gutter); z-index: 60; }
+.stop { position: absolute; left: 0; top: 0; width: 1px; height: 1px; padding: 0; margin: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; background: var(--ink); color: var(--bg); font: 11px/1.4 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.stop:focus-visible { width: auto; height: auto; padding: 6px 10px; clip-path: none; outline: 2px solid var(--ink); outline-offset: 2px; }
+.stop [role='option'] { display: none; }
+.stop [role='option'][aria-selected='true'] { display: inline; }
 /* A hidden extra: the key I shows the whole window as its negative. */
 html[data-negative] { filter: invert(1); }
 /* The pens in their holder: two squares side by side in the reader's bar. A pen that is out leaves its place
