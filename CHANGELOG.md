@@ -105,11 +105,11 @@ System:
 
 Measurement:
 
-- `research/SPEC.md`: about 110 numbered values measured from the reference, each with a note on how it was verified.
+- `research/SPEC.md`: about 130 numbered values measured from the reference, each with a note on how it was verified.
 - `research/PARITY.md`: comparisons of this build against the reference, frame by frame.
-- `research/PARITY.md` holds two passes. The second compared all ten interactions and led to twelve corrections, from the darkness of the wall shadow to the timing of the opening.
+- `research/PARITY.md` holds fifteen passes and an inventory from the reference's side. The second compared all ten interactions and led to twelve corrections, from the darkness of the wall shadow to the timing of the opening.
 - A pass on the page around the books: its layout and timing measured at 1440 by 900 and on a 390 px phone, with the shelf's browser check extended by a step for each correction.
-- Tools: a screenshot script, a frame recorder that drives the engine's clock, a GIF encoder for its frames, two functional checks that run the reader and the shelf in a real browser, a runner for frame-stepped capture with reanimate, a channel comparison and a scene pose reader.
+- Tools: a screenshot script, a frame recorder that drives the engine's clock, a GIF encoder for its frames, four functional checks that run the reader, the shelf, the page of stills and the zine in a real browser, a runner for frame-stepped capture with reanimate, a channel comparison and a scene pose reader.
 - A pass on the zine: the reference's measured in three loads, ours laid beside it with the same driver, and `tools/capture/check-zine.mjs`, a third functional check that runs the zine in a real browser.
 - A pass on touch: the reference's reading by touch measured on a phone with one and two fingers, ours built to it, and steps in `check-reader.mjs` for it and for a lost drawing context. `check-stills.mjs` starts Edge without WebGL and checks that the page finds that out by itself.
 - A pass on the band and the sounds: the reference's rules for when a film plays and how the band steps read in its scripts, its page sounds measured offline beside ours (length, peak, fall, spectral centre), and steps in `check-shelf.mjs` and `check-zine.mjs` for the band and for the zine's back cover. `record.mjs` records a page without the engine on the page's own clock and has scenes for the zine and the page of stills, the sources of two new GIFs in the README.
