@@ -334,6 +334,9 @@ export function mountFoot(library: Library, still: () => boolean): void {
   addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+    // An open book, an open zine and the details own the arrow keys, wherever the page stands.
+    const root = document.documentElement;
+    if (['data-reading', 'data-zine', 'data-detail', 'data-lock'].some((name) => root.hasAttribute(name))) return;
     const r = band.getBoundingClientRect();
     if (r.height === 0 || r.top > 40 || $('foot').getBoundingClientRect().top <= 40) return;
     e.preventDefault();
