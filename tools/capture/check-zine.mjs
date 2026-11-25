@@ -106,6 +106,22 @@ try {
   await run(1.5);
   const lying = await step('it lies closed over the picture, the details beside it', (s) => s.state === 'lying' && s.open === 0 && s.aside && !s.reading && s.rect && s.rect[0] > 100 && s.rect[0] + s.rect[2] < 0.6 * 1440, (s) => `${s.state}, box ${s.rect}, scale ${s.scale?.toFixed(3)}`);
   await step('it is a pamphlet: a few leaves, thinner than a board, two staples', (s) => s.leaves >= 4 && s.leaves <= 16 && s.thickness < 0.5 && s.staples === 2, (s) => `${s.leaves} leaves, ${s.thickness.toFixed(3)} thick, ${s.staples} staples`);
+  {
+    // The painted strip of its cover: the fold between back and front is one colour, nothing stamped on it.
+    const fold = await page.evaluate(() => {
+      const b = casebound.zine.book;
+      const img = b.cover.map.image;
+      const [a, z] = b.volume.atlas.spine;
+      const x0 = Math.floor(a * img.width) + 1, x1 = Math.ceil(z * img.width) - 1;
+      const data = img.getContext('2d').getImageData(x0, 0, Math.max(1, x1 - x0), img.height).data;
+      const seen = new Set();
+      for (let i = 0; i < data.length; i += 4) seen.add(`${data[i] >> 3},${data[i + 1] >> 3},${data[i + 2] >> 3}`);
+      return { px: x1 - x0, colours: seen.size };
+    });
+    const blank = fold.colours === 1;
+    if (!blank) failed++;
+    console.log(`${blank ? 'ok  ' : 'FAIL'} its fold is too narrow to read and carries no type: ${fold.px} px wide on the strip, ${fold.colours} colour(s)`);
+  }
   await step('the bar is there with the number 1, the address names the zine, the button closes it', (s) => s.bar && s.folio === '1' && s.view === '/book/chemical-history-of-a-candle/zine' && s.hash === '#' + s.view && s.button === '- Close zine -', (s) => `bar ${s.bar}, "${s.folio}", ${s.hash}, "${s.button}"`);
   await step('its book has gone aside to the left', (s) => s.parentX < before.parentX - 10, (s) => `book at x ${s.parentX.toFixed(1)}, was ${before.parentX.toFixed(1)}`);
   await step('the shelf does not count it', (s) => s.books === before.books + 1 && s.row === before.row, (s) => `${s.books} books in the engine, ${s.row} in the row`);
