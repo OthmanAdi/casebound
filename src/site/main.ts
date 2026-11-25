@@ -22,6 +22,7 @@ import { loadLibrary } from './library';
 import { createMenu, type MenuItem } from './menu';
 import { bookArticle } from './details';
 import { mountFoot } from './foot';
+import { stillsAsked } from './still-math';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const html = document.documentElement;
@@ -37,7 +38,28 @@ async function boot(): Promise<void> {
   $('wordmark').textContent = library.name;
 
   const forced = query.has('midday') ? 'light' : (query.get('theme') as ThemeName | null);
-  const engine = createEngine({ canvas: $<HTMLCanvasElement>('stage'), books: library.books, theme: forced ?? themeForHour(new Date().getHours()) });
+  const theme = forced ?? themeForHour(new Date().getHours());
+  // Measured: where the books cannot be drawn, or the address asks for it, the page shows them as stills.
+  const stills = async (reason: 'asked' | 'missing' | 'failed'): Promise<void> => {
+    const { bootStills } = await import('./stills');
+    Object.assign(window, { casebound: { stills: bootStills(library, { reason, theme }), library } });
+  };
+  let kept: Storage | null = null;
+  try {
+    kept = sessionStorage;
+  } catch {
+    // A tab without storage: the address alone decides.
+  }
+  if (stillsAsked(query, kept)) return stills('asked');
+  if (!('WebGL2RenderingContext' in window)) return stills('missing');
+  let made: ReturnType<typeof createEngine>;
+  try {
+    made = createEngine({ canvas: $<HTMLCanvasElement>('stage'), books: library.books, theme });
+  } catch (err) {
+    console.warn('casebound: the books cannot be drawn here, showing stills.', err);
+    return stills('failed');
+  }
+  const engine = made;
   const { ctx } = engine;
 
   // ---------------------------------------------------------------- page furniture
