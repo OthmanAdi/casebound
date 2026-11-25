@@ -305,6 +305,11 @@ try {
     await step('a swipe to the left shows the right page and turns nothing', (s) => s.x < left.x - 0.8 * 12 && s.folio === '2' && s.inAir === 0, (s) => `x ${s.x.toFixed(2)} from ${left.x.toFixed(2)}, "${s.folio}", in the air ${s.inAir}`);
     await swipe(80, 320);
     await step('and a swipe to the right the left one again', (s) => Math.abs(s.x - left.x) < 0.5 && s.folio === '2', (s) => `x ${s.x.toFixed(2)}, "${s.folio}"`);
+    // Read by touch like a book: on the right page, at the end of the pan, a pull to the left turns the leaf.
+    await swipe(320, 80);
+    await swipe(320, 80);
+    await run(1.5);
+    await step('on the right page a pull to the left turns its leaf', (s) => s.folio === '4' && s.page === 2, (s) => `"${s.folio}", page ${s.page}`);
     void closed;
 
     // Taken out from details scrolled down to its button, the zine still lies over the whole picture.
