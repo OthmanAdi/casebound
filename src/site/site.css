@@ -362,6 +362,8 @@ html[data-detail] .bar-actions, html[data-foot] .bar-actions { transform: transl
 }
 .toolbar[hidden] { display: none; }
 #folio { min-width: 92px; text-align: center; white-space: nowrap; }
+/* A hidden extra: the key I shows the whole window as its negative. */
+html[data-negative] { filter: invert(1); }
 /* The pens in their holder: two squares side by side in the reader's bar. A pen that is out leaves its place
    empty, with a red line across it. */
 .pens { display: inline-flex; align-items: center; }

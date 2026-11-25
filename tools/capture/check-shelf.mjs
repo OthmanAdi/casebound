@@ -518,6 +518,19 @@ try {
     await phone.close();
   }
 
+  // A hidden extra, and an address that opens the page at a section.
+  await page.keyboard.press('i');
+  const negative = await page.evaluate(() => getComputedStyle(document.documentElement).filter);
+  await page.keyboard.press('i');
+  const plain = await page.evaluate(() => getComputedStyle(document.documentElement).filter);
+  if (!(negative.includes('invert') && !plain.includes('invert'))) failed++;
+  console.log(`${negative.includes('invert') && !plain.includes('invert') ? 'ok  ' : 'FAIL'} I turns the window into its negative and back: ${negative}, ${plain}`);
+  await page.goto(base.replace(/\/$/, '') + '/?midday&section=all-books', { waitUntil: 'load', timeout: 60000 });
+  await page.waitForSelector('html[data-casebound-ready="true"]', { state: 'attached', timeout: 30000 });
+  await page.waitForFunction(() => scrollY > innerHeight * 2, null, { timeout: 15000 }).catch(() => {});
+  const landed = await page.evaluate(() => Math.round(scrollY / innerHeight));
+  if (!(landed >= 2)) failed++;
+  console.log(`${landed >= 2 ? 'ok  ' : 'FAIL'} ?section=all-books opens the page at the row: ${landed} windows down`);
   for (const e of errors) { failed++; console.log('FAIL page error: ' + e); }
 } finally {
   await browser.close();

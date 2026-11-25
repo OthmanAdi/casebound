@@ -623,6 +623,9 @@ async function boot(): Promise<void> {
     } else if (reader.isOpen && e.key === 'x' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
       setLens(false);
       setReading(false);
+    } else if (e.key === 'i' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Measured: a hidden extra. I turns the whole window into its negative, and back.
+      html.toggleAttribute('data-negative');
     } else if (e.key === 'm' && !e.repeat) setLens(!magnifier.on);
     else if (e.key === 'h' && !e.repeat && reader.isOpen) marker.toggle();
     else if (e.key === 'z' && (e.ctrlKey || e.metaKey) && marker.on) {
@@ -936,6 +939,12 @@ async function boot(): Promise<void> {
   sync();
   engine.start();
   route(entry);
+  // Measured: `?section=` in the address opens the page at one of its sections, named as the menu names them.
+  const wanted = query.get('section');
+  if (wanted && !entry.startsWith('#/book/')) {
+    const named = (word: string): string => word.toLowerCase().replace(/\s+/g, '-');
+    setTimeout(() => pageSections().find((s) => named(s.word) === wanted.toLowerCase())?.run(), ctx.still ? 0 : 400);
+  }
   const sound = createPageSound(engine);
   Object.assign(window, { casebound: { engine, shelf, reader, magnifier, marker, effects, library, sound } });
   // Tell tools the page has settled: after the intro, or at once on a deep link.
