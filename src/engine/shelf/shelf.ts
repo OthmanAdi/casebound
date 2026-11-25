@@ -301,6 +301,8 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
   /** The pointer rests on the centred book. */
   let hovering = false;
   let peek = 0;
+  /** The two covers of the centred book as they were in the frame before: how far lifted, how fast closing, and whether they were open. */
+  const flap = { front: { angle: 0, rate: 0, open: false }, back: { angle: 0, rate: 0, open: false } };
   const centre = new Vector3();
   /** The engine's own time in milliseconds. The speed of the hand is taken on this clock, so a recording that steps the clock coasts like a live session. */
   let clock = 0;
@@ -646,6 +648,20 @@ export function createShelf(engine: Engine, opts: ShelfOptions = {}): Shelf {
         peek += (goal - peek) * frameFactor(spinTune.peekFollow, f.dt);
         if (Math.abs(goal - peek) < 1e-4) peek = goal;
         else moving = true;
+        // Measured: a cover that was lifted by the turn and falls shut is heard, louder the faster it closed.
+        for (const side of ['front', 'back'] as const) {
+          const now = book.held ? 0 : spin[side];
+          const was = flap[side];
+          const closing = f.dt > 0 ? (was.angle - now) / f.dt : 0;
+          if (closing > 0) was.rate = Math.max(was.rate, closing);
+          else if (now > was.angle + 1e-4) was.rate = 0;
+          if (now < 0.012) {
+            if (was.open && !ctx.still) ctx.events.emit('cover-shut', { slug: book.record.slug, speed: Math.min(1, was.rate / 8) });
+            was.open = false;
+            was.rate = 0;
+          } else if (now > 0.06) was.open = true;
+          was.angle = now;
+        }
         book.setTurn(spin.shownPitch, spin.shownYaw, book.held ? 0 : Math.max(spin.front, peek), book.held ? 0 : spin.back);
       } else if (Math.abs(book.turned.pitch) + Math.abs(book.turned.yaw) + book.flap.front + book.flap.back > 1e-4) {
         const keep = ctx.still ? 0 : Math.exp(-spinTune.unwind * Math.min(f.dt, 0.05));

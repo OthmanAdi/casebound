@@ -15,8 +15,18 @@ export interface EngineEvents {
   'book-focus': { slug: string; index: number };
   /** A press on the centred book that did not turn it. */
   'book-click': { slug: string };
-  /** `leaf` is the leaf that turned, or the first of `leaves` that turned as one block. */
-  'page-turn': { slug: string; leaf: number; direction: 1 | -1; leaves?: number };
+  /** `leaf` is the leaf that turned, or the first of `leaves` that turned as one block. `speed`, 0 to 1, says how fast a hand sent it. */
+  'page-turn': { slug: string; leaf: number; direction: 1 | -1; leaves?: number; speed?: number };
+  /** A hand took a page, or a block of leaves on the fore-edge. */
+  'page-grab': { slug: string; leaf: number };
+  /** A held leaf passed upright. `speed`, 0 to 1, says how fast. */
+  'page-upright': { slug: string; leaf: number; speed: number };
+  /** A block of leaves is well on its way over. */
+  'page-shuffle': { slug: string; leaves: number };
+  /** A block of leaves has landed on its stack. */
+  'page-land': { slug: string; leaves: number };
+  /** A cover of a closed book that was lifted has fallen shut. `speed`, 0 to 1, says how fast. */
+  'cover-shut': { slug: string; speed: number };
 }
 
 type Handler<T> = (payload: T) => void;

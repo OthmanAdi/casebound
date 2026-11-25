@@ -271,6 +271,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     lost: number;
     /** Frames since the number of its leaves last changed. Its pages are painted once it holds still. */
     steady: number;
+    /** Said once each: that it is on its way, and that it is down. */
+    heard?: boolean;
+    down?: boolean;
   } | null = null;
   /** A press that started on the fore-edge of a stack. `spent` once a flick has sent the block. */
   let edgePress: { id: number; x: number; y: number; startX: number; startY: number; time: number; speed: number; moved: number; spent: boolean } | null = null;
@@ -833,6 +836,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     leaf.toss = null;
     leaf.motion.resting = false;
     document.documentElement.style.cursor = 'grabbing';
+    if (book) ctx.events.emit('page-grab', { slug: book.record.slug, leaf: leaf.index });
   };
 
   /** Ends the wait of a press on a flying leaf that saw no move: the leaf is thrown on and the hand takes the page under it. */
@@ -860,6 +864,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (edge && bundle && lifted() && bundle.phase === 'gather') {
       // A press on the fore-edge takes no leaf into the hand. The block lifts, and goes when the hand lets go.
       edgePress = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, startX: ev.clientX, startY: ev.clientY, time: ev.timeStamp || performance.now(), speed: 0, moved: 0, spent: false };
+      if (book) ctx.events.emit('page-grab', { slug: book.record.slug, leaf: bundle.lo });
       ev.preventDefault();
       ctx.invalidate();
       return;
@@ -1238,6 +1243,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         const before = m.angle;
         m.angle += (leaf.dragTarget - m.angle) * (1 - Math.pow(t.dragFollow, frames));
         m.velocity = (m.angle - before) / Math.max(1e-3, frames);
+        // Measured: as a held leaf passes upright it flops over, and is heard, louder the faster the hand. A hand
+        // at 30 px a frame turns a leaf by about 0.08 rad a frame.
+        if (before < Math.PI / 2 !== m.angle < Math.PI / 2) ctx.events.emit('page-upright', { slug: book.record.slug, leaf: leaf.index, speed: Math.min(1, Math.abs(m.velocity) / 0.08) });
         m.shown += (m.angle - m.shown) * (1 - Math.pow(leafTune.follow, frames));
         bend(leaf, f.dt);
         continue;
@@ -1289,6 +1297,11 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
         }
         turned = bundleShown(bundle.progress);
       }
+      // Measured: a block is heard once it is well on its way, 0.15 of the turn.
+      if (!bundle.heard && bundle.counted && turned > 0.15) {
+        bundle.heard = true;
+        ctx.events.emit('page-shuffle', { slug: book.record.slug, leaves: n });
+      }
       bundle.turn = bundle.forward ? turned : 1 - turned;
       onLeft += n * (bundle.turn - (bundle.counted === bundle.forward ? 1 : 0));
       if (bundle.source === 'hand' && bundle.phase === 'release' && bundle.goal === 0 && bundle.progress === 0 && bundle.lift < 0.004) {
@@ -1300,6 +1313,10 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const reading = book.dims.leaves ? clamp(onLeft / book.dims.leaves, 0, 1) : 0.5;
     readingShown = readingShown < 0 || ctx.still ? reading : readingShown + (reading - readingShown) * (1 - Math.pow(1 - t.readingFollow, frames));
     if (Math.abs(reading - readingShown) < 5e-4) readingShown = reading;
+    if (bundle && bundle.landed && !bundle.down) {
+      bundle.down = true;
+      ctx.events.emit('page-land', { slug: book.record.slug, leaves: bundle.hi - bundle.lo });
+    }
     if (bundle && bundle.landed && readingShown === reading) {
       // Down, and the case has caught up: from here on its leaves are part of the stack.
       bundle = null;
