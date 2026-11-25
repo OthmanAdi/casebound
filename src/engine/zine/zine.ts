@@ -73,6 +73,7 @@ export interface Zines {
 /** What the reader is lent while it holds a zine, and given back afterwards: tunable and key. */
 const LENT = [
   ['reader', 'forward'],
+  ['reader', 'forwardFirst'],
   ['reader', 'scale'],
   ['reader', 'openDelay'],
   ['reader', 'coverSeconds'],
@@ -217,6 +218,8 @@ export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = 
     const at = where ?? { forward: t.lieForward, scale: t.lieScale, readForward: t.forward, readScale: t.scale };
     lend('reader', 'forward', at.readForward - at.forward);
     lend('reader', 'scale', at.readScale / at.scale);
+    // The whole way to the reading place is on the zine's own curve, none of it taken while a cover waits.
+    lend('reader', 'forwardFirst', 0);
     // Measured: the cover moves in the frame after the key, over a booklet that lies open under it from the start.
     lend('reader', 'openDelay', 0);
     lend('reader', 'pageDelay', 0);
