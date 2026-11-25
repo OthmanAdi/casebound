@@ -80,6 +80,13 @@ export interface Reader {
   pageNear(x: number, y: number): (PageHit & { x: number; y: number }) | null;
   /** While true, a press on a page takes no leaf and turns nothing: a tool such as a pen has the pointer. */
   handsOff: boolean;
+  /**
+   * For a book that comes to the reading place in its own way, as a zine does; null for a book. Its owner sets it
+   * before the reader's part of a frame. `blend` takes the place of the cover's progress as the share of the way from
+   * the book's home to the reading place, `shift` moves the reading place sideways in world units, and `open`, when
+   * given, is how far the book counts as open while it opens: its cover may then turn by itself (`Book.coverTurn`).
+   */
+  carry: { blend: number; shift: number; open?: number } | null;
   dispose(): void;
 }
 
@@ -1129,6 +1136,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
       return best;
     },
     handsOff: false,
+    carry: null,
     turnLeaves: (count) => (Math.abs(count) < 2 ? count !== 0 && launch(count > 0 ? 1 : -1) : takeBundle(count > 0 ? 1 : -1, Math.abs(count))),
     goTo: (page) => {
       if (!book) return;
@@ -1201,7 +1209,8 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     elapsed += f.dt;
     const moving = opening ? Math.max(0, elapsed - delay) : elapsed;
     const k = ctx.still ? 1 : clamp(moving / t.coverSeconds, 0, 1);
-    cover = opening ? lerp(coverFrom, 1, k * k) : lerp(coverFrom, 0, easeOutCubic(k));
+    const carry = reader.carry;
+    cover = opening ? (carry?.open ?? lerp(coverFrom, 1, k * k)) : lerp(coverFrom, 0, easeOutCubic(k));
     if (opening) {
       const pk = ctx.still ? 1 : clamp((moving - t.pageDelay) / t.pageSeconds, 0, 1);
       pages = Math.max(pagesFrom, powerSigmoid(pk));
@@ -1359,9 +1368,9 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     const home = book.home;
     const z = home.position.z + t.forward;
     const worldPerPx = ctx.visibleHeightAt(z) / Math.max(1, ctx.size.y);
-    goalPos.set(offset.x * worldPerPx, ctx.camera.position.y - offset.y * worldPerPx + t.rise, z);
+    goalPos.set(offset.x * worldPerPx + (carry?.shift ?? 0), ctx.camera.position.y - offset.y * worldPerPx + t.rise, z);
     // Measured: position and turn follow the cover's own progress, with no second easing on top.
-    const blend = cover;
+    const blend = carry ? clamp(carry.blend, 0, 1) : cover;
     book.root.position.copy(home.position).lerp(goalPos, blend);
     // Measured on a book opened from the row: of the way toward the camera it takes a first step while it waits
     // for its cover (4.25 of 18 units), eased, and the rest with the cover.

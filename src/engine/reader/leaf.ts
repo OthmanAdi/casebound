@@ -98,6 +98,8 @@ export class Leaf {
     this.back = make(1);
     this.mesh = new Mesh(this.surface.geometry, [this.front, this.back]);
     this.mesh.name = 'leaf';
+    // For tools that look at the scene: how far this leaf has turned.
+    this.mesh.userData.motion = this.motion;
     this.mesh.castShadow = true;
     // A single sheet is lit from both sides. The surface takes shadows only where it faces the light.
     this.mesh.receiveShadow = true;
