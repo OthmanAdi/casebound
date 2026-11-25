@@ -54,7 +54,7 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Zine, the way in | left edge of its box by frame after the press | 1328, 1093, 907, 761, 645, 554 px against 1440, 1203, 1017, 856, 730, 631; first drawn in the same frame; 90 % of the way at 150 ms against 167 | matches to about a frame |
 | Zine, the first turn | when the booklet is at the reading place | 90 % of the way 917 ms after the key against 330: ours comes with its cover | open |
 
-## 2026-11-25 · Eleventh pass: the zine
+## 2026-11-25 · Twelfth pass: the zine
 
 An inventory of everything the reference can do found one whole thing that ours had no trace of: a booklet that belongs to a book and is read in the book's details. This pass measured it and built it.
 
