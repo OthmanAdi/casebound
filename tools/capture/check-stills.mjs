@@ -144,5 +144,28 @@ try {
 } finally {
   await browser.close();
 }
+
+// A browser that has no WebGL at all: the page must find that out by itself, with nothing in the address.
+const bare = await chromium.launch({ channel: process.env.RE_CHANNEL ?? 'msedge', headless: true, args: ['--disable-gpu', '--disable-webgl', '--disable-webgl2'] });
+try {
+  for (const [w, h] of [[1440, 900], [390, 844]]) {
+    const page = await (await bare.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, isMobile: w < 900, hasTouch: w < 900 })).newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
+    await page.goto(root + '/?midday', { waitUntil: 'load', timeout: 60000 });
+    await page.waitForSelector('html[data-casebound-ready="true"]', { state: 'attached', timeout: 30000 }).catch(() => errors.push('the page never said it was ready'));
+    await page.waitForTimeout(600);
+    const got = await page.evaluate(() => {
+      const c = document.createElement('canvas');
+      const still = document.querySelector('.still[data-shown="true"]');
+      const r = still?.getBoundingClientRect();
+      return { gl: !!(c.getContext('webgl2') || c.getContext('webgl')), stills: document.documentElement.dataset.stills ?? '', still: still?.dataset.slug ?? '', w: Math.round(r?.width ?? 0), engine: 'engine' in casebound, asked: (() => { try { return Object.keys(sessionStorage).length; } catch { return -1; } })() };
+    });
+    say(!got.gl && ['missing', 'failed'].includes(got.stills) && got.still && got.w > 80 && !got.engine && got.asked === 0 && !errors.length, `in a browser with WebGL turned off (${w} by ${h}) the page lands on the stills by itself: ${JSON.stringify(got)}${errors.length ? ' ' + errors.join(' | ') : ''}`);
+    await page.close();
+  }
+} finally {
+  await bare.close();
+}
 console.log(failed ? `${failed} step(s) failed` : 'stills: all steps passed');
 process.exit(failed ? 1 : 0);
