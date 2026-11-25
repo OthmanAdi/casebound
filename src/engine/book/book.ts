@@ -7,10 +7,10 @@
  *   spin  - the reader's own rotation of the book, plus the yaw that presents the cover or the spread
  *   volume.group - the geometry, in the open-book frame
  */
-import { Group, Quaternion, Vector3, type Material, type Texture } from 'three';
+import { CylinderGeometry, Group, Mesh, MeshStandardMaterial, Quaternion, Vector3, type BufferGeometry, type Material, type Texture } from 'three';
 import { DEG } from '../core/math';
 import type { ParamSpec, Registry } from '../core/registry';
-import { makeDims, type BookDims } from './dims';
+import { makeDims, type Binding, type BookDims } from './dims';
 import { COVER_RELIEF, DEFAULT_FACES, GRAIN_PER_UNIT, edgeTexture, endpaperTexture, grainTexture, paintCover, paintPage, type CoverDesign, type CoverRelief, type CoverTextures, type PageContent, type Typefaces } from './painter';
 import { CLOTH, PAGE_PAPER, createEdgeMaterial, createSurfaceMaterial, setOverlay, type ClothParams, type SurfaceFx } from './surface';
 import { Volume, type ChunkPose } from './volume';
@@ -25,6 +25,8 @@ export interface BookRecord {
   pages?: number;
   /** Closed thickness in world units, about 1.6 to 3.0. */
   thickness?: number;
+  /** How it is held together. Default a case: boards and a spine. A pamphlet has a paper cover, a fold and two staples. */
+  binding?: Binding;
   /** Colour behind the book on its panel. Also tints the light in the colour theme. */
   background?: string;
   /** Colour of the paper: pages and page edges. Default a cool white. An old book reads well on cream, for example "#e9e2cd". */
@@ -95,6 +97,12 @@ export function coverParams(mat: ReturnType<typeof createSurfaceMaterial>): Para
 /** Opening angle of each board when the book lies open at its middle (SPEC S-RD-3: 28 degrees x 3.36). */
 export const OPEN_ANGLE = 94 * DEG;
 
+/**
+ * The two staples of a pamphlet, in world units: how long the wire lies on the fold, how thick it is, and how far
+ * from the middle of the fold each one sits, as a share of the height. A staple is 12 mm on a sheet of 210.
+ */
+export const STAPLE = { length: 1.15, wire: 0.026, at: 0.27 };
+
 export class Book {
   readonly root = new Group();
   readonly tilt = new Group();
@@ -140,6 +148,7 @@ export class Book {
 
   private readonly textures: Texture[] = [];
   private readonly materials: Material[] = [];
+  private readonly geometries: BufferGeometry[] = [];
   private readonly pageMaterials: Record<'left' | 'right' | 'bundleTop' | 'bundleUnder', ReturnType<typeof createSurfaceMaterial>>;
   private readonly coverMaterial: ReturnType<typeof createSurfaceMaterial>;
   private cover: CoverTextures;
@@ -151,7 +160,8 @@ export class Book {
     readonly faces: Typefaces = DEFAULT_FACES,
     relief: CoverRelief = COVER_RELIEF,
   ) {
-    const dims = (this.dims = makeDims({ pages: record.pages, thickness: record.thickness }));
+    const dims = (this.dims = makeDims({ pages: record.pages, thickness: record.thickness, binding: record.binding }));
+    const pamphlet = dims.binding === 'pamphlet';
     const seed = record.cover.seed ?? hashString(record.slug);
     const grainKind = record.cover.grain ?? 'buckram';
     const cloth: ClothParams = { ...CLOTH[grainKind], ...record.material?.cloth };
@@ -161,7 +171,8 @@ export class Book {
     const paper = grainTexture('paper');
     const blank = paintPage({ folio: null, left: true }, dims.pageW / dims.pageH, faces, 256, record.paper);
     const edge = edgeTexture(seed, record.paper);
-    const end = endpaperTexture(record.cover, seed);
+    // A paper cover is coloured through: its inside is the same stock, with nothing printed on it.
+    const end = pamphlet ? paintPage({ folio: null, left: true }, 1, faces, 64, record.cover.cloth) : endpaperTexture(record.cover, seed);
     this.textures.push(blank, edge, end);
 
     const page = (map: Texture, gutter: 0 | 1): ReturnType<typeof createSurfaceMaterial> =>
@@ -211,7 +222,9 @@ export class Book {
     const atlas = volume.atlas;
     const cover = (this.cover = this.paintCover(relief));
     const stripLength = atlas.aspect * dims.coverH;
-    (endpaper.userData.uniforms as { uTurnIn: { value: { set(x: number, y: number, z: number, w: number): void } } }).uTurnIn.value.set(TURN_IN / stripLength, TURN_IN / dims.coverH, 6, 4);
+    // No cloth is turned in over the edges of a paper cover.
+    const turnIn = pamphlet ? 0 : TURN_IN;
+    (endpaper.userData.uniforms as { uTurnIn: { value: { set(x: number, y: number, z: number, w: number): void } } }).uTurnIn.value.set(turnIn / stripLength, turnIn / dims.coverH, 6, 4);
     const coverMat = (this.coverMaterial = createSurfaceMaterial({
       map: cover.map,
       grain: grainTexture(grainKind),
@@ -228,11 +241,27 @@ export class Book {
       foilRainbow: record.cover.foilRainbow ?? 0,
       foilSpecular: record.material?.foilSpecular ?? 0,
       foilDetail: record.material?.foilDetail ?? 2.6,
-      joint: { back: atlas.back[1], front: atlas.front[0], half: atlas.hinge, length: stripLength },
+      // A fold has no groove.
+      joint: pamphlet ? undefined : { back: atlas.back[1], front: atlas.front[0], half: atlas.hinge, length: stripLength },
       fx,
     }));
     volume.caseMesh.material = [coverMat, endpaper];
     this.materials.push(coverMat, endpaper, edgeMat, ...Object.values(this.pageMaterials));
+    if (pamphlet) {
+      // Two staples through the fold. The fold is the spine of the volume: it lies in the plane z = 0 with the
+      // pages on its +z side, so the wire lies just outside it. It is seen while the pamphlet is closed and from
+      // behind; an open one hides it under itself.
+      const wire = new CylinderGeometry(STAPLE.wire / 2, STAPLE.wire / 2, STAPLE.length, 6);
+      const steel = new MeshStandardMaterial({ color: '#c3c6ca', metalness: 0.85, roughness: 0.38 });
+      for (const side of [-1, 1]) {
+        const staple = new Mesh(wire, steel);
+        staple.name = 'staple';
+        staple.position.set(0, side * STAPLE.at * dims.coverH, -dims.board / 2 - STAPLE.wire * 0.4);
+        volume.group.add(staple);
+      }
+      this.geometries.push(wire);
+      this.materials.push(steel);
+    }
 
     this.root.name = `book.${record.slug}`;
     this.root.add(this.tilt);
@@ -359,6 +388,7 @@ export class Book {
     this.root.removeFromParent();
     for (const t of [...this.textures, this.cover.map, this.cover.emboss, this.cover.finish]) t.dispose();
     for (const m of this.materials) m.dispose();
+    for (const g of this.geometries) g.dispose();
     this.volume.caseMesh.geometry.dispose();
     this.volume.leftBlock.geometry.dispose();
     this.volume.rightBlock.geometry.dispose();
