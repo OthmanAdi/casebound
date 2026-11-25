@@ -88,6 +88,7 @@ The reader lends its pages to tools. The highlighter in `src/engine/marker/` is 
 | `reader.pageNear(x, y)` | For a point beside the book: the nearest place on the outline of the two pages on show |
 | `reader.overlay` | A function from a page number to a texture that is laid over that page's print like a dye. Call `reader.refreshOverlays()` when a page gets its first one |
 | `reader.handsOff` | While true, presses take no leaf and turn nothing: your tool has the pointer |
+| `reader.view`, `reader.frame()`, `reader.hand` | A zoom and pan of the open book in window pixels, where its spine and one page lie on the screen without them, and a hand your tool leads: `down`, `move` and `up` as the pointer's would be. Reading by touch is built on these |
 
 Marks made with the pens are plain data: `casebound.marker.marks()` returns strokes by page number, in page coordinates. Pass your own `colors` or `store` to `createMarker` to change the pens or where marks are kept.
 

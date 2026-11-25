@@ -15,9 +15,9 @@ Two checks run the site in a real browser and act on it with the pointer and the
 
 ```sh
 npm run build && npx vite preview --port 5185 &
-node tools/capture/check-reader.mjs http://127.0.0.1:5185   # keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves, the pens
+node tools/capture/check-reader.mjs http://127.0.0.1:5185   # keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves, the pens, a lost drawing context, reading by touch at 390 by 844
 node tools/capture/check-shelf.mjs http://127.0.0.1:5185    # a book turned by hand, its coasting, a press that opens the details, a jump that skips no book
-node tools/capture/check-stills.mjs http://127.0.0.1:5185   # the page without WebGL: a still that rides, turns and opens the details, the row, ?nowebgl and ?webgl
+node tools/capture/check-stills.mjs http://127.0.0.1:5185   # the page without WebGL: a still that rides, turns and opens the details, the row, ?nowebgl and ?webgl, an Edge started without WebGL
 node tools/capture/check-zine.mjs http://127.0.0.1:5185     # the zine: its way in, cover, number and folios, paper, lean, back cover, Escape, and a phone
 ```
 
