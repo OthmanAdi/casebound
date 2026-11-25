@@ -10,7 +10,11 @@
 // `--every 3` saves every third frame and `--span 150-220` only frames 150 to 220. The clock still runs through
 // every frame, so a quick look at one moment shows the same picture as the full recording.
 //
-// Scenes: shelf, spin, row, reader, drag, curl, lens, light, pointer, night, nightlens. Turn the frames into a GIF or a video with ffmpeg, for example:
+// A scene with `clock: 'page'` is for a page without the engine, such as the stills of `?nowebgl`: the recorder then
+// takes the page's own clock (timers, animation frames, `performance.now`) with Playwright and runs it frame by frame.
+// CSS transitions run on the browser's clock in both kinds.
+//
+// Scenes: shelf, spin, row, reader, drag, curl, lens, light, pointer, night, nightlens, zine, stills. Turn the frames into a GIF or a video with ffmpeg, for example:
 //   ffmpeg -framerate 30 -i <out dir>/f%04d.png -vf "scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" out.gif
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -159,6 +163,29 @@ const SCENES = {
     ...scroll(sec(2.8), sec(1.3), 0, 1),
     ...glide(sec(4.4), 0, sec(2.2), [[700, 500], [1000, 640], [420, 380]]),
   ] },
+  // The zine of a book: in from its details, the cover turned, two leaves, and away by the bar's close. The pointer
+  // rests on the excerpt of the details, clear of the two rows whose hover lights the print.
+  zine: { path: '/?midday#/book/walden', frames: sec(11.4), settle: 2600, actions: [
+    { at: 1, run: (p) => p.mouse.move(1180, 830) },
+    { at: sec(0.3), run: (p) => p.click('.dp-book.is-current .row-zine') },
+    { at: sec(0.4), run: (p) => p.mouse.move(1180, 830) },
+    key(sec(2.6), 'ArrowRight'),
+    key(sec(5.2), 'ArrowRight'),
+    key(sec(7.2), 'ArrowRight'),
+    { at: sec(9.6), run: (p) => p.click('#close') },
+  ] },
+  // The page without WebGL: a still rides the scroll to the next book, turns under a sideways pull, then the row.
+  stills: { path: '/?nowebgl&midday', clock: 'page', frames: sec(10.4), settle: 1200, actions: [
+    { at: 1, run: (p) => p.mouse.move(1180, 300) },
+    ...scroll(sec(0.5), sec(1.4), 0, 1),
+    { at: sec(2.6), run: (p) => p.mouse.move(720, 505) },
+    { at: sec(2.8), run: (p) => p.mouse.down() },
+    ...glide(sec(2.85), 0, sec(1), [[720, 505], [990, 512]]),
+    { at: sec(3.9), run: (p) => p.mouse.up() },
+    { at: sec(4.4), run: (p) => p.mouse.move(1180, 300) },
+    ...scroll(sec(5), sec(2), 1, 4),
+    key(sec(7.6), 'ArrowRight'), key(sec(8.6), 'ArrowRight'),
+  ] },
   nightlens: { path: '/?theme=dark' + READER, frames: sec(7.5), settle: 3400, actions: [
     { at: 1, run: (p) => p.mouse.move(300, 330) },
     ...glide(sec(0.2), 0, sec(1.6), [[300, 330], [560, 420], [380, 560]]),
@@ -183,17 +210,26 @@ const browser = await chromium.launch({ channel: process.env.RE_CHANNEL ?? 'msed
 try {
   const page = await (await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 })).newPage();
   page.on('pageerror', (e) => console.log('pageerror:', String(e).slice(0, 300)));
+  const own = def.clock === 'page';
+  if (own) await page.clock.install();
   await page.goto(base.replace(/\/$/, '') + def.path, { waitUntil: 'load', timeout: 60000 });
-  await page.waitForSelector('html[data-casebound-ready="true"]', { state: 'attached', timeout: 30000 });
-  await page.waitForTimeout(def.settle ?? 400);
-  // Take the clock: from here on the engine only moves when we tell it to.
-  await page.evaluate(() => { casebound.engine.ctx.loop.stop(); window.__clock = performance.now(); });
-  // Film grain changes on every frame, which a GIF pays for in size. `--film 0` records without it.
-  if (film !== null) await page.evaluate((amount) => casebound.engine.ctx.registry.set('effect.film', 'amount', amount), film);
+  if (own) {
+    // The page's clock stands still until it is run: run it until the page says it is ready, then let it settle.
+    for (let i = 0; i < 300 && !(await page.evaluate(() => document.documentElement.dataset.caseboundReady === 'true')); i++) await page.clock.runFor(100);
+    await page.clock.runFor(def.settle ?? 400);
+  } else {
+    await page.waitForSelector('html[data-casebound-ready="true"]', { state: 'attached', timeout: 30000 });
+    await page.waitForTimeout(def.settle ?? 400);
+    // Take the clock: from here on the engine only moves when we tell it to.
+    await page.evaluate(() => { casebound.engine.ctx.loop.stop(); window.__clock = performance.now(); });
+    // Film grain changes on every frame, which a GIF pays for in size. `--film 0` records without it.
+    if (film !== null) await page.evaluate((amount) => casebound.engine.ctx.registry.set('effect.film', 'amount', amount), film);
+  }
   const step = 1000 / fps;
   for (let f = 0; f < def.frames; f++) {
     for (const a of def.actions) if (a.at === f) await a.run(page);
-    await page.evaluate((dt) => { window.__clock += dt; casebound.engine.ctx.loop.tick(window.__clock); }, step);
+    if (own) await page.clock.runFor(step);
+    else await page.evaluate((dt) => { window.__clock += dt; casebound.engine.ctx.loop.tick(window.__clock); }, step);
     if (f % every === 0 && f >= spanFrom && f <= spanTo) await page.screenshot({ path: resolve(out, `f${String(f).padStart(4, '0')}.png`) });
   }
   console.log(`${scene}: ${def.frames} frames at ${fps} fps in ${out}`);
