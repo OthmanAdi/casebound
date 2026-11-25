@@ -16,12 +16,12 @@ Two checks run the site in a real browser and act on it with the pointer and the
 ```sh
 npm run build && npx vite preview --port 5185 &
 node tools/capture/check-reader.mjs http://127.0.0.1:5185   # keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves, the pens, a lost drawing context, reading by touch at 390 by 844
-node tools/capture/check-shelf.mjs http://127.0.0.1:5185    # a book turned by hand, its coasting, a press that opens the details, a jump that skips no book
+node tools/capture/check-shelf.mjs http://127.0.0.1:5185    # a book turned by hand, its coasting, a press that opens the details, a jump that skips no book, the band of films
 node tools/capture/check-stills.mjs http://127.0.0.1:5185   # the page without WebGL: a still that rides, turns and opens the details, the row, ?nowebgl and ?webgl, an Edge started without WebGL
-node tools/capture/check-zine.mjs http://127.0.0.1:5185     # the zine: its way in, cover, number and folios, paper, lean, back cover, Escape, and a phone
+node tools/capture/check-zine.mjs http://127.0.0.1:5185     # the zine: its way in, cover, number and folios, paper, lean, back cover (no print through it), Escape, and a phone
 ```
 
-Run both after any change to the reader, the shelf, the pointer handling or the site's keys. Add a step when you add an interaction. Run them against a production build: the dev server reloads modules under them.
+Run them after any change to the reader, the shelf, the zine, the foot of the page, the pointer handling or the site's keys. Add a step when you add an interaction. Run them against a production build: the dev server reloads modules under them.
 
 ## Look at it
 
@@ -59,11 +59,11 @@ Check at least: the closed book on the shelf, a scroll half way between two book
 For anything that moves, record a scripted visit as exact frames and look at several of them. The recorder steps the engine's clock, one frame per step.
 
 ```sh
-node tools/capture/record.mjs http://127.0.0.1:5185 out/rec/drag drag     # scenes: shelf, spin, reader, drag, lens, light, pointer, night, nightlens
+node tools/capture/record.mjs http://127.0.0.1:5185 out/rec/drag drag     # scenes: shelf, spin, row, reader, drag, curl, pen, lens, light, pointer, night, nightlens, zine, stills
 node tools/capture/gif.mjs out/rec/drag out/drag.gif --w 720 --fps 15     # needs ffmpeg on the PATH, or its path in FFMPEG
 ```
 
-A scene is a list of actions at frame numbers: pointer paths, key presses, scrolls. The built-in ones are in `tools/capture/record.mjs`. For a new interaction write your own in a separate file and pass it with `--scene-file`; `tools/capture/scenes.example.mjs` shows the shape. A scene doubles as the source of a README GIF.
+A scene is a list of actions at frame numbers: pointer paths, key presses, scrolls. A scene with `clock: 'page'` runs a page without the engine, such as the stills, on the page's own clock. The built-in ones are in `tools/capture/record.mjs`. For a new interaction write your own in a separate file and pass it with `--scene-file`; `tools/capture/scenes.example.mjs` shows the shape. A scene doubles as the source of a README GIF.
 
 The page announces its state for tools: `data-casebound-ready="true"` when it has settled, `data-casebound-view` with the current address (`/`, `/book/<slug>`, `/book/<slug>/page/<n>`).
 

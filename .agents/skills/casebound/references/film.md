@@ -25,7 +25,7 @@ Licence: raea is under FSL-1.1-ALv2. Using it to make films is allowed. Do not c
    node tools/capture/record.mjs http://127.0.0.1:5183 out/film/frames lens --fps 30
    ```
 
-   The scenes are in the `SCENES` table of that file: `shelf`, `spin`, `row`, `reader`, `drag`, `lens`, `light`, `pointer`, `night`, `nightlens`. For a new animation add a scene there: a start address, a length in frames, and a list of actions with the frame each one happens at (a key, a pointer path, a scroll, a line of code such as `casebound.effects.hologram(true)`).
+   The scenes are in the `SCENES` table of that file: `shelf`, `spin`, `row`, `reader`, `drag`, `curl`, `pen`, `lens`, `light`, `pointer`, `night`, `nightlens`, `zine`, `stills`. For a new animation add a scene there: a start address, a length in frames, and a list of actions with the frame each one happens at (a key, a pointer path, a scroll, a line of code such as `casebound.effects.hologram(true)`).
 3. Turn the frames into one video file.
 
    ```sh
