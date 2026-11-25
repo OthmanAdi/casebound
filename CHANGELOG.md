@@ -74,6 +74,13 @@ The page:
 - On a phone a counter under the row with arrows that step it, a bar that holds only the title of the current book, and no lens over the picture.
 - The theme control at the right end of the label row, a section label that changes where the next section of the page begins, and titles that fade in after the page has loaded.
 - The zine is read in the details: a pill under the rows takes it out and puts it away, the column stays, and the reader's bar, keys, lens and pens work on it. The bar shows one number, the sides turned. Its address is `#/book/<slug>/zine` and `#/book/<slug>/zine/page/<n>`; marks are kept under the zine's own name.
+- A zine is numbered by its sides from the front of its cover: its first page carries the folio 3, and the number in the bar, the number in the address and the folio on the left page of the spread are the same. An odd number in the address opens the spread before it.
+- A zine's cover turns as a leaf of the zine's paper over a booklet that already lies open, and the booklet comes to the reading place on a curve of its own: 90 percent of the way 317 ms after the key, against 917 ms before. Its leaves turn with the zine's own paper too, half way in 0.3 s.
+- An open zine lies as a shallow V, each half 6.5 degrees short of flat, and turns about its spine as it is read, the side with fewer leaves higher, 13 degrees from its first spread to its last, and up to 3 degrees toward the pointer.
+- After the last leaf of a zine the way on brings its back cover over and it lies closed on its face, numbered with every side; the way back opens it again.
+- On a narrow screen a zine has the whole picture: closed, its cover fills the width of the window; open, one page does, the left one first, and a swipe across the page goes to the other side without turning it. It leans back less there.
+- One Escape under a zine puts it away and, 0.63 s later, closes the details.
+- A spine too narrow to read, such as the fold of a pamphlet, carries no title, author or mark.
 
 Effects:
 
@@ -86,7 +93,7 @@ System:
 - Extension points for scene objects, surface effects, shelf layouts, light presets and page sources, with three example extensions.
 - A content folder: one record per book, optional text beside it, and a tool that fetches public-domain texts from Project Gutenberg.
 - An agent skill, `casebound`, with references for content, extending, tuning and verifying, and manifests for the Claude Code plugin marketplace.
-- A demo site with six public-domain books, deep links, a long page of details and keyboard control. Escape goes one step back at a time.
+- A demo site with six public-domain books, deep links, a long page of details and keyboard control. Escape goes one step back at a time; under a zine one press takes two.
 
 Measurement:
 
@@ -100,7 +107,7 @@ Measurement:
 ### Known gaps
 
 - The row of spines was built from the measured constants without a capture of its own to compare with.
-- The zine turns with the book's leaf and lies on the book's two page stacks. The reference's has paper numbers of its own, rolls about its spine as it is read and lies closed on its face after its last leaf; none of that is built. It comes to the reading place with its cover, in about a second, where the reference takes a third of one. It was not tried on a phone.
+- The zine lies on the book's two page stacks with six live leaves; the reference's has every leaf live. Its paper is fitted to the turn of the reference's leaf, not built from the reference's own paper model. Its lean about the spine is fitted to what the reference's leaves show, not built from its turning group and the ground its leaves lie on. A swipe on a phone was tried in a browser's touch emulation only, and the reference's pinch and pan were not built.
 - The opening is still up to 175 ms early at its start against the reference, and the closing sequence, the toolbar timing and the lens rim were not measured again after their correction.
 - Page paper is still about 8 of 255 short in blue against the reference.
 - Touch works but was not measured.
