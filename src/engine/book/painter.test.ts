@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { COVER_RELIEF, WEAVE_CRIMP, WEAVE_PERIOD, reliefLevel, weaveHeight } from './painter';
+import { atlasOf, makeDims } from './dims';
+import { COVER_RELIEF, SPINE_TYPE_MIN, WEAVE_CRIMP, WEAVE_PERIOD, reliefLevel, spineTakesType, weaveHeight } from './painter';
 
 describe('the weave', () => {
   const p = WEAVE_PERIOD;
@@ -52,5 +53,17 @@ describe('the relief map', () => {
   it('stays inside the range a texture can hold', () => {
     expect(reliefLevel(-1)).toBe('rgb(0,0,0)');
     expect(reliefLevel(2)).toBe('rgb(255,255,255)');
+  });
+});
+
+describe('the type on a spine', () => {
+  it('is left off a spine too narrow to read: the fold of a pamphlet', () => {
+    for (const pages of [8, 16, 32]) expect(spineTakesType(atlasOf(makeDims({ pages, binding: 'pamphlet' })))).toBe(false);
+  });
+
+  it('stays on every case, the thinnest too', () => {
+    expect(spineTakesType(atlasOf(makeDims({ pages: 8 })))).toBe(true);
+    expect(spineTakesType(atlasOf(makeDims({ thickness: 1.1 })))).toBe(true);
+    expect(SPINE_TYPE_MIN).toBeGreaterThan(0);
   });
 });

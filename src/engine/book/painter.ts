@@ -44,6 +44,17 @@ export interface AtlasLayout {
   aspect: number;
 }
 
+/**
+ * Least width of a spine that carries type, as a share of the height of the cover, as the strip lays it out. The
+ * thinnest case has a spine 0.039 of its height; the fold of a pamphlet 0.14 to 0.5 thick takes 0.004 to 0.014,
+ * where a title would come out a smear a few pixels wide. Read in the reference: the fold of its zine carries a
+ * column of the cover's own picture and nothing stamped. Ours, as a rule: below this share the spine stays blank.
+ */
+export const SPINE_TYPE_MIN = 0.02;
+
+/** True when a spine is wide enough for its title, author and imprint mark. */
+export const spineTakesType = (layout: AtlasLayout): boolean => (layout.spine[1] - layout.spine[0]) * layout.aspect >= SPINE_TYPE_MIN;
+
 export interface CoverTextures {
   map: Texture;
   emboss: Texture;
@@ -325,51 +336,54 @@ export function paintCover(design: CoverDesign, text: CoverText, layout: AtlasLa
     c.fillText(text.author, fx + m, H - m * 1.1);
   }, false);
 
-  // Spine: title reading down, author at the head, imprint at the foot.
-  const spineTitle = (c: CanvasRenderingContext2D): void => {
-    c.translate(sx + sw / 2, H * 0.14);
-    c.rotate(Math.PI / 2);
-    const max = H * 0.6;
-    let px = Math.round(sw * 0.42);
-    c.font = `500 ${px}px ${faces.display}`;
-    while (c.measureText(text.title).width > max && px > 10) {
-      px -= 2;
+  // Spine: title reading down, author at the head, imprint at the foot. A spine too narrow to read stays blank.
+  if (spineTakesType(layout)) paintSpine();
+  function paintSpine(): void {
+    const spineTitle = (c: CanvasRenderingContext2D): void => {
+      c.translate(sx + sw / 2, H * 0.14);
+      c.rotate(Math.PI / 2);
+      const max = H * 0.6;
+      let px = Math.round(sw * 0.42);
       c.font = `500 ${px}px ${faces.display}`;
-    }
-    c.textAlign = 'left';
-    c.textBaseline = 'middle';
-    c.fillText(text.title, 0, 0);
-  };
-  drawText(spineTitle);
-  // The author's name ends above the imprint mark: a long name is set smaller, down to 0.7 of its size, and
-  // only then drawn narrower. The mark is stamped after it and would otherwise cut through its last letters.
-  const markTop = H - sw * 0.2 * 4.2;
-  const authorAt = H * 0.14 + H * 0.64;
-  const authorRoom = Math.max(H * 0.06, Math.min(H * 0.18, markTop - sw * 0.12 - authorAt));
-  drawText((c) => {
-    c.translate(sx + sw / 2, authorAt);
-    c.rotate(Math.PI / 2);
-    let px = Math.round(sw * 0.26);
-    const least = Math.round(px * 0.7);
-    c.font = `400 italic ${px}px ${faces.text}`;
-    while (c.measureText(text.author).width > authorRoom && px > least) {
-      px -= 1;
+      while (c.measureText(text.title).width > max && px > 10) {
+        px -= 2;
+        c.font = `500 ${px}px ${faces.display}`;
+      }
+      c.textAlign = 'left';
+      c.textBaseline = 'middle';
+      c.fillText(text.title, 0, 0);
+    };
+    drawText(spineTitle);
+    // The author's name ends above the imprint mark: a long name is set smaller, down to 0.7 of its size, and
+    // only then drawn narrower. The mark is stamped after it and would otherwise cut through its last letters.
+    const markTop = H - sw * 0.2 * 4.2;
+    const authorAt = H * 0.14 + H * 0.64;
+    const authorRoom = Math.max(H * 0.06, Math.min(H * 0.18, markTop - sw * 0.12 - authorAt));
+    drawText((c) => {
+      c.translate(sx + sw / 2, authorAt);
+      c.rotate(Math.PI / 2);
+      let px = Math.round(sw * 0.26);
+      const least = Math.round(px * 0.7);
       c.font = `400 italic ${px}px ${faces.text}`;
-    }
-    c.textAlign = 'left';
-    c.textBaseline = 'middle';
-    c.fillText(text.author, 0, 0, authorRoom);
-  }, false);
-  drawText((c) => {
-    const r = sw * 0.2;
-    c.lineWidth = Math.max(2, sw * 0.03);
-    c.beginPath();
-    c.arc(sx + sw / 2, H - r * 3.2, r, 0, Math.PI * 2);
-    c.stroke();
-    c.beginPath();
-    c.arc(sx + sw / 2, H - r * 3.2, r * 0.35, 0, Math.PI * 2);
-    c.fill();
-  });
+      while (c.measureText(text.author).width > authorRoom && px > least) {
+        px -= 1;
+        c.font = `400 italic ${px}px ${faces.text}`;
+      }
+      c.textAlign = 'left';
+      c.textBaseline = 'middle';
+      c.fillText(text.author, 0, 0, authorRoom);
+    }, false);
+    drawText((c) => {
+      const r = sw * 0.2;
+      c.lineWidth = Math.max(2, sw * 0.03);
+      c.beginPath();
+      c.arc(sx + sw / 2, H - r * 3.2, r, 0, Math.PI * 2);
+      c.stroke();
+      c.beginPath();
+      c.arc(sx + sw / 2, H - r * 3.2, r * 0.35, 0, Math.PI * 2);
+      c.fill();
+    });
+  }
 
   // Back cover: a small imprint line at the foot.
   drawText((c) => {
