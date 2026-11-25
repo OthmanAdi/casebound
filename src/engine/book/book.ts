@@ -103,6 +103,9 @@ export function coverParams(mat: ReturnType<typeof createSurfaceMaterial>): Para
 /** Opening angle of each board when the book lies open at its middle (SPEC S-RD-3: 28 degrees x 3.36). */
 export const OPEN_ANGLE = 94 * DEG;
 
+/** How far a cover that turns by itself lets the book count as open: smooth at both ends of its turn. */
+const shutter = (turn: number): number => turn * turn * (3 - 2 * turn);
+
 /**
  * The two staples of a pamphlet, in world units: how long the wire lies on the fold, how thick it is, and how far
  * from the middle of the fold each one sits, as a share of the height. A staple is 12 mm on a sheet of 210.
@@ -151,6 +154,20 @@ export class Book {
    * the left. While there is one the stacks go by it and `reading` only places the case. Set by the reader.
    */
   bundle: (ChunkPose & { under: number }) | null = null;
+  /**
+   * How far the front cover has turned over, 0 to 1, while the book is open. 1 for a book: its cover opens with it.
+   * A pamphlet's cover is a leaf: the booklet lies open under it and it turns over by itself (see zine/zine.ts).
+   */
+  coverTurn = 1;
+  /**
+   * How far the back cover has come over onto the left stack, 0 to 1, while the book is open at its end. A pamphlet
+   * read to its end closes onto its back this way; the front stack stays where it lies.
+   */
+  backShut = 0;
+  /** A turn of the open book about its spine, radians. Positive raises the left side toward the viewer. */
+  lean = 0;
+  /** Opening angle of each board at the middle of the book, radians. A pamphlet lies open less flat than a case. */
+  openAngle = OPEN_ANGLE;
 
   private readonly textures: Texture[] = [];
   private readonly materials: Material[] = [];
@@ -357,11 +374,14 @@ export class Book {
     const closed = 1 - this.open;
     // The pages part by turning everything before the reading place over in one wad, first leaf up until it lands.
     // The volume lets both stacks trail their boards on the way (see `VolumePose.turn`).
+    // A cover that comes down presses the booklet shut: the other cover closes with it, whatever leaf still creeps.
     const pose = {
-      front: this.open * OPEN_ANGLE * (2 - 2 * n) + this.flap.front * closed,
-      back: this.open * OPEN_ANGLE * 2 * n + this.flap.back * closed,
-      split: this.open > 0 ? (this.bundle ? this.bundle.under : this.reading) : 0,
-      turn: this.pages,
+      front: this.open * this.openAngle * (2 - 2 * n) * this.coverTurn * (1 - this.backShut) + this.flap.front * closed,
+      back: this.open * this.openAngle * 2 * n * (1 - this.backShut) * this.coverTurn + this.flap.back * closed,
+      // Shut onto its back the booklet is a closed book seen from behind: its leaves lie between the covers.
+      split: this.open > 0 && this.backShut < 1 ? (this.bundle ? this.bundle.under : this.reading) : 0,
+      // Under a cover that comes down the pages lose their belly and stand along the closed book again.
+      turn: this.pages * shutter(this.coverTurn) * (1 - shutter(this.backShut)),
       chunk: this.open > 0 && this.bundle ? this.bundle : undefined,
     };
     this.volume.setPose(pose);
@@ -383,10 +403,12 @@ export class Book {
     // With the pages not yet parted that is almost the same direction the cover faced, so the book only
     // turns once the pages part. The boards therefore keep their place whatever the reading place is: a shift
     // of it rolls the spine and nothing else.
-    const facing = (this.open * OPEN_ANGLE * (2 - 2 * n) - this.open * OPEN_ANGLE * 2 * n) / 2;
-    this.spin.rotation.set(this.turned.pitch * closed, (this.presentYaw + this.turned.yaw) * closed + facing, 0);
-    // Closed, the book turns about its middle. Open, it turns about its spine.
-    this.volume.group.position.z = -this.volume.closedCentreZ * closed;
+    // A cover that turns by itself, or a back cover shut onto the stack, does not turn the book: the stacks stay.
+    const facing = (this.open * this.openAngle * (2 - 2 * n) - this.open * this.openAngle * 2 * n) / 2;
+    this.spin.rotation.set(this.turned.pitch * closed, (this.presentYaw + this.turned.yaw) * closed + facing + this.lean * this.open, 0);
+    // Closed, the book turns about its middle. Open, it turns about its spine. A pamphlet's own front cover, and its
+    // back cover shut onto the stack, close it as well, so it lies about its middle under either.
+    this.volume.group.position.z = -this.volume.closedCentreZ * (1 - this.open * shutter(this.coverTurn) * (1 - shutter(this.backShut)));
   }
 
   dispose(): void {
