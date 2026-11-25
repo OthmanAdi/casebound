@@ -52,6 +52,27 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Menu of the bar | rise of the lists | 0.50, 0.29, 0.16, 0.09 of the way left at 33 to 133 ms against 0.57, 0.33, 0.19, 0.10 | matches, ours one frame ahead |
 | Section label | where it turns to the row's section | 0.41 of the way into the row, by the scroll bar; it was half way, by the books, 134 ms late in a 1.4 s scroll | matches |
 
+## 2026-11-25 · Eleventh pass: the page without WebGL
+
+The inventory's row 13: where WebGL is missing the reference still shows its books, as pictures. Ours showed nothing. The reference was loaded once with `?nowebgl` at 1440 by 900 and at 390 by 844, ten frames down the page each, with an outline of every box; six positions between two books were sampled; and the rule that places a still was read in its script.
+
+| What | Reference | Ours before | Now |
+| --- | --- | --- | --- |
+| A book without WebGL | a rendered picture of the book in its pose, a button | nothing | a box of six faces under the browser's 3D transforms, cut from the painted cover, in the same pose |
+| Where it stands | the middle of its picture, 1.6 percent of the window higher | | the same |
+| How it rides | with its picture: 18, 55, 130, 253 and 421 px after 120, 240, 330, 420 and 520 px of scroll | | the shelf's dwell curve with plateau 0.215 and creep 0.2, which gives 18, 56, 132, 256 and 422 |
+| Coming and going | shown while its picture is in the window, fading 320 ms | | the same |
+| A sideways pull | turns the book through rendered frames, 1.5 widths a turn; back to the front once it was out of sight, 600 to 900 ms | | turns the box itself, so every angle exists; the same pull and the same way back |
+| A press | opens the details | | the same |
+| The row | flat spines, the chosen book as a cover, 1.088 times larger | | the same, cut from the same painted strips |
+| The address | `nowebgl` kept for the tab, `webgl` forgets | | the same |
+
+The fit of the ride against the five positions assumes 978 px of scroll from one book to the next on the reference's page of stills; that length was derived from the positions and the page's height, not read. Ours keeps its own 872.
+
+Painting the stills showed a flaw in the covers that the lit books had hidden: on a spine the imprint mark was stamped through the last letters of a long author's name. The name now ends above the mark.
+
+Not verified: no browser that really lacks WebGL was tried, only `?nowebgl` in Edge and the path where the engine fails to start was not forced. The reference's still at a phone size was looked at in one frame. The inset of the pages behind the boards is not drawn on a still: its three paper sides are flush.
+
 ## 2026-11-24 · Tenth pass: the page around the books
 
 Eight passes measured the books. This one measured the ordinary page around them: the pictures, the title row, the labels and the bar, the details, and what comes after the row. Two complaints led to it, that some scrolling with every book closed felt wrong and that the panels of information did not match. Both turned out to be the page, not the books.

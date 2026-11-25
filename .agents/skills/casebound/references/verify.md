@@ -17,6 +17,7 @@ Two checks run the site in a real browser and act on it with the pointer and the
 npm run build && npx vite preview --port 5185 &
 node tools/capture/check-reader.mjs http://127.0.0.1:5185   # keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves, the pens
 node tools/capture/check-shelf.mjs http://127.0.0.1:5185    # a book turned by hand, its coasting, a press that opens the details, a jump that skips no book
+node tools/capture/check-stills.mjs http://127.0.0.1:5185   # the page without WebGL: a still that rides, turns and opens the details, the row, ?nowebgl and ?webgl
 ```
 
 Run both after any change to the reader, the shelf, the pointer handling or the site's keys. Add a step when you add an interaction. Run them against a production build: the dev server reloads modules under them.
@@ -82,7 +83,7 @@ Captures can be large (hundreds of megabytes each). Keep them out of git.
 
 ## What "done" means for a visible change
 
-1. `npm run check` passes, and so do `check-reader.mjs` and `check-shelf.mjs` when the change touches what they cover.
+1. `npm run check` passes, and so do `check-reader.mjs`, `check-shelf.mjs` and `check-stills.mjs` when the change touches what they cover. A change to the cover painter touches the stills too: they are cut from the same painted strip.
 2. You looked at the changed state in a browser and at one state that should not have changed. For motion, you looked at recorded frames, not at one picture.
 3. New numbers are registered and described.
 4. Reduced motion still ends in the right state.
