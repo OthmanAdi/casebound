@@ -22,6 +22,8 @@ Books:
 - A paper colour per book (`paper` in `book.json`), for pages and page edges.
 - A ceiling on the brightness of paper while a book is shut, so the first leaf under an opening cover keeps its pattern under the lamps of the shelf.
 - Cloth turned in over the edges of the boards, a joint groove with two walls that follows the hinge, stamped type with a narrow wall, weave and paper tooth as relief at the measured size, and iridescent foil as a pastel film over the metal. A book's cover material can be tried live in the registry (`book.<slug>`, `book.relief`, `book.joint`, `book.foil`, `book.edges`).
+- A second binding, the pamphlet (`"binding": "pamphlet"`): a paper cover 0.03 thick in place of the boards, no squares, a fold for a spine and two wire staples. It is the same shape with other numbers, so it opens, lies and turns like any book.
+- A zine for any book. `"zine": {}` in a book's record cuts a stretch of its own text into a stapled pamphlet in a paper cover, typeset by the same painter and printed once: the pages after the text stay bare. `title`, `line`, `from`, `paragraphs`, `pages`, `paper` and `ink` are optional. In the demo, The Chemical History of a Candle and Walden have one.
 
 Light:
 
@@ -58,6 +60,7 @@ Motion:
 - The cover of the centred book lifts under a resting pointer in the details view and in the row, and stays shut on the shelf itself, as measured (`peek` in the shelf options).
 - Pages turned by hand: a held leaf follows the pointer with the measured mapping, a pull that ends on the turning side turns the page, a pull brought back lets it fall, a tap turns one page, and a leaf in the air can be caught.
 - Reduced motion is honoured in the scene: with it on, every animation jumps to its end.
+- The zine in the scene: it flies in from the right the measured way (45 units, the square of what is left, 0.12 a frame), lies closed over the picture while its book stands aside to the left, opens with its cover on the first turn and comes to the reading place, and goes out the way it came. Honours reduced motion. Its feel is in the registry as `zine`.
 
 The page:
 
@@ -70,6 +73,7 @@ The page:
 - The page goes on past the row: a band that shows what a visitor can do with the books, and a footer with what Casebound is, the command that installs the skill, and links to the source, the skill and the licence. The row goes up with the page on the way there.
 - On a phone a counter under the row with arrows that step it, a bar that holds only the title of the current book, and no lens over the picture.
 - The theme control at the right end of the label row, a section label that changes where the next section of the page begins, and titles that fade in after the page has loaded.
+- The zine is read in the details: a pill under the rows takes it out and puts it away, the column stays, and the reader's bar, keys, lens and pens work on it. The bar shows one number, the sides turned. Its address is `#/book/<slug>/zine` and `#/book/<slug>/zine/page/<n>`; marks are kept under the zine's own name.
 
 Effects:
 
@@ -91,10 +95,12 @@ Measurement:
 - `research/PARITY.md` holds two passes. The second compared all ten interactions and led to twelve corrections, from the darkness of the wall shadow to the timing of the opening.
 - A pass on the page around the books: its layout and timing measured at 1440 by 900 and on a 390 px phone, with the shelf's browser check extended by a step for each correction.
 - Tools: a screenshot script, a frame recorder that drives the engine's clock, a GIF encoder for its frames, two functional checks that run the reader and the shelf in a real browser, a runner for frame-stepped capture with reanimate, a channel comparison and a scene pose reader.
+- A pass on the zine: the reference's measured in three loads, ours laid beside it with the same driver, and `tools/capture/check-zine.mjs`, a third functional check that runs the zine in a real browser.
 
 ### Known gaps
 
 - The row of spines was built from the measured constants without a capture of its own to compare with.
+- The zine turns with the book's leaf and lies on the book's two page stacks. The reference's has paper numbers of its own, rolls about its spine as it is read and lies closed on its face after its last leaf; none of that is built. It comes to the reading place with its cover, in about a second, where the reference takes a third of one. It was not tried on a phone.
 - The opening is still up to 175 ms early at its start against the reference, and the closing sequence, the toolbar timing and the lens rim were not measured again after their correction.
 - Page paper is still about 8 of 255 short in blue against the reference.
 - Touch works but was not measured.
