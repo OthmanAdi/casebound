@@ -173,12 +173,25 @@ html[data-aside] .marquee-track { transition-duration: 1.5s; transition-timing-f
 /* Measured: the title is 9.55 percent of the width, light, set solid and drawn together by 3 percent. */
 .band-title { margin: 24px 0 0; font: 300 max(52px, 9.55vw)/1 var(--display); font-variation-settings: 'opsz' 72; letter-spacing: -0.03em; }
 .band-copy { margin: 4px 0 0; max-width: max(320px, 36.5vw); font: 400 17px/1.5 var(--display); }
-/* A row of wide cards, 60 percent of the width and 16 by 9, 16 px apart; the one in front is lit. */
-.band-cards { display: flex; gap: var(--gutter); margin: 36px calc(-1 * var(--gutter)) 0 0; padding-right: var(--gutter); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
-.band-cards::-webkit-scrollbar { display: none; }
-.band-card { flex: 0 0 60vw; aspect-ratio: 16 / 9; border: 0; padding: 0; border-radius: 0; background-size: cover; background-position: center; scroll-snap-align: start; cursor: pointer; opacity: 0.55; transition: opacity 0.56s ease; }
-.band-card.is-current { opacity: 1; transition-duration: 0.2s; }
+/* A track of wide cards across the whole window. foot.ts places them by the measured rule (BAND): 60 percent of
+   the width and 16 by 9, 16 px apart, the one in front centred (or 16 px from the edge at either end), its
+   neighbours peeking, the rest gone. A step moves them in 560 ms. The picture of a card that is not lit stands at
+   0.55; the film over it shows once its first frame is decoded. */
+.band-cards { position: relative; margin: 36px calc(-1 * var(--gutter)) 0; overflow: hidden; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-select: none; cursor: grab; }
+.band-cards.is-dragging, .band-cards.is-dragging * { cursor: grabbing; }
+.band-card { --dim: 0.55; position: absolute; top: 0; left: 0; height: 100%; overflow: hidden; border: 0; padding: 0; border-radius: 8px; background: var(--ink); color: inherit; cursor: pointer; }
+.band-cards.is-placed .band-card { transition: transform 0.56s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.56s ease; }
+.band-cards.is-dragging .band-card { transition: none; }
+.band-card.is-lit { --dim: 1; }
+@media (hover: hover) { .band-card:hover { --dim: 1; } }
 .band-card:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.band-still, .band-film { position: absolute; inset: 0; width: 100%; height: 100%; opacity: var(--dim); transition: opacity 0.56s ease; }
+.band-still { background-size: cover; background-position: center; }
+/* The film fades in over its still in 0.26 s once a frame is decoded; the still goes after that. */
+/* Overscanned 2 px on every side: the encoded edge rows can come out lighter, and the card clips the extra. */
+.band-film { inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); object-fit: cover; opacity: 0; transition: opacity 0.26s ease; }
+.band-film.is-ready { opacity: var(--dim); }
+.band-card.has-film .band-still { opacity: 0; transition: opacity 0s linear 0.26s; }
 .band-text { position: relative; display: grid; grid-template-columns: 29.4vw minmax(0, 39vw) 1fr; align-items: start; margin-top: var(--gutter); border-top: 1px solid currentColor; padding-top: 15px; min-height: 153px; }
 .band-card-title { margin: 1px 0 0; max-width: 25vw; font: 400 30px/1.1 var(--display); }
 .band-by { margin: 12px 0 0; font: italic 400 12px/1 var(--display); }
@@ -474,7 +487,6 @@ html[data-reading] .dpage { visibility: hidden; }
   .pager { display: flex; }
   /* The foot on a phone: one column. */
   .band-copy { max-width: none; }
-  .band-card { flex-basis: calc(100vw - var(--gutter) * 2); }
   .band-text { grid-template-columns: 1fr; row-gap: 4px; }
   .band-card-title { max-width: none; }
   .band-text .pill { justify-self: start; margin-top: 16px; }
