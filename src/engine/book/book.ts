@@ -15,6 +15,7 @@ import { COVER_RELIEF, DEFAULT_FACES, GRAIN_PER_UNIT, edgeTexture, endpaperTextu
 import { CLOTH, PAGE_PAPER, createEdgeMaterial, createSurfaceMaterial, setOverlay, type ClothParams, type SurfaceFx } from './surface';
 import { Volume, type ChunkPose } from './volume';
 import { hashString } from '../core/math';
+import type { ZineSpec } from '../zine/record';
 
 export interface BookRecord {
   slug: string;
@@ -53,6 +54,11 @@ export interface BookRecord {
   text?: string[];
   /** Chapter headings by the paragraph index they stand before. */
   headings?: Record<number, string>;
+  /**
+   * A zine cut from this book: a stretch of its text as a stapled pamphlet in a paper cover, read from the
+   * details. `{}` takes every default. See `ZineSpec`.
+   */
+  zine?: ZineSpec;
 }
 
 /**

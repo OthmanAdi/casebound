@@ -9,5 +9,6 @@
   "background": "#3f6a86",
   "blurb": "Two years in a cabin by a pond, written up as one. Part account book, part natural history, part argument about how little a person needs.",
   "source": { "name": "Project Gutenberg", "id": 205, "note": "Public domain." },
-  "cover": { "cloth": "#1f5a66", "ink": "#b9862c", "accent": "#d8c08a", "pattern": "marble", "foil": "#d9b25a", "grain": "paper" }
+  "cover": { "cloth": "#1f5a66", "ink": "#b9862c", "accent": "#d8c08a", "pattern": "marble", "foil": "#d9b25a", "grain": "paper" },
+  "zine": { "title": "Economy", "line": "From the first chapter", "from": 0, "paragraphs": 10 }
 }
