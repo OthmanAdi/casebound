@@ -45,6 +45,9 @@ try {
       inAir++;
       if (o.userData.motion) turn = o.userData.motion.shown / Math.PI;
     });
+    // The least turned of the zine's live leaves that are drawn: under a shut back cover none may stand above it.
+    let lowest = null;
+    if (book) book.root.traverse((o) => { if (o.visible && o.name.startsWith('leaf') && o.userData.motion) lowest = Math.min(lowest ?? 1, o.userData.motion.shown / Math.PI); });
     const rect = z.rect();
     return {
       state: z.state,
@@ -77,6 +80,7 @@ try {
       page: casebound.reader.page,
       printed: [casebound.reader.folio(casebound.reader.page), casebound.reader.folio(casebound.reader.page + 1)],
       inAir,
+      lowest,
       penOn: casebound.marker.on,
       lens: casebound.magnifier.on,
       marks: Object.keys(localStorage).filter((k) => k.startsWith('casebound.marks.')),
@@ -213,6 +217,7 @@ try {
   await step('the way on from the last spread brings the back cover over: the number counts every side', (s) => s.onBack && s.folio === String(2 * s.leaves + 4) && s.view.endsWith(`/zine/page/${2 * s.leaves + 4}`), (s) => `on its back ${s.onBack}, "${s.folio}", ${s.view}`);
   await run(3);
   await step('and it lies closed on its face, as wide as one page', (s) => s.back > 0.9 && s.rect[2] < open.rect[2] * 0.7, (s) => `back cover ${s.back.toFixed(2)} of its turn, box ${s.rect}`);
+  await step('no leaf that was still settling stands above the shut back cover, so no print shows through it', (s) => s.back >= 1 && (s.lowest === null || s.lowest > 0.999), (s) => `back cover ${s.back.toFixed(3)}, least turned leaf drawn ${s.lowest === null ? 'none' : s.lowest.toFixed(4)}`);
   await page.keyboard.press('ArrowRight');
   await run(0.5);
   await step('a further press goes nowhere', (s) => s.onBack && s.page === 2 * s.leaves && s.folio === String(2 * s.leaves + 4), (s) => `on its back ${s.onBack}, page ${s.page}`);
