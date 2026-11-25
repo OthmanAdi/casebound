@@ -480,7 +480,8 @@ async function boot(): Promise<void> {
     if (out && !copied) $('folio').textContent = String(zine.number);
     else if (reading && !copied) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
     if (reading && !out && reader.book) places.keep(reader.book.record.slug, reader.page);
-    const slug = current().slug;
+    // A zine names its own book, also while the shelf is still on its way to it.
+    const slug = (out && zine.slug) || current().slug;
     const view = out ? `/book/${slug}/zine${zine.state === 'reading' ? `/page/${zine.number}` : ''}` : reading ? `/book/${slug}/page/${Math.max(1, reader.page)}` : detailOpen ? `/book/${slug}` : '/';
     html.dataset.caseboundView = view;
     const hash = '#' + view;

@@ -57,7 +57,7 @@ export interface Zines {
 }
 
 /** What the reader is told while it holds a zine, and what it had before. */
-const READER_KEYS = ['forward', 'scale', 'openDelay'] as const;
+const READER_KEYS = ['forward', 'scale', 'openDelay', 'coverSeconds'] as const;
 
 export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = {}): Zines {
   const { ctx } = engine;
@@ -81,6 +81,7 @@ export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = 
       forward: { value: 5, min: 0, max: 30, help: 'How far in front of its book the zine is read. Measured: 5' },
       scale: { value: 0.896, min: 0.2, max: 2, help: 'Scale of the open zine. Measured: a page 12.11 wide, which is 0.896 of ours' },
       linkWait: { value: 2, min: 0, max: 10, unit: 's', help: 'A zine opened at a page by its address lies closed this long first. Read in the reference: 2' },
+      awaySeconds: { value: 0.25, min: 0.02, max: 3, unit: 's', help: 'Time for the cover of an open zine to shut when it is sent away. Measured: it is out of the picture within ten frames' },
       bookAwayX: { value: 19, min: 0, max: 60, help: 'How far to the left its book goes to make room' },
       bookAwayY: { value: 5, min: -30, max: 30, help: 'And how far down' },
     },
@@ -279,7 +280,11 @@ export function createZines(engine: Engine, reader: Reader, opts: ZineOptions = 
     },
     close: () => {
       if (!out || state === 'away' || state === 'going') return;
-      if (reader.book === out.book) reader.close();
+      if (reader.book === out.book) {
+        // The reader lets a book go with its cover: a quick cover, so the zine is gone as fast as it came.
+        if (saved) ctx.registry.set('reader', 'coverSeconds', t.awaySeconds);
+        reader.close();
+      }
       pending = null;
       set('going');
     },
