@@ -42,6 +42,7 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | Rest the pointer on a page | The corner under it lifts |
 | Drag a page | The leaf follows your hand and its corner rolls over. Let go to turn it, or bring it back and it falls |
 | `h`, or one of the two pens in the bar | A highlighter stands on the pointer. Press and pull to mark a line. Marks stay on their page, in the book, for the next visit. `Ctrl` + `Z` takes the last one away |
+| On a phone, a finger on the open book | One page side fills the width, the left one first. Pull sideways to pan to the other side; pull again at the end of the pan to turn the page. Two fingers zoom; past the limits the book gives way and springs back |
 | Rest the pointer on the edge of a page stack, beside the page | The leaves above that place lift as one block. Click and they turn over. The deeper the place, the more leaves |
 | `m`, or the lens button | A round magnifier follows the pointer |
 | Press the book, or **View details**, and scroll on | The details of every book follow one another on one page: the book and its picture stay at the top while its column scrolls past, then the next book comes up from below |
@@ -135,7 +136,7 @@ Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with
    "zine": { "title": "The Flame", "line": "From the first lecture", "from": 0, "paragraphs": 11 }
    ```
 
-   Every field is optional and `"zine": {}` is enough. It is read in the details of its book. It comes in from the right and lies closed over the picture. Its cover is a leaf of its own paper: the first turn sends it over and the booklet comes to the reading place ahead of it. It lies open as a shallow V that turns about its spine as it is read, and after the last leaf its back cover comes over. Its pages are numbered by their sides from the front of the cover, so the bar, the address and the folio of the left page agree. On a narrow screen it has the whole picture and shows one page at a time; a swipe goes to the other page. From the first turn on the reader has it, so the bar, the keys, the lens and the pens are the book's own, and marks are kept under the zine's name. `casebound.zine.open('walden')` does the same from the console, and the registry has its feel under `zine`.
+   Every field is optional and `"zine": {}` is enough. It is read in the details of its book. It comes in from the right and lies closed over the picture. Its cover is a leaf of its own paper: the first turn sends it over and the booklet comes to the reading place ahead of it. It lies open as a shallow V that turns about its spine as it is read, and after the last leaf its back cover comes over. Its pages are numbered by their sides from the front of the cover, so the bar, the address and the folio of the left page agree. On a narrow screen it has the whole picture and shows one page at a time; it is read by touch like a book, so a swipe goes to the other page and a pull at the end of the pan turns it. From the first turn on the reader has it, so the bar, the keys, the lens and the pens are the book's own, and marks are kept under the zine's name. `casebound.zine.open('walden')` does the same from the console, and the registry has its feel under `zine`.
 
 ## Install the skill
 
@@ -274,9 +275,9 @@ No model, artwork, text or typeface of the reference is in this repository, and 
 | Command | Purpose |
 | --- | --- |
 | `npm run check` | Type check, unit tests and a production build |
-| `node tools/capture/check-reader.mjs <url>` | The reader in a real browser: keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves |
+| `node tools/capture/check-reader.mjs <url>` | The reader in a real browser: keys, a page pulled over, one let go, taps, a leaf caught in the air, a bundle of leaves, a lost drawing context, and reading by touch on a phone |
 | `node tools/capture/check-shelf.mjs <url>` | The shelf in a real browser: a book turned by hand, its coasting, a press that opens the details, the row of spines, a jump of the scroll bar that skips no book |
-| `node tools/capture/check-stills.mjs <url>` | The page without WebGL in a real browser: a still that rides the scroll, turns under a pull and opens the details, the row, `?nowebgl` and `?webgl` |
+| `node tools/capture/check-stills.mjs <url>` | The page without WebGL in a real browser: a still that rides the scroll, turns under a pull and opens the details, the row, `?nowebgl` and `?webgl`, and a browser started without WebGL |
 | `node tools/capture/shot.mjs <url> <out.png>` | One picture of a page in a real browser, with console errors |
 | `node tools/capture/record.mjs <url> <dir> <scene>` | A scripted visit as exact frames, for GIFs and review |
 | `node tools/capture/gif.mjs <dir> <out.gif>` | Those frames as a GIF |
@@ -290,7 +291,7 @@ The books are heard: a page turning, a page taken into the hand, a held leaf flo
 
 Without WebGL 2 the page shows stills. Every book is then a box of six faces placed by the browser's own 3D transforms, with the cover the painter paints for the real book cut into front, back and spine, so no picture is loaded here either. A still rides the scroll in the middle of its picture, turns under a sideways pull, and a press opens the details; at the end of the shelf every book stands in a row of spines. There is no reader, no lens and no pen. `?nowebgl` in the address shows this page in any browser and is remembered for the tab, `?webgl` goes back.
 
-Touch works but was not measured against the reference. The pen was compared with a capture of the reference frame by frame and pixel by pixel; its scratch was compared call by call, not by ear, and it was not tried on a real touch screen. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages. The zine was laid beside a capture of the reference's for its way in, its place, its first turn and its leaf. It lies on the book's two page stacks where every leaf of the reference's is live, and on a phone it was tried in a browser's touch emulation only.
+Reading by touch was measured on the reference as a phone and built to its rules, and tried in a browser's touch emulation, not on a phone; the shelf and the details by touch were not measured. If the browser takes the drawing context away, the page waits for it and draws again the moment it is back. The pen was compared with a capture of the reference frame by frame and pixel by pixel; its scratch was compared call by call, not by ear, and it was not tried on a real touch screen. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages. The zine was laid beside a capture of the reference's for its way in, its place, its first turn and its leaf. It lies on the book's two page stacks where every leaf of the reference's is live, and on a phone it was tried in a browser's touch emulation only.
 
 ## Licence
 
