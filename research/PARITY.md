@@ -52,7 +52,32 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Menu of the bar | rise of the lists | 0.50, 0.29, 0.16, 0.09 of the way left at 33 to 133 ms against 0.57, 0.33, 0.19, 0.10 | matches, ours one frame ahead |
 | Section label | where it turns to the row's section | 0.41 of the way into the row, by the scroll bar; it was half way, by the books, 134 ms late in a 1.4 s scroll | matches |
 | Zine, the way in | left edge of its box by frame after the press | 1328, 1093, 907, 761, 645, 554 px against 1440, 1203, 1017, 856, 730, 631; first drawn in the same frame; 90 % of the way at 150 ms against 167 | matches to about a frame |
-| Zine, the first turn | when the booklet is at the reading place | 90 % of the way 917 ms after the key against 330: ours comes with its cover | open |
+| Zine, the first turn | when the booklet is at the reading place | 50, 90 and 99 % of the way at 100, 317 and 617 ms against 117, 330 and 630 (it was 683 and 917 for the first two) | matches, ours one frame ahead |
+| Zine, its cover | share of its turn at 200, 500, 800 and 1000 ms | 0.22, 0.46, 0.70, 0.82 against 0.21, 0.46, 0.70, 0.81 (it was 0.05, 0.28, 0.69, 1.00) | matches |
+| Zine, a leaf by key | share of its turn at 100, 300, 800 and 2100 ms | 0.25, 0.49, 0.83, 0.94 against 0.25, 0.50, 0.84, 0.94 (it was the book's leaf) | matches |
+| Zine, the number | bar, address and the folios on the spread | the same number on all three, the cover counted as sides 1 and 2; the reference's own folios are those of its printed pamphlet | matches the reference's rule |
+| Zine, lying open | each half above flat; the turn about the spine from the first spread to the last | 6.5 degrees and 13 degrees by rule; the reference's leaves show 6.5 and 13 | matches by rule, not laid beside a capture |
+
+## 2026-11-25 · Thirteenth pass: the zine, what was left
+
+The twelfth pass left six things of the reference's zine unbuilt and one wrong. This pass measured each again in the reference's captures and scripts and built it.
+
+| What | Reference | Ours before | Now |
+| --- | --- | --- | --- |
+| The number | the bar and the address show twice the leaves turned, the cover a leaf: 1, 2, 4 and so on; an odd number in the address is rounded down | the bar said 4 over a spread printed 2 and 3 | the folios count the cover too: the bar, the address and the left page all say 4, the right page 5 |
+| The first turn | the cover is a leaf (0.21, 0.46, 0.70, 0.81 of its turn at 200, 500, 800, 1000 ms); the booklet comes to the reading place apart from it, 90 % at 330 ms | the cover opened as a board in about a second and the booklet came with it, 90 % at 917 ms | the cover is a leaf of the zine's paper (0.22, 0.46, 0.70, 0.82); the booklet comes on its own curve, 90 % at 317 ms |
+| A leaf | 0.50 of its turn at 300 ms, 0.84 at 800 ms, 0.94 at 2.1 s | the book's leaf | fitted to the reference: 0.49, 0.83, 0.94, the book's leaf with three numbers lent while the zine is read |
+| Lying open | each half 6.5 degrees short of flat; the side with fewer leaves higher, 13 degrees across the booklet; 3 toward the pointer; no push of the weight | flat, no turn, the book's push | the same rule |
+| After the last leaf | the back cover comes over and it lies closed on its face; further presses do nothing | it stayed open on its last spread | the same; the way back opens it again |
+| On a phone | the whole picture, the cover as wide as the window, then one page side at a time, the left first; a swipe goes to the other side and turns nothing; less pitch | the booklet lay over the lower half of a short picture and over the column, the open spread small | the same as the reference |
+| Escape | the zine, and 0.63 s later the details, in one press | the zine only | the same as the reference |
+| The fold | nothing stamped on it | title, author and mark painted a few pixels wide | nothing on any spine under 0.02 of the cover's height |
+
+How. The counting rule was read where the reference sets the bar and the address (twice the leaves turned) and where it reads a deep link (half the number, rounded down). The first turn, the leaf and the lean were read in the component that places the booklet and held against the captures of the twelfth pass. The world facing of the leaves was worked out from the group's turn and the place of every leaf's tip in the capture: the group's 7.07 degrees a leaf are mostly given back by the leaves, and what the eye sees is 0.93 degrees a leaf of fourteen. The paper was fitted with our own leaf model to the measured turn of a zine leaf: the book's model with damping 0.16, follow 0.05 and a starting speed of 0.2 is within 0.01 at every measured time, and the same paper sent off at the book's starting speed gives the cover's turn within 0.01. The phone was read in the reference's stills and in its touch code, which fits one page to the window and snaps a pan to a side.
+
+Not built: every leaf live. Ours keeps the book's two page stacks and six live leaves, so a pamphlet of 8 to 16 leaves shows two stacks 0.1 to 0.3 thick where the reference has separate sheets. A tap on a page side on a phone, and pinch and pan with rubber edges: the reference has them, ours turns by the bar and moves between the sides by a swipe.
+
+Not verified: ours was not captured with the twelfth pass's driver after these changes, so the numbers in the table are ours read in the browser under a hand-driven clock, beside the reference's captured ones. The phone was tried in Edge's touch emulation, not on a phone. The lean was laid beside the reference by rule and by eye, not by a frame-by-frame capture. Ours has 4 leaves in the Faraday zine and 6 in Walden's against the reference's 14, so a leaf turns ours further about its spine.
 
 ## 2026-11-25 · Twelfth pass: the zine
 
