@@ -51,6 +51,43 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Details opening | column, title row and bar, frame by frame | column 0.44, 0.81, 0.94 at 600, 700, 800 ms against 0.31, 0.79, 0.94; title row cut at 40 % in 0.6 s; bar buttons 54 px down after 0.585 s | matches to about a frame |
 | Menu of the bar | rise of the lists | 0.50, 0.29, 0.16, 0.09 of the way left at 33 to 133 ms against 0.57, 0.33, 0.19, 0.10 | matches, ours one frame ahead |
 | Section label | where it turns to the row's section | 0.41 of the way into the row, by the scroll bar; it was half way, by the books, 134 ms late in a 1.4 s scroll | matches |
+| Zine, the way in | left edge of its box by frame after the press | 1328, 1093, 907, 761, 645, 554 px against 1440, 1203, 1017, 856, 730, 631; first drawn in the same frame; 90 % of the way at 150 ms against 167 | matches to about a frame |
+| Zine, the first turn | when the booklet is at the reading place | 90 % of the way 917 ms after the key against 330: ours comes with its cover | open |
+
+## 2026-11-25 · Eleventh pass: the zine
+
+An inventory of everything the reference can do found one whole thing that ours had no trace of: a booklet that belongs to a book and is read in the book's details. This pass measured it and built it.
+
+How it was studied. Three loads of the reference with its requests to its shop refused, two at 1440 by 900 and one as a 390 by 844 touch phone, under reanimate's clock, one sample a frame: the booklet's group in the scene with its place, turn and scale, the turn and the corner of every leaf, its box in the window, the bar, the number and the address. Parts: the way in by the address and by the button, three turns by key, a pointer at rest in three places, three pulls by hand, the whole booklet leaf by leaf and back, the lens and both pens from the bar, Escape, the button, the close of the bar. Its own numbers were read in the shipped code and held against the capture: the fly-in rule, the scale of its slot and the roll of 7.07 degrees a leaf agree with the frames, and the hand on a zine page is the book's hand rule to the third decimal. Then the same driver ran the same parts on our build.
+
+What it is there: generated, not a model. Fourteen live sheets, the cover one of them, a half cylinder over the fold while it is closed and a sewn thread on it. No page blocks.
+
+What ours is: a book with a second binding. A paper cover 0.03 thick for boards, no squares, a fold where the spine was, two staples, and the reader opens it like any book. That choice keeps the measured leaf, the bar, the lens, the pens, the address and the store, and it left `reader.ts` untouched. A book declares its zine in its record and a stretch of its own text is typeset into it.
+
+| | Reference | Ours |
+| --- | --- | --- |
+| Way in, left edge of its box by frame after the press on the button | 1440, 1203, 1017, 856, 730, 631, 552, 486 px, at rest 203 | 1328, 1093, 907, 761, 645, 554, 482, 426 px, at rest 229 |
+| The same as share of the way left | 0.81, 0.66, 0.53, 0.43, 0.35, 0.28, 0.23 | 0.79, 0.62, 0.48, 0.38, 0.30, 0.23, 0.18 |
+| First drawn | in the frame after the press | the same frame |
+| Half, 90 % and 99 % of the way | 67, 167 and 383 ms | 33 to 50, 150 and 300 ms |
+| Where it lies closed | over the picture, turned; four corners read from a still | corners 10 px from the still's on average, the worst 22 |
+| Its book | goes out of the picture to the left, a corner still in view | goes 19 units left and 5 down, a corner still in view |
+| The bar while it lies | there, with the number 1 | the same |
+| First turn: number and address | 2 and `/zine/page/2`, at the key | the same, behind the `#` |
+| First turn: the cover | a leaf: 0.21, 0.46, 0.70, 0.81 of its turn at 200, 500, 800, 1000 ms | a cover: 0.05, 0.28, 0.69, 1.00 |
+| First turn: the booklet to the reading place | half the way 117 ms after the key, 90 % at 330 ms | with the cover: half at 683 ms, 90 % at 917 ms |
+| Reading place | 5 in front of the book, 2.86 below the origin, a page 12.11 wide | the same depth and height, a page 12.11 wide, 0.5 further right (17 px) |
+| A leaf by key | half way after 300 ms, 0.84 at 800 ms, a long tail | the book's leaf: 0.66 at 300 ms, 0.89 at 500 ms, the same kind of tail |
+| By hand | the book's rule | the book's rule, the same code as for a book |
+| Lens and pens | from the bar; marks under the book's id with `:zine` | the same; marks under `<slug>.zine` |
+| Way out | gone within ten frames; the details stay | half the way out after 150 ms, out of the picture after a quarter of a second; the details stay |
+| Escape | closes the zine and, 0.63 s later in the same press, the details | closes the zine; a second press closes the details |
+
+Left on purpose: Escape stays one step back at a time, as everywhere else in ours. The binding is stapled, not sewn. The content is ours: one lecture of Faraday's and one chapter of Walden, cut from the text the records already hold.
+
+Not built: paper of its own for the leaves of a zine (the reference's is softer and slower than a book's), the roll about the spine as one reads, lying closed on its face after the last leaf, and the reference's quick move to the reading place apart from the cover.
+
+Not verified: ours on a phone, where the reference fits the booklet to the width and shows one page side at a time. The reference's scale once open (0.847) follows a rule I could read but not reproduce to the number. Every reference number is one reading. `tools/capture/check-zine.mjs` holds what was built to these numbers: 25 steps, from the button to a book that has no zine.
 
 ## 2026-11-25 · Eleventh pass: the page without WebGL
 
