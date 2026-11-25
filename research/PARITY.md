@@ -77,7 +77,7 @@ How. The counting rule was read where the reference sets the bar and the address
 
 Not built: every leaf live. Ours keeps the book's two page stacks and six live leaves, so a pamphlet of 8 to 16 leaves shows two stacks 0.1 to 0.3 thick where the reference has separate sheets. A tap on a page side on a phone, and pinch and pan with rubber edges: the reference has them, ours turns by the bar and moves between the sides by a swipe.
 
-Not verified: ours was not captured with the twelfth pass's driver after these changes, so the numbers in the table are ours read in the browser under a hand-driven clock, beside the reference's captured ones. The phone was tried in Edge's touch emulation, not on a phone. The lean was laid beside the reference by rule and by eye, not by a frame-by-frame capture. Ours has 4 leaves in the Faraday zine and 6 in Walden's against the reference's 14, so a leaf turns ours further about its spine.
+Not verified: ours was not captured with the twelfth pass's driver after these changes, so the numbers in the table are ours read in the browser under a hand-driven clock, beside the reference's captured ones. The phone was tried in Edge's touch emulation, not on a phone. The lean was laid beside the reference by rule and by eye, not by a frame-by-frame capture. Each of our two demo zines has 4 leaves against the reference's 14, so a leaf turns ours further about its spine.
 
 ## 2026-11-25 · Twelfth pass: the zine
 
