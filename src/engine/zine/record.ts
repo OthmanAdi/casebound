@@ -33,8 +33,11 @@ export const isZine = (slug: string): boolean => slug.endsWith(SUFFIX);
 /** The slug of the book a zine was cut from. A book's own slug comes back unchanged. */
 export const bookOf = (slug: string): string => (isZine(slug) ? slug.slice(0, -SUFFIX.length) : slug);
 
-/** Characters a page of the trim size holds when the painter sets it, headings and short last lines counted in. */
-export const CHARS_PER_PAGE = 1650;
+/**
+ * Characters a page of the trim size holds when the painter sets it, headings and short last lines counted in.
+ * Measured in the browser on both demo texts: eight pages hold 19,800 to 20,300 characters, a ninth begins after.
+ */
+export const CHARS_PER_PAGE = 2500;
 
 /** Pages a text of that many characters fills. A pamphlet is folded sheets: four pages each, two sheets at least. */
 export function zinePages(chars: number): number {

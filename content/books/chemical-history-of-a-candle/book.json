@@ -9,5 +9,5 @@
   "blurb": "Six lectures given to a young audience at the Royal Institution. Faraday takes one burning candle and, by asking where the wax goes and what the flame is, walks through most of the chemistry of his day.",
   "source": { "name": "Project Gutenberg", "id": 14474, "note": "Public domain." },
   "cover": { "cloth": "#1c1a18", "ink": "#e7a43a", "accent": "#f3d79a", "pattern": "rays", "foil": "#d9a441", "grain": "paper" },
-  "zine": { "title": "The Flame", "line": "From the first lecture", "from": 0, "paragraphs": 11 }
+  "zine": { "title": "The Flame", "line": "From the first lecture", "from": 0, "paragraphs": 22 }
 }
