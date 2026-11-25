@@ -56,7 +56,37 @@ Reference and our build are captured with the same tool (reanimate), the same se
 | Zine, its cover | share of its turn at 200, 500, 800 and 1000 ms | 0.22, 0.46, 0.70, 0.82 against 0.21, 0.46, 0.70, 0.81 (it was 0.05, 0.28, 0.69, 1.00) | matches |
 | Zine, a leaf by key | share of its turn at 100, 300, 800 and 2100 ms | 0.25, 0.49, 0.83, 0.94 against 0.25, 0.50, 0.84, 0.94 (it was the book's leaf) | matches |
 | Zine, the number | bar, address and the folios on the spread | the same number on all three, the cover counted as sides 1 and 2; the reference's own folios are those of its printed pamphlet | matches the reference's rule |
+| Touch, one page side on a phone | width of the page and place of the spine at 390 by 844 | 374.4 px, spine at 382.2 (left) and 7.8 (right) against 374.4, 382.2 and 7.8 | matches |
+| Touch, pan and pull | sides and turns for two swipes each way | right side, turn to 42, left side, turn back to 40, as on the reference | matches |
+| Touch, rubber band | pan with no room, zoom past both limits | -50.4 px for 180 against -50.4; 6.307 shown for 8.99 asked and 0.438 for 0.32, by the rule that gives the reference's 4.14 and 0.399 | matches by rule |
+| Touch, spring back | zoom let go past its limit, at 135, 269 and 400 ms | within 0.06 of the reference's 3.419, 3.184 and 3.158 in a unit test of the spring | matches |
+| Lost drawing context | first frame after the context is back | drawn at once, mean difference 1.22 of 255 from before the loss; it waited up to a second for the heartbeat | ours; the reference only reports the loss |
 | Zine, lying open | each half above flat; the turn about the spine from the first spread to the last | 6.5 degrees and 13 degrees by rule; the reference's leaves show 6.5 and 13 | matches by rule, not laid beside a capture |
+
+## 2026-11-25 · Fourteenth pass: reading by touch, a lost drawing context, the stills without WebGL
+
+The inventory's rows 51 and 14, a check of the stills in a browser that has no WebGL, and what the verifier of the thirteenth pass found.
+
+| What | Reference | Ours before | Now |
+| --- | --- | --- | --- |
+| A book on a phone | one page side fills 0.96 of the width, the left one first: page 374.4 px in 390, spine at 382.2 | the whole spread in the width | the same as the reference, spine at 382.2 |
+| A finger on it | 8 px before it does anything; sideways at the end of the pan it pulls the page, otherwise it pans; let go, the pan goes to the side the finger carried it toward (pan plus 0.18 s of its speed) | a finger pulled pages as a mouse does; a zine had a swipe of its own, 40 px, that only changed sides | the same as the reference; two swipes each way give right side, turn, left side, turn back, as there |
+| A pan with no room | gives way by 0.28: 50.4 px for 180 | none | 50.4 px for 180, back in about 0.4 s |
+| Two fingers | zoom 0.5 to twice the fit, 0.35 of the way past the limits, the place between the fingers stays under them | none | the same rule: 6.307 shown for 8.99 asked at a limit of 4.828, 0.438 for 0.32 |
+| Let go | a spring, stiffness 140, damping 0.75: 3.419, 3.184, 3.158 at 135, 269, 400 ms from 4.019 to 3.169 | none | the same spring, within 0.06 at those times in a unit test |
+| A tap | turns the page under it | the same, as a mouse click | the same |
+| A wide touch screen | a press takes the page at once; held 0.3 s it pans; the pan keeps a quarter of the book in view | a finger pulled pages | the same rule, not tried on a touch screen |
+| A lost drawing context | reported, nothing else | the renderer restored itself, but the canvas stayed empty until the next heartbeat (about 0.7 s in a test) | said on the canvas; the first frame after the return shows the open book with its pages, 1.22 of 255 from before the loss |
+| No WebGL in the browser | stills | checked only with `?nowebgl` | Edge started without WebGL lands on the stills by itself at 1440 and at 390 wide (`data-stills="failed"`) |
+| The demo zines | the reference's are printed throughout | text on four sides of eight, the last two and a half spreads bare | printed to the last page |
+| The zine's pill under the pointer | not looked at | filled with the ink, its words the ink too: unreadable | filled with the ink, its words in the colour of the page |
+| A zine from scrolled details on a phone | not looked at | a strip of the picture behind it, plain page below | the whole picture, as by the address; the details where they were after it |
+
+How. The reference was loaded as a 390 by 844 touch phone with its debug read-out of the reading gesture switched on in the address, which gives the zoom, the pan, the side, the page's frame and the mode every frame. Two swipes each way, a short slow swipe, a vertical pan, two pinches out, a pan when zoomed, two pinches in and a tap were sent as touch events through the browser's protocol, with one and two fingers. The rules were read in its gesture code and its constants, and the measured numbers were held against them: the fit, both sides and the rubber band of the pan and of both pinches agree to the decimal shown. Ours was built from those rules with every number in the registry (`reader.touch`), the pure rules in `src/engine/reader/touch.ts` with unit tests that use the reference's measured numbers, and the same gestures as steps of `check-reader.mjs`. The lost context was tested with `WEBGL_lose_context`, the stills with Edge's own switches.
+
+Not built: the reference's guess of where the spine settles while a book opens on a phone (ours works out the frame from where the reader will put the book, so it needs none). The crash counts the reference keeps in storage (ours has no telemetry). A way back when the browser never returns the context: the page then stays empty, as the reference's does.
+
+Not verified: everything by touch was tried in Edge's touch emulation, not on a phone or a touch screen. The wide touch screen was not tried at all. The zoom past its limits was compared by rule, not with the same fingers on both sites, because ours starts from another fit. The shelf and the details by touch were not measured. The reference's hover on the zine's pill and its zine from scrolled details were not looked at.
 
 ## 2026-11-25 · Thirteenth pass: the zine, what was left
 
