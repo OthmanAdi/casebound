@@ -670,6 +670,9 @@ async function boot(): Promise<void> {
     for (const type of ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const) addEventListener(type, endShow, { passive: true, once: true });
   }
 
+  /** Measured: Escape under a zine closes the details too, this long after the zine. Milliseconds. */
+  const ZINE_ESCAPE_DETAILS_MS = 630;
+  let escapeLater = 0;
   addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
     if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !reader.isOpen && !detailOpen) {
@@ -691,8 +694,14 @@ async function boot(): Promise<void> {
       // One step back at a time: out of the book first, then out of the details.
       // Measured: with a pen out, Escape puts it away and the book stays open.
       if (marker.on) marker.set(false);
-      else if (zineOut()) setZine(false);
-      else if (reader.isOpen) {
+      else if (zineOut()) {
+        // Measured: under a zine one press takes both steps. The zine goes, and the details follow a moment later.
+        setZine(false);
+        clearTimeout(escapeLater);
+        escapeLater = window.setTimeout(() => {
+          if (!zineOut() && !reader.isOpen && detailOpen) setDetail(false);
+        }, ctx.still ? 0 : ZINE_ESCAPE_DETAILS_MS);
+      } else if (reader.isOpen) {
         setLens(false);
         setReading(false);
       } else home();

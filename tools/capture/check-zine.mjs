@@ -165,16 +165,20 @@ try {
   await step('a press on the closed zine turns its cover', (s) => s.state === 'reading' && s.open === 1, (s) => `${s.state}, cover ${s.open.toFixed(2)}`);
   await page.keyboard.press('Escape');
   await run(10 / 60);
-  await step('Escape sends it away: gone from the picture within ten frames', (s) => s.state === 'going' && (!s.drawn || s.x > open.x + 15) && !s.bar && s.view === '/book/chemical-history-of-a-candle', (s) => `${s.state}, x ${s.x?.toFixed(1)}, ${s.view}`);
-  await run(2.5);
-  await step('the details stay, the book is back, the button opens it again', (s) => s.state === 'away' && s.aside && near(s.parentX, before.parentX, 0.05) && s.button === '+ Open zine +' && !s.reading, (s) => `${s.state}, book at x ${s.parentX.toFixed(2)}, "${s.button}"`);
+  await step('Escape sends it away: gone from the picture within ten frames, the details still there', (s) => s.state === 'going' && (!s.drawn || s.x > open.x + 15) && !s.bar && s.view === '/book/chemical-history-of-a-candle', (s) => `${s.state}, x ${s.x?.toFixed(1)}, ${s.view}`);
+  // The second step of the same press waits by the clock on the wall.
+  await page.waitForTimeout(900);
+  await run(1);
+  await step('and the same press closes the details 0.63 s later', (s) => s.state === 'away' && !s.aside && s.view === '/', (s) => `${s.state}, aside ${s.aside}, ${s.view}`);
 
   // by the bar's close, and by the address
+  await visit('#/book/chemical-history-of-a-candle');
+  await run(2);
   await page.click('.dp-book.is-current .row-zine');
   await run(2);
   await page.click('#close');
   await run(2.5);
-  await step('the close of the bar puts it away too', (s) => s.state === 'away' && s.aside, (s) => `${s.state}`);
+  await step('the close of the bar puts it away and leaves the details as they were: the book back, the button ready', (s) => s.state === 'away' && s.aside && near(s.parentX, before.parentX, 0.05) && s.button === '+ Open zine +' && !s.reading, (s) => `${s.state}, book at x ${s.parentX.toFixed(2)}, "${s.button}"`);
 
   await visit('#/book/walden/zine/page/4');
   await run(1.5);
