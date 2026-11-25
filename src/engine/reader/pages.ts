@@ -8,6 +8,14 @@ import type { FlowedPage, PageContent } from '../book/painter';
 /** Returns what is printed on a page. Page 1 is the first right-hand page. */
 export type PageSource = (page: number) => PageContent;
 
+/**
+ * Sides of a pamphlet's cover that come before its first page: the outside and the inside of the front. A pamphlet
+ * is numbered by its sides from the front of the cover, so its first page carries the folio 3 and the number of a
+ * spread is the folio of its left page. Read in the reference: the bar and the address of a zine show twice the
+ * leaves turned, the cover counted as a leaf.
+ */
+export const PAMPHLET_FOLIO_SHIFT = 2;
+
 const FILLER = [
   'This book has no text yet. Give its record a `text` array, one string per paragraph, and the reader will flow it over these pages.',
   'Until then the pages show this note, so that turning, lighting and the magnifier can be tried on something that looks like print.',
@@ -20,6 +28,7 @@ export function paginate(record: BookRecord, pageCount: number, flow?: Flow, cha
   const paragraphs = record.text?.length ? record.text : FILLER;
   // A pamphlet holds one stretch of text and ends where it ends: nothing repeats, the pages after it are bare.
   const once = record.binding === 'pamphlet';
+  const shift = once ? PAMPHLET_FOLIO_SHIFT : 0;
   const flowed = flow?.(paragraphs, (i) => (record.text?.length ? record.headings?.[i] : undefined));
   if (flowed?.length) {
     // The text repeats through a thick book. A last page that is mostly empty would come round as a hole, so it is left out.
@@ -30,7 +39,7 @@ export function paginate(record: BookRecord, pageCount: number, flow?: Flow, cha
       if (page < 1 || page > pageCount || (once && page > flowed.length)) return { folio: null, left };
       // Short texts repeat so every page of a thick book has print on it.
       const body = flowed[(page - 1) % flowed.length]!;
-      return { folio: page, left, head: left ? record.title : (body.heading ?? record.author), heading: body.heading, lines: body.lines };
+      return { folio: page + shift, left, head: left ? record.title : (body.heading ?? record.author), heading: body.heading, lines: body.lines };
     };
   }
   const pages: { paragraphs: string[]; heading?: string }[] = [];
@@ -63,7 +72,7 @@ export function paginate(record: BookRecord, pageCount: number, flow?: Flow, cha
     // Short texts repeat so every page of a thick book has print on it.
     const body = pages[(page - 1) % pages.length]!;
     return {
-      folio: page,
+      folio: page + shift,
       left,
       head: left ? record.title : (body.heading ?? record.author),
       heading: body.heading,

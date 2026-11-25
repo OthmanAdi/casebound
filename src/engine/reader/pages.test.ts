@@ -40,6 +40,13 @@ describe('the pages of a pamphlet', () => {
     expect(pages.slice(3)).toEqual([null, null, null, null, null]);
   });
 
+  it('are numbered by their sides from the front of the cover', () => {
+    const source = paginate(record('pamphlet'), 8);
+    expect(source(1).folio).toBe(3);
+    expect(source(2).folio).toBe(4);
+    expect(paginate(record(), 8)(1).folio).toBe(1);
+  });
+
   it('keep left and right as in a book', () => {
     const source = paginate(record('pamphlet'), 8);
     expect(source(1).left).toBe(false);

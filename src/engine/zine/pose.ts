@@ -53,7 +53,8 @@ export function flyTurn(p: number, tune: ZinePoseTune = ZINE_POSE): { pitch: num
 
 /**
  * The number in the bar: the sides turned so far. 1 while it lies closed; the reader's spread k (0 = the cover
- * turned) shows 2 k + 2. Measured: 1, 2, 4, 6 and so on, one number, not two.
+ * turned) shows 2 k + 2, the folio printed on its left page (`PAMPHLET_FOLIO_SHIFT`). Measured: 1, 2, 4, 6 and so on,
+ * one number, not two; read in the reference: twice the leaves turned, the cover counted as a leaf.
  */
 export const zineNumber = (spread: number | null): number => (spread === null ? 1 : 2 * Math.max(0, Math.round(spread)) + 2);
 

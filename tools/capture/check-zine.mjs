@@ -63,6 +63,7 @@ try {
       button: document.querySelector('.dp-book.is-current .row-zine')?.textContent ?? null,
       reading: casebound.reader.isOpen,
       page: casebound.reader.page,
+      printed: [casebound.reader.folio(casebound.reader.page), casebound.reader.folio(casebound.reader.page + 1)],
       inAir,
       penOn: casebound.marker.on,
       lens: casebound.magnifier.on,
@@ -106,6 +107,7 @@ try {
   await page.keyboard.press('ArrowRight');
   await run(0.2);
   await step('a leaf turns by key like a leaf of a book', (s) => s.inAir === 1 && s.folio === '4' && s.page === 2, (s) => `in the air ${s.inAir}, "${s.folio}", page ${s.page}`);
+  await step('the bar, the address and the folios on the spread count the same sides, the cover as 1 and 2', (s) => s.folio === '4' && s.view.endsWith('/zine/page/4') && s.printed[0] === 4 && s.printed[1] === 5, (s) => `"${s.folio}", ${s.view}, printed ${s.printed.join(' and ')}`);
   await run(3);
   await page.keyboard.press('ArrowLeft');
   await run(3);
@@ -178,7 +180,7 @@ try {
   await run(1.5);
   await step('by its address it comes in closed first', (s) => s.state === 'lying' && s.slug === 'walden.zine' && s.folio === '1', (s) => `${s.state}, ${s.slug}, "${s.folio}"`);
   await run(4.5);
-  await step('and opens at the number of the address after it has lain two seconds', (s) => s.state === 'reading' && s.folio === '4' && s.view === '/book/walden/zine/page/4', (s) => `${s.state}, "${s.folio}", ${s.view}`);
+  await step('and opens at the number of the address after it has lain two seconds, its left page printed with that number', (s) => s.state === 'reading' && s.folio === '4' && s.view === '/book/walden/zine/page/4' && s.printed[0] === 4, (s) => `${s.state}, "${s.folio}", ${s.view}, printed ${s.printed.join(' and ')}`);
 
   // a book without one
   await visit('#/book/opticks/zine');

@@ -48,6 +48,8 @@ export interface Reader {
   /** Number of the left-hand page of the spread. The right-hand page is this plus one. */
   readonly page: number;
   readonly pageCount: number;
+  /** The folio printed on a page of the open book, or null where none is printed. */
+  folio(page: number): number | null;
   open(slug: string, page?: number): void;
   close(): void;
   next(): boolean;
@@ -1018,6 +1020,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     get pageCount() {
       return book ? book.dims.leaves * 2 : 0;
     },
+    folio: (page) => (book && page >= 1 && page <= book.dims.leaves * 2 ? (source(page).folio ?? null) : null),
     open: (slug, page) => {
       const next = engine.book(slug);
       if (!next) throw new Error(`casebound: cannot open "${slug}": no such book. Loaded: ${engine.books.map((b) => b.record.slug).join(', ')}`);
