@@ -46,6 +46,7 @@ Open the [live demo](https://othmanadi.github.io/casebound/). It shows six publi
 | `m`, or the lens button | A round magnifier follows the pointer |
 | Press the book, or **View details**, and scroll on | The details of every book follow one another on one page: the book and its picture stay at the top while its column scrolls past, then the next book comes up from below |
 | Press the book, or **View details**, then hover **E-book** or **Audiobook** | The print shears under scanlines and splits its colours, or rings ripple the pages |
+| **+ Open zine +** in the details of *The Chemical History of a Candle* or *Walden* | A stapled pamphlet with a stretch of the book flies in and lies closed over the picture; the book stands aside. `→`, `Space` or a press turns its cover. Then it reads like the book: leaves, bar, lens and pens |
 | The theme button | Morning, Noon and Night light |
 | `Esc` | One step back: out of the book, then out of the details |
 
@@ -127,6 +128,14 @@ Then open `http://127.0.0.1:5183/`. It needs Node 22 or newer and a browser with
    ![An open book in dim light. A pool of light follows the pointer over the pages, then a round lens enlarges the lit text](docs/media/night-demo.gif)
 
    *Recorded from the demo with `?theme=dark`.*
+
+12. A book can have a zine. It is a second binding, not a second kind of object: a paper cover in place of the boards, a fold for a spine, two staples, a few leaves. A book says that it has one with a line in its record, and a stretch of its own text is set into it by the same painter, once, with its title at the head of the first page:
+
+   ```json
+   "zine": { "title": "The Flame", "line": "From the first lecture", "from": 0, "paragraphs": 11 }
+   ```
+
+   Every field is optional and `"zine": {}` is enough. It is read in the details of its book. It comes in from the right, lies closed over the picture, and its first turn opens the cover and brings it to the reading place. From there the reader has it, so the bar, the keys, the lens and the pens are the book's own, and marks are kept under the zine's name. `casebound.zine.open('walden')` does the same from the console, and the registry has its feel under `zine`.
 
 ## Install the skill
 
@@ -214,6 +223,7 @@ For a finished film with titles, and for a screen that catches flashing or froze
 | Shelf | Scroll to motion, leave and arrive poses, pointer tilt, a book turned by hand, the row of spines | [`src/engine/shelf`](src/engine/shelf) |
 | Reader | Opening, page turn physics, pagination | [`src/engine/reader`](src/engine/reader) |
 | Effects | Magnifier pass, hologram and radio | [`src/engine/effects`](src/engine/effects) |
+| Zine | A pamphlet cut from a book's record, its way in and out, where it lies closed | [`src/engine/zine`](src/engine/zine) |
 | Core | Motion primitives, draw-on-demand loop, registry | [`src/engine/core`](src/engine/core) |
 | Site | The page around the canvas | [`src/site`](src/site) |
 
@@ -280,7 +290,7 @@ The books are heard: a page turning, a page taken into the hand, a held leaf flo
 
 Without WebGL 2 the page shows stills. Every book is then a box of six faces placed by the browser's own 3D transforms, with the cover the painter paints for the real book cut into front, back and spine, so no picture is loaded here either. A still rides the scroll in the middle of its picture, turns under a sideways pull, and a press opens the details; at the end of the shelf every book stands in a row of spines. There is no reader, no lens and no pen. `?nowebgl` in the address shows this page in any browser and is remembered for the tab, `?webgl` goes back.
 
-Touch works but was not measured against the reference. The pen was compared with a capture of the reference frame by frame and pixel by pixel; its scratch was compared call by call, not by ear, and it was not tried on a real touch screen. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages.
+Touch works but was not measured against the reference. The pen was compared with a capture of the reference frame by frame and pixel by pixel; its scratch was compared call by call, not by ear, and it was not tried on a real touch screen. A bundle of leaves follows the rules read in the reference's code, and its motion was not laid beside a capture frame by frame. The demo texts are excerpts, so a thick book repeats its pages. The zine was laid beside a capture of the reference's for its way in, its place and its first turn. It turns with the book's leaf, not with paper numbers of its own, it does not roll about its spine as it is read, and it was not tried on a phone.
 
 ## Licence
 
