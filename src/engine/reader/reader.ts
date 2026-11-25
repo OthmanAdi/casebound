@@ -87,8 +87,33 @@ export interface Reader {
    * given, is how far the book counts as open while it opens: its cover may then turn by itself (`Book.coverTurn`).
    */
   carry: { blend: number; shift: number; open?: number } | null;
+  /**
+   * A zoom and a pan of the open book on top of the place the reader gives it, for reading by touch: the zoom scales
+   * the book about its spine, the pan moves it by window pixels. Both grow in with the opening. `{ zoom: 1, x: 0,
+   * y: 0 }` leaves the book where it is.
+   */
+  view: { zoom: number; x: number; y: number };
+  /**
+   * Where the open book lies at the reading place with no zoom and no pan: its spine in the window and the size of
+   * one page, in window pixels. Null while no book is open.
+   */
+  frame(): { x: number; y: number; pageW: number; pageH: number } | null;
+  /**
+   * A hand that someone else leads, as reading by touch does: a press at a point, its moves and its end, taken as
+   * the reader takes the pointer's. `half` makes the press take the page on that side (-1 left, 1 right) wherever
+   * it is. `down` returns true when a leaf is in the hand, or a leaf in the air was caught.
+   */
+  hand: {
+    down(x: number, y: number, id: number, half?: 1 | -1): boolean;
+    move(x: number, y: number, id: number): void;
+    up(x: number, y: number, id: number, cancel?: boolean): void;
+  };
   dispose(): void;
 }
+
+/** A pointer event as the reader reads it, for a hand that does not come from the pointer. */
+const handEvent = (type: string, x: number, y: number, id: number, target: EventTarget): PointerEvent =>
+  ({ type, clientX: x, clientY: y, pointerId: id, pointerType: 'touch', button: 0, buttons: type === 'pointerdown' || type === 'pointermove' ? 1 : 0, isPrimary: true, target, timeStamp: performance.now(), preventDefault() {} }) as unknown as PointerEvent;
 
 const LIVE_LEAVES = 6;
 const TEXTURE_BUDGET = 10;
@@ -860,15 +885,22 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     if (next) hold(next, id, startX, half);
   };
 
+  /** The reading place as the last frame worked it out: where the spine goes, the book's scale there, its pitch. */
+  const readAt = { pos: new Vector3(), scale: 0, pitch: 0, seen: new Vector3() };
+
+  /** The page a hand led from outside was told to take, for the length of its press. */
+  let forcedHalf: 1 | -1 | 0 = 0;
+
   const onDown = (ev: PointerEvent): void => {
     if (reader.handsOff) return;
     if (drag || brake || edgePress || ev.button !== 0 || !ev.isPrimary) return;
     if (ev.target instanceof Element && ev.target.closest(ignore)) return;
     // A block that stands lifted under the pointer is the one that goes: what was shown is what turns. The book
     // leans toward the pointer, so the place under a resting pointer may have left the edge by a pixel or two.
-    const up = bundle && lifted() && bundle.phase === 'gather' ? bundle : null;
+    // A hand told which page to take is a pull, not a press on the fore-edge.
+    const up = bundle && lifted() && bundle.phase === 'gather' && !forcedHalf ? bundle : null;
     const here = up ? where(ev.clientX, ev.clientY) : null;
-    const edge = up && here && here.u > 0.8 && here.half === (up.forward ? 1 : -1) ? { side: here.half, count: up.hi - up.lo } : pickEdge(ev.clientX, ev.clientY);
+    const edge = forcedHalf ? null : up && here && here.u > 0.8 && here.half === (up.forward ? 1 : -1) ? { side: here.half, count: up.hi - up.lo } : pickEdge(ev.clientX, ev.clientY);
     if (edge) gather(edge.side, edge.count, false);
     if (edge && bundle && lifted() && bundle.phase === 'gather') {
       // A press on the fore-edge takes no leaf into the hand. The block lifts, and goes when the hand lets go.
@@ -880,7 +912,7 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     }
     // A press anywhere else wants a page: a block that was lifted is down at once.
     unlift();
-    const half = halfAt(ev.clientX, ev.clientY);
+    const half = forcedHalf || halfAt(ev.clientX, ev.clientY);
     if (!half) return;
     // Catch a leaf that is in the air over this half, whichever way it was going. Otherwise lift the top one.
     const leaf = reach(half);
@@ -1137,7 +1169,34 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     },
     handsOff: false,
     carry: null,
-    turnLeaves: (count) => (Math.abs(count) < 2 ? count !== 0 && launch(count > 0 ? 1 : -1) : takeBundle(count > 0 ? 1 : -1, Math.abs(count))),
+    view: { zoom: 1, x: 0, y: 0 },
+    frame: () => {
+      if (!book || !opening || readAt.scale <= 0) return null;
+      const r = ctx.canvas.getBoundingClientRect();
+      const at = readAt.seen.copy(readAt.pos).project(ctx.camera);
+      const perPx = ctx.visibleHeightAt(readAt.pos.z) / Math.max(1, r.height);
+      return {
+        x: r.left + (at.x * 0.5 + 0.5) * r.width,
+        y: r.top + (0.5 - at.y * 0.5) * r.height,
+        pageW: (book.dims.pageW * readAt.scale) / perPx,
+        pageH: (book.dims.pageH * readAt.scale * Math.cos(readAt.pitch)) / perPx,
+      };
+    },
+    hand: {
+      down: (x, y, id, half) => {
+        forcedHalf = half ?? 0;
+        onDown(handEvent('pointerdown', x, y, id, ctx.canvas));
+        forcedHalf = 0;
+        return (drag !== null && drag.id === id) || (brake !== null && brake.id === id) || (edgePress !== null && edgePress.id === id);
+      },
+      move: (x, y, id) => onMove(handEvent('pointermove', x, y, id, ctx.canvas)),
+      up: (x, y, id, cancel) => {
+        // Called off, a page in the hand goes back where it came from.
+        if (cancel && drag && drag.id === id) drag.dx = 0;
+        onUp(handEvent(cancel ? 'pointercancel' : 'pointerup', x, y, id, ctx.canvas));
+      },
+    },
+    turnLeaves:(count) => (Math.abs(count) < 2 ? count !== 0 && launch(count > 0 ? 1 : -1) : takeBundle(count > 0 ? 1 : -1, Math.abs(count))),
     goTo: (page) => {
       if (!book) return;
       spread = clamp(Math.round(page / 2), 0, book.dims.leaves);
@@ -1380,7 +1439,18 @@ export function createReader(engine: Engine, opts: ReaderOptions = {}): Reader {
     }
     q.setFromEuler(e.set(-(t.pitch - pitch.v) * DEG, 0, 0));
     book.root.quaternion.copy(home.quaternion).slerp(q, blend);
-    book.root.scale.setScalar(lerp(home.scale, home.scale * t.scale * (opts.fit?.() ?? 1), blend));
+    const readScale = home.scale * t.scale * (opts.fit?.() ?? 1);
+    book.root.scale.setScalar(lerp(home.scale, readScale, blend));
+    readAt.pos.copy(goalPos);
+    readAt.scale = readScale;
+    readAt.pitch = (t.pitch - pitch.v) * DEG;
+    // Reading by touch: a zoom about the spine and a pan in window pixels, grown in with the opening.
+    const view = reader.view;
+    if (view.zoom !== 1 || view.x !== 0 || view.y !== 0) {
+      book.root.scale.multiplyScalar(1 + (view.zoom - 1) * blend);
+      book.root.position.x += view.x * worldPerPx * blend;
+      book.root.position.y -= view.y * worldPerPx * blend;
+    }
     // The lean toward the pointer that the book had on the shelf fades as the cover opens.
     book.tilt.quaternion.copy(tiltFrom).slerp(upright, blend);
   });
