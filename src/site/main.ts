@@ -16,6 +16,7 @@ import { createPageSound } from '../engine/sound/page-sound';
 import { createSurfaceEffects } from '../engine/effects/surface-effects';
 import { createReader, type Reader } from '../engine/reader/reader';
 import { createShelf } from '../engine/shelf/shelf';
+import { createZines, type Zines } from '../engine/zine/zine';
 import { themeForHour, type ThemeName } from '../engine/stage/presets';
 import { paintBackdrop } from './backdrop';
 import { loadLibrary } from './library';
@@ -232,16 +233,26 @@ async function boot(): Promise<void> {
   };
   /** Where the shelf would be scrolled to show a book: its slot, or the row. */
   const slotY = (slug: string): number => Math.max(0, library.featured.indexOf(slug) < 0 ? library.featured.length : library.featured.indexOf(slug)) * slotPx();
+  /** The zines. Made after the reader; the shelf asks it where a book stands while its zine is out. */
+  let zines: Zines | null = null;
   const shelf = createShelf(engine, { featured: library.featured, slotPx, scrollY: () => (detailPage ? detailY : scrollY), centreOffsetPx: shelfOffset, fit: () => 1 - 0.5 * lift, row: true, peek: () => detailOpen, layout: (book, pose) => {
     if (query.get('layout') === 'fan') fan(book, pose);
     // In the details only the book of the part on the stage stands in the window; the stack around it would ride
     // up and down with the page.
     if (detailPage && book.slug !== catalogue[stage]) pose.visible = false;
+    // Measured: a book goes out of the picture to the left while its zine has it.
+    if (zines && zines.slug === book.slug) {
+      const away = zines.away();
+      pose.position.x += away.x;
+      pose.position.y += away.y;
+    }
   } });
   /** Scales the open book down where the spread is wider than the room it has: beside the detail column, or on a narrow screen. */
   const fit = (): number => {
     const book = reader.book;
     if (!book) return 1;
+    // Measured: beside the details a zine is not fitted to the picture. It lies over the edge of it.
+    if (zines && zines.book === book && !ctx.compact) return 1;
     // A book opened from the row comes forward and grows, so it is measured where it will lie.
     const forward = Number(ctx.registry.getParam('reader', 'forward') ?? 0);
     const grown = Number(ctx.registry.getParam('reader', 'scale') ?? 1);
@@ -255,6 +266,9 @@ async function boot(): Promise<void> {
   const reader: Reader = createReader(engine, { centreOffsetPx: offset, fit });
   const magnifier: Magnifier = createMagnifier(engine, { centreOffsetPx: offset, onToggle: (on) => setLens(on) });
   const marker: Marker = createMarker(engine, reader, { onChange: () => syncPens() });
+  const zine: Zines = (zines = createZines(engine, reader, { centreOffsetPx: offset, onChange: () => sync() }));
+  /** A zine has the picture: on its way in, lying closed, or being read. */
+  const zineOut = (): boolean => zine.state === 'coming' || zine.state === 'lying' || zine.state === 'reading';
   const effects = createSurfaceEffects(engine);
 
   // Extensions: any file in `extensions/` with a default export. Listed in content/library.json or in `?ext=a,b`.
@@ -306,6 +320,7 @@ async function boot(): Promise<void> {
       d.classList.toggle('arriving', !ctx.still);
       setTimeout(() => d.classList.remove('arriving'), 1300);
     } else if (!on && was) {
+      if (zineOut()) zine.close();
       const back = (): void => {
         d.classList.remove('leaving');
         d.hidden = true;
@@ -377,6 +392,11 @@ async function boot(): Promise<void> {
   let copied = 0;
 
   function setReading(on: boolean, page?: number): void {
+    if (zineOut()) {
+      // A zine has the picture. Closing means the zine; opening the book puts the zine away first.
+      if (!on) return setZine(false);
+      zine.close();
+    }
     if (on) {
       // Measured: a book opened from the row comes forward and grows a little; a featured book stays where it is.
       const fromRow = shelf.row?.settled ?? false;
@@ -390,17 +410,53 @@ async function boot(): Promise<void> {
     sync();
   }
 
+  /** Takes the zine of the book the details stand at out, or puts it away. */
+  function setZine(on: boolean, number?: number): void {
+    if (on) {
+      if (reader.isOpen && !zineOut()) {
+        setLens(false);
+        marker.set(false);
+        reader.close();
+      }
+      if (!detailOpen) setDetail(true);
+      zine.open(current().slug, number);
+    } else {
+      marker.set(false);
+      setLens(false);
+      zine.close();
+    }
+    sync();
+  }
+  /** The two turns only a zine has: its cover open from where it lies, and shut again from its first spread. */
+  function zineTurn(dir: 1 | -1): boolean {
+    if (zine.state === 'lying' || zine.state === 'coming') {
+      if (dir > 0) zine.read();
+      return true;
+    }
+    if (zine.state === 'reading' && dir < 0 && reader.page === 0) {
+      marker.set(false);
+      zine.shut();
+      sync();
+      return true;
+    }
+    return false;
+  }
+
   /** Brings the page furniture in line with the engine state. */
   function sync(): void {
+    const out = zineOut();
     const reading = reader.isOpen;
-    // Measured: the reader's controls appear when the pages have parted, not at the click.
-    $('toolbar').hidden = !(reading && (reader.parted >= 0.985 || ctx.still));
+    // Measured: the reader's controls appear when the pages have parted, not at the click. Under a zine they are
+    // there from the moment it lies, with the number 1.
+    $('toolbar').hidden = out ? zine.state === 'coming' : !(reading && (reader.parted >= 0.985 || ctx.still));
+    $('toolbar').classList.toggle('one-number', out);
     $('open').textContent = reading ? 'Close book [-]' : 'Open book [+]';
     $('open').setAttribute('aria-label', reading ? 'Close book' : `Open book: ${current().title}`);
     $('details').setAttribute('aria-label', detailOpen ? 'Close details' : `View details: ${current().title}`);
     // Measured: an open book has the whole picture, even when it was opened from the details; the details wait
     // underneath and come back when it closes.
-    const aside = detailOpen && !reading;
+    // Measured: a zine is read in the details: the column stays.
+    const aside = detailOpen && (!reading || out);
     if (aside !== asideShown) {
       shiftFrom = shift;
       // Measured against the reference: the move is already one frame along on the first frame after the press.
@@ -408,22 +464,31 @@ async function boot(): Promise<void> {
       asideShown = aside;
     }
     html.toggleAttribute('data-aside', aside);
-    html.toggleAttribute('data-lock', reading);
-    html.toggleAttribute('data-reading', reading);
+    html.toggleAttribute('data-lock', reading && !out);
+    html.toggleAttribute('data-reading', reading && !out);
+    html.toggleAttribute('data-zine', out);
+    for (const b of document.querySelectorAll<HTMLButtonElement>('.row-zine')) {
+      const mine = out && b.closest<HTMLElement>('.dp-book')?.dataset.slug === zine.slug;
+      b.textContent = mine ? '- Close zine -' : '+ Open zine +';
+      b.setAttribute('aria-label', mine ? 'Close the zine' : 'Open the zine');
+    }
     // The stops for the keyboard belong to the shelf: behind an open book or the details they are out of reach.
     $('stops').inert = reading || detailOpen;
     $('bar-title').textContent = `[▸] ${current().title}`;
     refreshMenu();
-    if (reading && !copied) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
-    if (reading && reader.book) places.keep(reader.book.record.slug, reader.page);
+    // Measured: under a zine the bar shows one number, the sides turned so far.
+    if (out && !copied) $('folio').textContent = String(zine.number);
+    else if (reading && !copied) $('folio').textContent = `${Math.max(1, reader.page)} · ${Math.min(reader.pageCount, reader.page + 1)}`;
+    if (reading && !out && reader.book) places.keep(reader.book.record.slug, reader.page);
     const slug = current().slug;
-    const view = reading ? `/book/${slug}/page/${Math.max(1, reader.page)}` : detailOpen ? `/book/${slug}` : '/';
+    const view = out ? `/book/${slug}/zine${zine.state === 'reading' ? `/page/${zine.number}` : ''}` : reading ? `/book/${slug}/page/${Math.max(1, reader.page)}` : detailOpen ? `/book/${slug}` : '/';
     html.dataset.caseboundView = view;
     const hash = '#' + view;
     if (location.hash !== hash && !(view === '/' && location.hash === '')) history.replaceState(null, '', location.pathname + location.search + (view === '/' ? '' : hash));
   }
 
   function home(): void {
+    if (zineOut()) zine.close();
     if (reader.isOpen) reader.close();
     setLens(false);
     setDetail(false);
@@ -461,6 +526,7 @@ async function boot(): Promise<void> {
     const t = e.target as Element;
     const article = t.closest<HTMLElement>('.dp-book');
     if (t.closest('.row-read')) setReading(true);
+    else if (t.closest('.row-zine')) setZine(!zineOut());
     // Measured: each book's part ends with a way on to the next book and a way to the whole library.
     else if (t.closest('.dp-next') && article) toArticle(catalogue[catalogue.indexOf(article.dataset.slug!) + 1]!);
     else if (t.closest('.dp-all')) {
@@ -481,8 +547,8 @@ async function boot(): Promise<void> {
     if (!navigator.clipboard) return done('No clipboard');
     navigator.clipboard.writeText(location.href).then(() => done('Link copied'), () => done('Not copied'));
   });
-  $('prev').addEventListener('click', () => reader.previous());
-  $('next').addEventListener('click', () => reader.next());
+  $('prev').addEventListener('click', () => zineTurn(-1) || reader.previous());
+  $('next').addEventListener('click', () => zineTurn(1) || reader.next());
   // Many leaves as one block. The edge of a page stack does the same under the pointer, but nothing on the page
   // says so, and a finger has no pointer to rest there.
   $('back-many').addEventListener('click', () => reader.turnLeaves(-BLOCK));
@@ -616,17 +682,25 @@ async function boot(): Promise<void> {
     }
     if (e.key === ' ' && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof HTMLAnchorElement)) {
       e.preventDefault();
-      if (!e.repeat) setReading(!reader.isOpen);
+      // Under a zine that lies closed, Space turns its cover.
+      if (e.repeat) return;
+      if (zineOut()) zineTurn(1);
+      else setReading(!reader.isOpen);
     } else if (e.key === 'Escape') {
       // One step back at a time: out of the book first, then out of the details.
       // Measured: with a pen out, Escape puts it away and the book stays open.
       if (marker.on) marker.set(false);
+      else if (zineOut()) setZine(false);
       else if (reader.isOpen) {
         setLens(false);
         setReading(false);
       } else home();
     }
-    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !reader.isOpen && shelf.row?.settled) {
+    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === '>' || e.key === '<') && zineOut() && zine.state !== 'reading') {
+      // A zine that lies closed: the way on turns its cover.
+      e.preventDefault();
+      if (!e.repeat) zineTurn(e.key === 'ArrowRight' || e.key === '>' ? 1 : -1);
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !reader.isOpen && shelf.row?.settled) {
       // In the row the arrows choose the next book.
       e.preventDefault();
       shelf.row.step(e.key === 'ArrowRight' ? 1 : -1);
@@ -636,16 +710,16 @@ async function boot(): Promise<void> {
       if (!e.repeat) reader.turnLeaves(e.key === 'ArrowRight' || e.key === 'PageDown' ? BLOCK : -BLOCK);
     } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && reader.isOpen) {
       e.preventDefault();
-      if (!e.repeat) leaf(e.key === 'ArrowRight' ? 1 : -1, e.key);
-    } else if ((e.key === 'f' || e.key === 'a' || e.key === 'u') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !reader.isOpen) {
+      if (!e.repeat && !zineTurn(e.key === 'ArrowRight' ? 1 : -1)) leaf(e.key === 'ArrowRight' ? 1 : -1, e.key);
+    } else if ((e.key === 'f' || e.key === 'a' || e.key === 'u') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !reader.isOpen && !zineOut()) {
       // The keys of the page's sections, as the menu shows them.
       pageSections().find((s) => s.key === e.key)?.run();
     } else if (reader.isOpen && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'j' || e.key === 'k')) {
       // Measured: J and K jump forty leaves on and back, as one block.
       if (!e.repeat) reader.turnLeaves(e.key === 'j' ? 40 : -40);
     } else if (reader.isOpen && (e.key === '>' || e.key === '<')) {
-      if (!e.repeat) leaf(e.key === '>' ? 1 : -1, e.key);
-    } else if (reader.isOpen && e.key === 'x' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (!e.repeat && !zineTurn(e.key === '>' ? 1 : -1)) leaf(e.key === '>' ? 1 : -1, e.key);
+    } else if ((reader.isOpen || zineOut()) && e.key === 'x' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
       setLens(false);
       setReading(false);
     } else if (e.key === 'i' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -948,7 +1022,7 @@ async function boot(): Promise<void> {
 
   // ---------------------------------------------------------------- deep links
   function route(hash: string): void {
-    const m = /^#\/book\/([a-z0-9-]+)(?:\/page\/(\d+))?/.exec(hash);
+    const m = /^#\/book\/([a-z0-9-]+)(\/zine)?(?:\/page\/(\d+))?/.exec(hash);
     if (!m) return;
     const index = engine.books.findIndex((b) => b.record.slug === m[1]);
     if (index < 0) return;
@@ -962,7 +1036,9 @@ async function boot(): Promise<void> {
     engine.state.active = index;
     shelf.state.active = slot >= 0 ? slot : library.featured.length;
     setDetail(true);
-    if (m[2]) setReading(true, Number(m[2]));
+    // A zine by its address: it comes in closed, and opens at the number after it has lain a moment.
+    if (m[2]) setZine(true, m[3] ? Number(m[3]) : undefined);
+    else if (m[3]) setReading(true, Number(m[3]));
   }
 
   // Read the address before the first sync, which rewrites it.
@@ -978,7 +1054,7 @@ async function boot(): Promise<void> {
     setTimeout(() => pageSections().find((s) => named(s.word) === wanted.toLowerCase())?.run(), ctx.still ? 0 : 400);
   }
   const sound = createPageSound(engine);
-  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, marker, effects, library, sound } });
+  Object.assign(window, { casebound: { engine, shelf, reader, magnifier, marker, effects, library, sound, zine } });
   // Tell tools the page has settled: after the intro, or at once on a deep link.
   setTimeout(() => (html.dataset.caseboundReady = 'true'), entry.startsWith('#/book/') || ctx.still ? 300 : 2100);
 }

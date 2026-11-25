@@ -94,6 +94,13 @@ export function bookArticle(book: BookRecord, next: BookRecord | undefined): HTM
   audio.append('Audiobook ', el('span', undefined, 'LibriVox ↗'));
   rows.append(read, ebook, audio);
   about.append(rows);
+  if (book.zine) {
+    // Measured: a pill under the rows takes the zine out and puts it away again.
+    const zine = el('button', 'pill row-zine', '+ Open zine +');
+    zine.type = 'button';
+    zine.setAttribute('aria-label', 'Open the zine');
+    about.append(zine);
+  }
   col.append(head, about);
   // The opening of the text, in the column: the part of the page the book and its picture stand beside.
   const lines = excerpt(book.text);
